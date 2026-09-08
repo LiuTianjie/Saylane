@@ -24,3 +24,7 @@ The animation pauses offscreen or when the tab is hidden and respects reduced mo
 ## Language switching / English practice section
 
 The practice section mirrors `TranslationDirection.voiceModes` and `InputShortcutHandler`: when enabled in app settings, two short taps of the right Command key cycle A→A, A→B, B→A, B→B. The webpage uses an on-screen key (double-click), four direct mode buttons, and single Enter/Space activation for keyboard accessibility; it does not intercept the OS shortcut. Examples are preset. English dictation is described as a self-practice aid, not pronunciation assessment. The existing hero waveform and text flow remain unchanged.
+
+## Brand assets
+
+The header, footer and browser icons reuse the native app’s existing waveform artwork. `assets/brand-icon.png` is copied from `Sources/Resources/AppIcon.iconset/icon_128x128@2x.png` (256px); `favicon.png` and `favicon-64.png` use the existing native 32px and 64px exports. When refreshing the app identity, copy those exports together to keep website branding consistent. No separate logo redesign is introduced.
