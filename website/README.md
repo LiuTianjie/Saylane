@@ -1,26 +1,22 @@
 # Rtranslate product website
 
-Dependency-free static landing page. This is a curated example animation, not a browser translation service. It does not request microphone access or call a translation API.
+Static product demo deployed to GitHub Pages. No microphone access or live translation API: all sentences are curated examples.
 
-## Preview
+## Preview and validate
 
 ```sh
 python3 -m http.server 4173 --directory website
+node --check website/app.js
 ```
 
-Open http://localhost:4173. Syntax validation: `node --check website/app.js`.
+## Design
 
-## Deploy
+The title uses the product owner's supplied wording. The central voice capsule follows `Sources/Views/OverlayView.swift`: 234 × 40 capsule, 38 monochrome waveform bars, 2.6px width, 2.2px spacing, 4–20px native height range and edge attenuation. The website simulates audio levels, not actual microphone input.
 
-GitHub Pages is configured for Actions. Pushes to `main` affecting `website/` or `.github/workflows/pages.yml` automatically publish the `website` directory. Manual deployment is also available via the workflow's Run workflow button.
+Chinese sentences accelerate and stretch into the native voice capsule. English translations emerge on the right. Press and hold the capsule (pointer, touch, or focused Space/Enter) to intensify the flow and play another sample in the app input above it. Releasing restores normal speed. There are no language selectors or central logo cards.
 
-## Interaction
+The animation pauses offscreen or when the tab is hidden, supports a manual pause control, and respects reduced motion. Reduced-motion mode presents a static source/target pair.
 
-- Three example buttons and replay trigger progressive translated text.
-- Output can switch between English, Japanese and French (preset translations).
-- Canvas sentences accelerate into the center, shrink, then emerge translated.
-- Pointer proximity pulls sentences toward the translation core.
-- Pause control, reduced-motion preference, visibility changes and offscreen detection prevent unnecessary animation.
-- Reduced-motion mode displays a static language pair and immediate example text.
+## Publish
 
-Public installation links intentionally point to repository documentation; no release package is advertised because no GitHub release is currently published.
+`.github/workflows/pages.yml` publishes only `website/` on relevant pushes to `main`, or through manual workflow dispatch. Native app source and build output are not included. Installation links lead to repository instructions, not a nonexistent release package.
