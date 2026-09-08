@@ -13,9 +13,9 @@ node --check website/app.js
 
 The title uses the product owner's supplied wording. The central voice capsule follows `Sources/Views/OverlayView.swift`: 234 × 40 capsule, 38 monochrome waveform bars, 2.6px width, 2.2px spacing, 4–20px native height range and edge attenuation. The website simulates audio levels, not actual microphone input.
 
-Chinese sentences accelerate and stretch into the native voice capsule. English translations emerge on the right. Press and hold the capsule (pointer, touch, or focused Space/Enter) to intensify the flow and play another sample in the app input above it. Releasing restores normal speed. There are no language selectors or central logo cards.
+Chinese sentences move continuously, accelerate and uniformly shrink into the native voice capsule. English translations emerge on the right and uniformly grow. Text is never stretched, skewed, rotated, or duplicated into horizontal ghost trails. The scene deliberately has no guide lines, particle streaks or vertical connector. Press and hold the capsule (pointer, touch, or focused Space/Enter) to intensify the flow and play another sample in the app input above it. Releasing restores normal speed. There are no language selectors or central logo cards.
 
-The animation pauses offscreen or when the tab is hidden, supports a manual pause control, and respects reduced motion. Reduced-motion mode presents a static source/target pair.
+The animation pauses offscreen or when the tab is hidden and respects reduced motion. Reduced-motion mode presents a static source/target pair.
 
 ## Publish
 
