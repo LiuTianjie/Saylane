@@ -18,6 +18,7 @@ const canvas = document.querySelector('#flow'), ctx = canvas.getContext('2d');
 const scene = document.querySelector('.translation-scene');
 const voice = document.querySelector('#voice-control');
 const output = document.querySelector('#translated');
+const sendButton = document.querySelector('#chat-send');
 const bars = Array.from({length:38},(_,i)=>{const bar=document.createElement('i');bar.style.opacity=Math.min(1,(Math.min(i,37-i)+1)/4)*.88;document.querySelector('#waveform').append(bar);return bar;});
 let width=1200,height=310,time=0,waveTime=0,last=0,frame,visible=true,paused=reduced.matches,holding=false,boost=0,example=0,typing,auto=0;
 let pointer={x:-1000,y:-1000};
@@ -28,13 +29,22 @@ const demoSentences = [
  ['保持好奇，继续探索。', 'Stay curious. Keep exploring.']
 ];
 function renderExample(){
- clearTimeout(typing);const text=demoSentences[example][1];
+ clearTimeout(typing);sendButton.disabled=false;const text=demoSentences[example][1];
  document.querySelector('#editor-status').textContent='你说：'+demoSentences[example][0];
  if(reduced.matches||paused){output.textContent=text;return;}
  output.textContent='';let n=0;
  function type(){output.textContent=text.slice(0,++n);if(n<text.length)typing=setTimeout(type,32);}
  typing=setTimeout(type,160);
 }
+// Sending is a local demo only: no account, network request, or external recipient.
+sendButton.addEventListener('click',()=>{
+ clearTimeout(typing);
+ const sent=document.querySelector('#sent-message');
+ sent.textContent=demoSentences[example][1];sent.hidden=false;
+ output.textContent='';sendButton.disabled=true;auto=0;
+ document.querySelector('#editor-status').textContent='已发送示例 · 按住下方控件继续体验';
+ const history=document.querySelector('#chat-history');history.scrollTop=history.scrollHeight;
+});
 function hold(){if(holding)return;holding=true;document.body.classList.add('holding');document.querySelector('#hold-status').textContent='正在聆听 · 松开留下英文';example=(example+1)%demoSentences.length;renderExample();}
 function release(){holding=false;document.body.classList.remove('holding');document.querySelector('#hold-status').textContent='按住这里，看中文变成英文';}
 voice.addEventListener('pointerdown',e=>{if(e.button!==0)return;voice.setPointerCapture(e.pointerId);hold();});

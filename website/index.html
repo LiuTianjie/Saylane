@@ -1,7 +1,27 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090b0c"><meta name="description" content="Rtranslate：按住说中文，英文直接出现在当前输入框。为 macOS 而生的语音翻译输入法。"><title>Rtranslate — speak like native speaker in native way</title><link rel="icon" href="./favicon.svg"><link rel="stylesheet" href="./style.css"></head>
 <body><header><a class="brand" href="#">Rtranslate<span>输入，自由一点。</span></a><nav><span class="mac-label">为 macOS 而生</span><a href="https://github.com/LiuTianjie/rtranslate">GitHub ↗</a><a class="get-app" href="https://github.com/LiuTianjie/rtranslate/blob/main/docs/安装说明.md">开始使用 ↗</a></nav></header>
 <main><section class="experience" aria-label="Rtranslate 语音翻译输入演示"><div class="headline"><h1>Rtranslate<span class="title-colon">：</span></h1><p class="tagline">speak like native speaker in native way</p></div>
-<div class="app-window"><div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><span>一封邮件，一个想法，或者下一次对话。</span><span class="sample-tag">演示</span></div><div class="letter"><div class="recipient"><span class="avatar">J</span><span>To Jamie <small>NEW MESSAGE</small></span><span class="mail-icon">↗</span></div><div class="mail-body">Hey Jamie,</div><div class="output" id="translated" aria-live="polite">I have an idea. Let's make it happen.</div><div class="editor-footer"><span><span class="live-dot"></span><span id="editor-status">译文直接出现在你的输入框</span></span><span>无需复制 · 无需切换</span></div></div></div>
+<div class="app-window chat-window" aria-label="macOS 风格聊天演示">
+  <aside class="chat-sidebar" aria-label="示例会话列表">
+    <div class="sidebar-toolbar"><div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div><span class="compose-icon" aria-hidden="true">↗</span></div>
+    <div class="chat-search" aria-hidden="true"><svg viewBox="0 0 20 20"><circle cx="8" cy="8" r="5.5"/><path d="m12 12 5 5"/></svg>Search</div>
+    <div class="conversation-item selected"><span class="chat-avatar jamie">JL</span><div><strong>Jamie Lee</strong><time>now</time><p>What have you been working on?</p></div></div>
+    <div class="conversation-item"><span class="chat-avatar sophie">SC</span><div><strong>Sophie Chen</strong><time>9:27</time><p>That sounds like a plan!</p></div></div>
+    <div class="conversation-item"><span class="chat-avatar design">D</span><div><strong>Design club</strong><time>Yesterday</time><p>Alex: See you tomorrow 👋</p></div></div>
+    <div class="sidebar-bottom">Messages <span>交互演示</span></div>
+  </aside>
+  <div class="chat-main">
+    <div class="chat-toolbar"><span class="chat-avatar jamie">JL</span><div><strong>Jamie Lee</strong><span>iMessage</span></div><div class="chat-toolbar-icons" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="12" height="12" rx="3"/><path d="m15 10 6-4v12l-6-4"/></svg><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10v7m0-11v1"/></svg></div></div>
+    <div class="chat-history" id="chat-history" role="log" aria-label="示例聊天记录">
+      <div class="chat-timestamp">Today <span>9:41 AM</span></div>
+      <div class="chat-message incoming">Hey! It's been a while. How's everything?</div>
+      <div class="chat-message outgoing">Really good! Been exploring something new.</div>
+      <div class="chat-message incoming">Oh nice! What have you been working on?</div>
+      <div class="chat-message outgoing" id="sent-message" hidden></div>
+    </div>
+    <div class="chat-composer-area"><div class="chat-composer-row"><span class="chat-plus" aria-hidden="true">＋</span><div class="chat-input"><div class="output" id="translated" aria-live="polite">I have an idea. Let's make it happen.</div><button class="chat-send" id="chat-send" aria-label="发送示例消息（仅本页演示）"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 15V5M5 10l5-5 5 5"/></svg></button></div></div><div class="chat-input-status"><span class="live-dot"></span><span id="editor-status">译文直接出现在输入框</span><span class="local-only">仅本页演示</span></div></div>
+  </div>
+</div>
 <div class="translation-scene"><canvas id="flow" aria-hidden="true"></canvas><div class="voice-center"><button id="voice-control" class="voice-capsule" aria-label="按住体验语音翻译动画" aria-describedby="hold-hint"><span id="waveform" class="waveform" aria-hidden="true"></span></button><div class="hold-hint" id="hold-hint"><kbd>⌥</kbd><span id="hold-status">按住这里，看中文变成英文</span></div><span class="native-label">RTRANSLATE · 原生语音控件</span></div><div class="static-pair"><span>我有一个想法</span><span>I have an idea</span></div></div>
 <div class="experience-footer"><span class="flow-manifesto">中文进来。<span>英文出去。</span></span><span class="demo-disclaimer">预设例句演示，不采集麦克风</span></div></section>
 <section class="underneath"><div><span class="section-kicker">NOT ANOTHER TRANSLATION WINDOW.</span><h2>不是翻译窗口。<br>是你的输入法。</h2></div><div class="steps"><article><span>01</span><h3>按住，说中文。</h3><p>默认按住右 Option，在熟悉的输入框里自然开口。</p></article><article><span>02</span><h3>松开，留下英文。</h3><p>短语级译文直接更新，松开提交最终文字。Esc 随时取消。</p></article><article><span>03</span><h3>继续你的思路。</h3><p>不用复制粘贴，不用打开另一个窗口。打字时，仍然是拼音输入法。</p></article></div></section></main><footer><a class="brand" href="#">Rtranslate</a><span>macOS 26+ · Apple Silicon · 默认 Apple 端侧识别与翻译</span><a href="https://github.com/LiuTianjie/rtranslate">在 GitHub 上探索 ↗</a></footer><script src="./app.js"></script></body></html>
