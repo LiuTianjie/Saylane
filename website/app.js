@@ -59,20 +59,25 @@ function draw(){
  // The intake is cold silver; the translated outflow is luminous green-white.
  const light=ctx.createRadialGradient(width/2,cy,5,width/2,cy,width*.4);
  light.addColorStop(0,`rgba(163,239,199,${.12+boost*.08})`);light.addColorStop(.3,'rgba(143,210,175,.035)');light.addColorStop(1,'rgba(143,210,175,0)');ctx.fillStyle=light;ctx.fillRect(0,0,width,height);
- const count=small?14:28;
+ const outerCount=small?14:28, innerCount=small?20:52;
+ const count=outerCount+innerCount;
  for(let i=0;i<count;i++){
-  const phase=(time*.09+i/count)%1,side=phase<.5?-1:1;
+  // A second, smaller-word stream keeps the intake/outlet populated as words accelerate.
+  const inner=i>=outerCount, localIndex=inner?i-outerCount:i, localCount=inner?innerCount:outerCount;
+  const phase=(time*(inner?.13:.09)+localIndex/localCount)%1,side=phase<.5?-1:1;
   const p=side<0?phase*2:(phase-.5)*2;
   // Continuous travel, accelerating into the capsule without distorting glyphs.
-  const d=side<0?1-(.35*p+.65*Math.pow(p,2.4)):(.35*p+.65*Math.pow(p,.6));
-  const lane=(((i*11)%count)/(count-1)*2-1);
+  const travel=side<0?1-(.35*p+.65*Math.pow(p,2.4)):(.35*p+.65*Math.pow(p,.6));
+  const band=small?.48:.34;
+  const d=travel*(inner?band:1);
+  const lane=(((localIndex*(inner?17:11))%localCount)/(localCount-1)*2-1)*(inner?1.9:1);
   const pos=point(d,lane,side,i);
   const depth=.75+(i%4)*.08;
-  const alpha=Math.min(1,d*9)*Math.min(1,(1-d)*8)*depth;
+  const alpha=Math.min(1,d*(inner?28:9))*Math.min(1,(1-travel)*(inner?7:8))*depth;
   const text=sentences[i%sentences.length][side<0?0:1];
   const pull=Math.max(0,1-Math.hypot(pointer.x-pos.x,pointer.y-pos.y)/160);
   ctx.save();ctx.translate(pos.x+(width/2-pos.x)*pull*.05,pos.y);
-  const scale=(.12+.88*Math.pow(d,.65))*(.9+depth*.15);
+  const scale=((inner?.2:.12)+(inner?.7:.88)*Math.pow(d,.65))*(.9+depth*.15);
   ctx.scale(scale,scale);
   ctx.font=`${i%4===0?500:400} ${small?12:15+(i%3)*2}px "DM Sans", "PingFang SC", sans-serif`;
   ctx.textAlign='center';ctx.textBaseline='middle';
