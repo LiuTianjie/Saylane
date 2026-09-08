@@ -19,7 +19,7 @@ const scene = document.querySelector('.translation-scene');
 const voice = document.querySelector('#voice-control');
 const output = document.querySelector('#translated');
 const bars = Array.from({length:38},(_,i)=>{const bar=document.createElement('i');bar.style.opacity=Math.min(1,(Math.min(i,37-i)+1)/4)*.88;document.querySelector('#waveform').append(bar);return bar;});
-let width=1200,height=310,time=0,last=0,frame,visible=true,paused=reduced.matches,holding=false,boost=0,example=0,typing,auto=0;
+let width=1200,height=310,time=0,waveTime=0,last=0,frame,visible=true,paused=reduced.matches,holding=false,boost=0,example=0,typing,auto=0;
 let pointer={x:-1000,y:-1000};
 const demoSentences = [
  ['我有一个想法，我们一起实现它吧。', "I have an idea. Let's make it happen."],
@@ -59,7 +59,7 @@ function draw(){
  // The intake is cold silver; the translated outflow is luminous green-white.
  const light=ctx.createRadialGradient(width/2,cy,5,width/2,cy,width*.4);
  light.addColorStop(0,`rgba(163,239,199,${.12+boost*.08})`);light.addColorStop(.3,'rgba(143,210,175,.035)');light.addColorStop(1,'rgba(143,210,175,0)');ctx.fillStyle=light;ctx.fillRect(0,0,width,height);
- const outerCount=small?14:28, innerCount=small?20:52;
+ const outerCount=small?14:28, innerCount=small?12:28;
  const count=outerCount+innerCount;
  for(let i=0;i<count;i++){
   // A second, smaller-word stream keeps the intake/outlet populated as words accelerate.
@@ -77,13 +77,17 @@ function draw(){
   const text=sentences[i%sentences.length][side<0?0:1];
   const pull=Math.max(0,1-Math.hypot(pointer.x-pos.x,pointer.y-pos.y)/160);
   ctx.save();ctx.translate(pos.x+(width/2-pos.x)*pull*.05,pos.y);
+  // Orient each intact sentence along its path, capped at 18 degrees for readability.
+  const ahead=point(Math.min(1,d+.015),lane,side,i);
+  const angle=Math.atan2(ahead.y-pos.y,Math.abs(ahead.x-pos.x))*side;
+  ctx.rotate(Math.max(-Math.PI/10,Math.min(Math.PI/10,angle)));
   const scale=((inner?.2:.12)+(inner?.7:.88)*Math.pow(d,.65))*(.9+depth*.15);
   ctx.scale(scale,scale);
   ctx.font=`${i%4===0?500:400} ${small?12:15+(i%3)*2}px "DM Sans", "PingFang SC", sans-serif`;
   ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.globalAlpha=alpha;ctx.fillStyle=side<0?'#cbd3d0':'#c2f9d8';ctx.shadowBlur=side>0?8:0;ctx.shadowColor='#8ff2b855';ctx.fillText(text,0,0);ctx.restore();
  }
- bars.forEach((bar,i)=>{const edge=Math.min(i,37-i);const wave=.16+.65*Math.abs(Math.sin(i*.53-time*7)*Math.cos(i*.17+time*3));bar.style.transform=`scaleY(${Math.min(1,wave*(holding?1.4:1))*(edge===0?.6:edge===1?.85:1)})`;});
+ bars.forEach((bar,i)=>{const edge=Math.min(i,37-i);const wave=.16+.65*Math.abs(Math.sin(i*.53-waveTime*2.3)*Math.cos(i*.17+waveTime));bar.style.transform=`scaleY(${Math.min(1,wave*(holding?1.4:1))*(edge===0?.6:edge===1?.85:1)})`;});
 }
-function tick(now){const dt=last?Math.min((now-last)/1000,.05):0;last=now;boost+=(Number(holding)-boost)*.08;time+=dt*(1+boost*2.8);auto+=dt;if(auto>6&&!holding){auto=0;example=(example+1)%demoSentences.length;renderExample();}draw();frame=requestAnimationFrame(tick);}
+function tick(now){const dt=last?Math.min((now-last)/1000,.05):0;last=now;boost+=(Number(holding)-boost)*.08;time+=dt*(1+boost*2.8);waveTime+=dt;auto+=dt;if(auto>6&&!holding){auto=0;example=(example+1)%demoSentences.length;renderExample();}draw();frame=requestAnimationFrame(tick);}
 syncMotion();draw();
