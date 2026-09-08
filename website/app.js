@@ -30,7 +30,6 @@ const demoSentences = [
 ];
 function renderExample(){
  clearTimeout(typing);sendButton.disabled=false;const text=demoSentences[example][1];
- document.querySelector('#editor-status').textContent='你说：'+demoSentences[example][0];
  if(reduced.matches||paused){output.textContent=text;return;}
  output.textContent='';let n=0;
  function type(){output.textContent=text.slice(0,++n);if(n<text.length)typing=setTimeout(type,32);}
@@ -42,7 +41,6 @@ sendButton.addEventListener('click',()=>{
  const sent=document.querySelector('#sent-message');
  sent.textContent=demoSentences[example][1];sent.hidden=false;
  output.textContent='';sendButton.disabled=true;auto=0;
- document.querySelector('#editor-status').textContent='已发送示例 · 按住下方控件继续体验';
  const history=document.querySelector('#chat-history');history.scrollTop=history.scrollHeight;
 });
 function hold(){if(holding)return;holding=true;document.body.classList.add('holding');document.querySelector('#hold-status').textContent='正在聆听 · 松开留下英文';example=(example+1)%demoSentences.length;renderExample();}
