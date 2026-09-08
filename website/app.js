@@ -93,9 +93,18 @@ function draw(){
   ctx.rotate(Math.max(-Math.PI/10,Math.min(Math.PI/10,angle)));
   const scale=((inner?.2:.12)+(inner?.7:.88)*Math.pow(d,.65))*(.9+depth*.15);
   ctx.scale(scale,scale);
-  ctx.font=`${i%4===0?500:400} ${small?12:15+(i%3)*2}px "DM Sans", "PingFang SC", sans-serif`;
+  const fontSize=small?12:15+(i%3)*2;
+  ctx.font=`${i%4===0?500:400} ${fontSize}px "DM Sans", "PingFang SC", sans-serif`;
   ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.globalAlpha=alpha;ctx.fillStyle=side<0?'#cbd3d0':'#c2f9d8';ctx.shadowBlur=side>0?8:0;ctx.shadowColor='#8ff2b855';ctx.fillText(text,0,0);ctx.restore();
+  // Draw the message container inside the same transform as its text.
+  const bubbleWidth=ctx.measureText(text).width+22, bubbleHeight=fontSize+17;
+  const left=-bubbleWidth/2, top=-bubbleHeight/2;
+  const radii=side<0?[11,11,11,3]:[11,11,3,11];
+  ctx.globalAlpha=alpha;ctx.beginPath();
+  ctx.roundRect(left,top,bubbleWidth,bubbleHeight,radii);
+  ctx.fillStyle=side<0?'#242a2ae0':'#172f25db';ctx.fill();
+  ctx.strokeStyle=side<0?'#78868270':'#8acfaa78';ctx.lineWidth=1;ctx.stroke();
+  ctx.fillStyle=side<0?'#cbd3d0':'#c2f9d8';ctx.fillText(text,0,0);ctx.restore();
  }
  bars.forEach((bar,i)=>{const edge=Math.min(i,37-i);const wave=.16+.65*Math.abs(Math.sin(i*.53-waveTime*2.3)*Math.cos(i*.17+waveTime));bar.style.transform=`scaleY(${Math.min(1,wave*(holding?1.4:1))*(edge===0?.6:edge===1?.85:1)})`;});
 }

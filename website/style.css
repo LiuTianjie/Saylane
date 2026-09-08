@@ -19,3 +19,5 @@
 .chat-history{scrollbar-color:#55575b transparent}.incoming{background:#363739;color:#ededf0}.outgoing{background:#1479ef;color:#fff}
 .chat-composer-area{background:#1c1d1f}.chat-plus{color:#a3a5aa}.chat-input{background:#252628;border-color:#505156;box-shadow:0 0 0 2px #438fff05}.chat-window .output{color:#eeeeef}.chat-window .output:after{background:#459bff}.chat-window .output:empty:before{color:#85888e}
 .chat-input-status{color:#969d98}.local-only{color:#737b76}
+
+.static-pair>span{padding:7px 10px;border:1px solid #78868270;border-radius:11px 11px 11px 3px;background:#242a2ae0}.static-pair>span:last-child{border-color:#8acfaa78;border-radius:11px 11px 3px 11px;background:#172f25db}
