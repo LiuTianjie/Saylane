@@ -31,6 +31,10 @@ make pkg            # Release + pkg
 
 ## 安装
 
+从 [GitHub Release 下载 v0.2.45 安装包](https://github.com/LiuTianjie/rtranslate/releases/tag/v0.2.45)，或访问 [产品网页](https://liutianjie.github.io/rtranslate/)。Release 同时提供 SHA-256 校验文件。
+
+注意：包内应用已签名，当前 PKG 安装器未签名、未完成 Apple 公证。
+
 见 [docs/安装说明.md](docs/安装说明.md)。构建产物在 `dist/`，不进仓库。
 
 ## 仓库结构
