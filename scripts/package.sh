@@ -17,6 +17,7 @@ if [[ -z "$IDENTITY" ]]; then
   IDENTITY="$IDENTITIES"
 fi
 STAGED_APP="$ROOT/Library/Input Methods/RTranslate.app"
+scripts/assert-no-model-weights.sh "$STAGED_APP"
 /usr/bin/codesign --force --options runtime --timestamp --sign "$IDENTITY" \
   --entitlements Sources/RTranslate.entitlements "$STAGED_APP"
 /usr/bin/codesign --verify --strict --verbose=2 "$STAGED_APP"

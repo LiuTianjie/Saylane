@@ -60,6 +60,8 @@ final class AppModel {
     }
     var lastError: String?
     var translationConfiguration: TranslationSession.Configuration?
+    private(set) var speechModel = SpeechModel(rawValue: UserDefaults.standard.string(forKey: "speechModel") ?? "") ?? .apple
+    let asrModels = ASRModelStore()
     var speechModelReady = false
     var translationModelReady = false
     var speechModelDetail = "正在检查…"
@@ -70,7 +72,9 @@ final class AppModel {
     var inputSourceEnabled = false
     var inputSourceSelected = false
     var completedSessions = 0
-    var isChecking = false
+    private var checkingSettings = false
+    private var speechStatusChecks = 0
+    var isChecking: Bool { checkingSettings || speechStatusChecks > 0 }
     var testText = ""
     let permissions = PermissionService()
     let translationEngine = TranslationEngine()
@@ -81,7 +85,7 @@ final class AppModel {
         SetupReadiness(microphoneGranted: permissions.allCriticalGranted,
             microphoneNeverRequested: permissions.microphone == .notDetermined,
             inputMethodEnabled: inputSourceEnabled, inputMethodSelected: inputSourceSelected,
-            checkingModels: isChecking || isPreparingModels,
+            checkingModels: isChecking || isPreparingModels || asrModels.isDownloading,
             speechReady: speechModelReady, translationReady: translationModelReady,
             globalInvokeAvailable: globalHotkey.isListeningToEvents)
     }
@@ -533,7 +537,7 @@ final class AppModel {
             return try await FinalPolishService.polish(configuration: config, apiKey: key,
                 original: original, draft: draft, sourceLanguage: sourceCode, targetLanguage: targetCode)
         } : nil
-        coordinator.start(locale: sourceLanguage.speechLocale, speech: SpeechEngine(), capture: AudioCaptureService(),
+        coordinator.start(locale: sourceLanguage.speechLocale, speech: makeSpeechEngine(), capture: AudioCaptureService(),
                           target: target, passthrough: sourceLanguage == targetLanguage, polish: polish) { [translationEngine] text in
             try await translationEngine.translate(text)
         }
@@ -597,29 +601,103 @@ final class AppModel {
         speechModelReady = false; translationModelReady = false
         translationConfiguration = nil
         translationEngine.reset()
-        isChecking = true
+        checkingSettings = true
         modelTask = Task { [weak self] in
             guard let self else { return }
-            defer { if revision == self.settingsRevision { self.isChecking = false } }
+            defer { if revision == self.settingsRevision { self.checkingSettings = false } }
+            if self.speechModel == .apple { await QwenRuntime.shared.unload() }
+            guard revision == self.settingsRevision, !Task.isCancelled else { return }
             do {
                 if self.sourceLanguage == self.targetLanguage { self.translationEngine.enablePassthrough() }
                 else { try await self.translationEngine.prepareInstalled(source: self.sourceLanguage.translationLanguage, target: self.targetLanguage.translationLanguage) }
                 guard revision == self.settingsRevision, !Task.isCancelled else { return }
-                await self.refreshModelStatus()
             } catch {
                 if revision == self.settingsRevision, !Task.isCancelled { self.report(error.localizedDescription) }
             }
+            guard revision == self.settingsRevision, !Task.isCancelled else { return }
+            await self.refreshModelStatus()
         }
     }
 
+    private func makeSpeechEngine() -> any SpeechRecognizing {
+        speechModel == .apple ? SpeechEngine() : QwenSpeechEngine(variant: speechModel)
+    }
+
+    func selectSpeechModel(_ selected: SpeechModel) {
+        guard !isListening, !isChecking, !isPreparingModels, !asrModels.isDownloading,
+              selected == .apple || asrModels.installed.contains(selected) else { return }
+        speechModel = selected
+        UserDefaults.standard.set(selected.rawValue, forKey: "speechModel")
+        lastError = nil
+        settingsChanged()
+    }
+
+    func downloadSpeechModel(_ selected: SpeechModel) async {
+        guard !isListening, !isChecking, !isPreparingModels, !asrModels.isDownloading else { return }
+        lastError = nil
+        isPreparingModels = true
+        defer { isPreparingModels = false }
+        do {
+            try await asrModels.download(selected)
+            if speechModel == selected {
+                await QwenRuntime.shared.unload()
+                await refreshModelStatus()
+            }
+        } catch is CancellationError {
+            // Explicit cancellation is not an application failure.
+        } catch let error as URLError where error.code == .cancelled {
+        } catch { report(error.localizedDescription) }
+    }
+
+    func removeSpeechModel(_ selected: SpeechModel) async {
+        guard !isListening, !isChecking, !isPreparingModels, !asrModels.isDownloading else { return }
+        if speechModel == selected {
+            speechModel = .apple
+            UserDefaults.standard.set(speechModel.rawValue, forKey: "speechModel")
+            // Freeze all model actions while releasing the loaded weights.
+            isPreparingModels = true
+            await QwenRuntime.shared.unload()
+            isPreparingModels = false
+        }
+        do { try asrModels.remove(selected) } catch { report(error.localizedDescription) }
+        settingsChanged()
+    }
+
     func refreshModelStatus() async {
+        speechStatusChecks += 1
+        defer { speechStatusChecks -= 1 }
         let revision = settingsRevision
         let source = sourceLanguage
-        let installed = await SpeechEngine.isInstalled(for: source.speechLocale)
+        let selected = speechModel
+        asrModels.refresh()
+        if selected == .apple {
+            await QwenRuntime.shared.unload()
+            let installed = await SpeechEngine.isInstalled(for: source.speechLocale)
+            guard revision == settingsRevision, !Task.isCancelled else { return }
+            speechModelReady = installed
+            speechModelDetail = !SpeechTranscriber.isAvailable ? "当前设备不支持 Apple 语音模型" : installed
+                ? "\(source.displayName) 语音模型已安装" : "请下载 \(source.displayName) 的语音模型"
+        } else {
+            speechModelReady = false
+            if asrModels.installed.contains(selected) {
+                speechModelDetail = "正在校验并加载 \(selected.title)…"
+                do {
+                    _ = try QwenLanguage.name(for: source.speechLocale)
+                    try await QwenRuntime.shared.prepare(selected)
+                    guard revision == settingsRevision, !Task.isCancelled else { return }
+                    speechModelReady = true
+                    speechModelDetail = "\(selected.title) 已就绪 · 松开后出字"
+                } catch {
+                    guard revision == settingsRevision, !Task.isCancelled else { return }
+                    speechModelDetail = "模型未就绪，请重试或重新下载修复"
+                    report(error.localizedDescription)
+                }
+            } else {
+                await QwenRuntime.shared.unload()
+                speechModelDetail = "请下载 \(selected.title)"
+            }
+        }
         guard revision == settingsRevision, !Task.isCancelled else { return }
-        speechModelReady = installed
-        speechModelDetail = !SpeechTranscriber.isAvailable ? "当前设备不支持 Apple 语音模型" : installed
-            ? "\(source.displayName) 语音模型已安装" : "请下载 \(source.displayName) 的语音模型"
         translationModelReady = sourceLanguage == targetLanguage || translationEngine.isReady
         translationModelDetail = sourceLanguage == targetLanguage ? "同语言听写，不调用翻译" : translationModelReady
             ? "翻译模型已就绪" : "翻译模型未准备好，请点击下载"
@@ -627,13 +705,17 @@ final class AppModel {
     }
 
     func downloadModels() async {
-        guard !isPreparingModels, !isListening, !isChecking else { return }
+        guard !isPreparingModels, !isListening, !isChecking, !asrModels.isDownloading else { return }
         isPreparingModels = true
         defer { isPreparingModels = false }
         lastError = nil
         do {
-            guard let locale = await SpeechEngine.resolvedLocale(for: sourceLanguage.speechLocale) else { throw SpeechEngineError.unsupportedLocale }
-            try await SpeechEngine.prepareModel(for: locale)
+            if speechModel == .apple {
+                guard let locale = await SpeechEngine.resolvedLocale(for: sourceLanguage.speechLocale) else { throw SpeechEngineError.unsupportedLocale }
+                try await SpeechEngine.prepareModel(for: locale)
+            } else if !asrModels.installed.contains(speechModel) {
+                try await asrModels.download(speechModel)
+            }
             if sourceLanguage != targetLanguage && !translationEngine.isReady {
                 // Attached to the visible Settings view so Apple's download approval is visible.
                 translationConfiguration = TranslationSession.Configuration(source: sourceLanguage.translationLanguage, target: targetLanguage.translationLanguage)

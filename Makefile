@@ -4,7 +4,7 @@ DERIVED=build
 .PHONY: generate build release pkg open-pkg test clean
 
 generate:
-	xcodegen generate
+	scripts/generate-project.sh
 
 build: generate
 	xcodebuild -project RTranslate.xcodeproj -scheme RTranslate -configuration Debug -destination 'platform=macOS' -derivedDataPath $(DERIVED) build

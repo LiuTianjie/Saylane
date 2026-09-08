@@ -4,6 +4,7 @@ import Translation
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @FocusState private var testFocused: Bool
+    @State private var deletingSpeechModel: SpeechModel?
 
     var body: some View {
         @Bindable var model = model
@@ -36,6 +37,20 @@ struct SettingsView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .translationTask(model.translationConfiguration) { session in
             await model.handleTranslationSession(session)
+        }
+        .alert("删除已下载的语音模型？", isPresented: Binding(
+            get: { deletingSpeechModel != nil },
+            set: { if !$0 { deletingSpeechModel = nil } }
+        )) {
+            Button("取消", role: .cancel) { deletingSpeechModel = nil }
+            Button("删除", role: .destructive) {
+                if let selected = deletingSpeechModel {
+                    Task { await model.removeSpeechModel(selected) }
+                }
+                deletingSpeechModel = nil
+            }
+        } message: {
+            Text("只删除此版本的本地模型文件。若正在使用它，将切回 Apple；以后可以重新下载。")
         }
         .task {
             await model.refreshModelStatus()
@@ -448,6 +463,15 @@ struct SettingsView: View {
                 modelTile(title: "语音", ready: model.speechModelReady, detail: model.speechModelDetail)
                 modelTile(title: "翻译", ready: model.translationModelReady, detail: model.translationModelDetail)
             }
+            VStack(alignment: .leading, spacing: 12) {
+                Text("语音识别模型").font(.system(size: 16, weight: .semibold))
+                ForEach(SpeechModel.allCases) { speechModel in
+                    speechModelRow(speechModel)
+                }
+            }
+            Text("千问权重不随安装包提供，仅点击下载后保存到本机。两个版本可分别下载和删除，仅加载当前使用的版本。首版为最终稿识别，每次最多 30 秒；翻译与可选 AI 润色保持不变。")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
             Button {
                 Task { await model.downloadModels() }
             } label: {
@@ -459,11 +483,56 @@ struct SettingsView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(model.isPreparingModels || model.isChecking || model.isListening)
-            Text("下载由系统管理。需要确认时会出现系统提示。")
+            .disabled(model.isPreparingModels || model.isChecking || model.isListening || model.asrModels.isDownloading)
+            Text("Apple 语音和翻译资产由系统管理。千问采用 mlx-community 转换的 Apache-2.0 权重，下载源为 Hugging Face。")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private func speechModelRow(_ selected: SpeechModel) -> some View {
+        let active = model.speechModel == selected
+        let installed = model.asrModels.installed.contains(selected)
+        let downloading = model.asrModels.downloading == selected
+        let busy = model.isListening || model.isChecking || model.isPreparingModels || model.asrModels.isDownloading
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: active ? "checkmark.circle.fill" : "waveform")
+                    .foregroundStyle(active ? Theme.accent : .secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(selected.title).font(.system(size: 14, weight: .semibold))
+                    Text(selected.detail).font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                if downloading {
+                    Button("取消") { model.asrModels.cancelDownload() }
+                } else if selected == .apple || installed {
+                    if active && model.speechModelReady {
+                        Text("使用中").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.accent)
+                    } else {
+                        Button(active ? "重试加载" : "使用") { model.selectSpeechModel(selected) }.disabled(busy)
+                    }
+                    if installed {
+                        Menu {
+                            Button("重新下载修复") { Task { await model.downloadSpeechModel(selected) } }
+                            Button("删除模型…", role: .destructive) { deletingSpeechModel = selected }
+                        } label: { Image(systemName: "ellipsis") }
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+                        .disabled(busy)
+                    }
+                } else {
+                    Button("下载") { Task { await model.downloadSpeechModel(selected) } }.disabled(busy)
+                }
+            }
+            if downloading {
+                ProgressView(value: model.asrModels.progress)
+                Text(model.asrModels.activity).font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(active ? Theme.accent.opacity(0.5) : Color.secondary.opacity(0.15)))
     }
 
     // MARK: - Helper UI Components
