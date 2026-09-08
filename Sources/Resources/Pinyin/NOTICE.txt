@@ -1,0 +1,10 @@
+Pinyin readings:
+- https://github.com/mozillazg/pinyin-data (MIT License)
+- https://github.com/mozillazg/phrase-pinyin-data (MIT License)
+
+Word frequency ranking:
+- https://github.com/hermitdave/FrequencyWords zh_cn_50k (CC-BY-SA-4.0)
+
+Sentence bigrams:
+- Phrase splits from the lexicon
+- OpenSubtitles v2018 Chinese (OPUS), used to count adjacent words

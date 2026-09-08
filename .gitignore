@@ -1,0 +1,41 @@
+# Xcode / XcodeGen
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+*.xcuserstate
+*.moved-aside
+DerivedData/
+.swiftpm/
+build/
+
+# Packaging
+dist/
+*.pkg
+
+# Accidental local binaries / snapshots
+/main
+*.dSYM/
+
+# Python helpers
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets and local env
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.mobileprovision
+
+# OS / editor
+.DS_Store
+.AppleDouble
+.LSOverride
+*~
+*.swp
+*.swo
+.idea/
+.vscode/

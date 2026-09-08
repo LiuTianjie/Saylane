@@ -1,0 +1,27 @@
+#!/bin/bash
+set -euo pipefail
+# Remove only this product; preserve user preferences and every other input method.
+/usr/bin/pkill -x RTranslate || true
+CONSOLE_USER="$(/usr/bin/stat -f '%Su' /dev/console)"
+USER_HOME=""
+if [[ "$CONSOLE_USER" != root && "$CONSOLE_USER" != loginwindow ]]; then
+  USER_HOME="$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory | /usr/bin/sed 's/^NFSHomeDirectory: //')"
+fi
+cleanup() {
+  local app="$1"
+  [[ -d "$app" ]] || return 0
+  local bid
+  bid="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Contents/Info.plist" 2>/dev/null || true)"
+  if [[ "$bid" != com.rtranslate.app && "$bid" != com.rtranslate.inputmethod.rtranslate ]]; then
+    echo "Refusing to remove unexpected bundle: $app ($bid)" >&2
+    exit 1
+  fi
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$app" || true
+  /bin/rm -rf -- "$app"
+}
+cleanup '/Library/Input Methods/RTranslate.app'
+cleanup '/Applications/RTranslate.app'
+if [[ -n "$USER_HOME" && "$USER_HOME" != / ]]; then
+  cleanup "$USER_HOME/Library/Input Methods/RTranslate.app"
+  cleanup "$USER_HOME/Applications/RTranslate.app"
+fi

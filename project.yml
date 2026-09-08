@@ -1,0 +1,49 @@
+name: RTranslate
+options:
+  bundleIdPrefix: com.rtranslate
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    MARKETING_VERSION: "0.2.45"
+    CURRENT_PROJECT_VERSION: "45"
+    DEAD_CODE_STRIPPING: YES
+    ARCHS: arm64
+    ONLY_ACTIVE_ARCH: NO
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
+
+targets:
+  RTranslate:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+        excludes:
+          - Resources/AppIcon.iconset/**
+          - Resources/AppIcon.png
+    dependencies:
+      - sdk: InputMethodKit.framework
+    settings:
+      base:
+        INFOPLIST_FILE: Sources/Info.plist
+        GENERATE_INFOPLIST_FILE: false
+        PRODUCT_BUNDLE_IDENTIFIER: com.rtranslate.inputmethod.rtranslate
+        PRODUCT_NAME: RTranslate
+        CODE_SIGN_ENTITLEMENTS: Sources/RTranslate.entitlements
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        ENABLE_HARDENED_RUNTIME: NO
+        LD_RUNPATH_SEARCH_PATHS:
+          - "@executable_path/../Frameworks"
+        COMBINE_HIDPI_IMAGES: YES
+
+schemes:
+  RTranslate:
+    build:
+      targets:
+        RTranslate: all
