@@ -14,11 +14,11 @@ struct GlobalHotkeyRouter: Equatable {
 
     mutating func note(_ action: InputShortcutHandler.Action) {
         switch action {
-        case .press, .armHold:
+        case .press, .armHold, .armTap:
             owningGesture = true
-        case .release, .cancel:
+        case .release, .cancel, .switchTarget:
             owningGesture = false
-        case .switchTarget, .none:
+        case .none:
             break
         }
     }

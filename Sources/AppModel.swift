@@ -434,10 +434,11 @@ final class AppModel {
     private func performShortcut(_ action: InputShortcutHandler.Action, fromGlobal: Bool = false) {
         if action != .none { InputDiagnostics.record("shortcut-action", "\(String(describing: action)) global=\(fromGlobal)") }
         switch action {
-        case .armHold:
+        case .armHold, .armTap:
+            let delay = action == .armTap ? InputShortcutHandler.doubleTapGap : InputShortcutHandler.holdDelay
             holdTask?.cancel()
             holdTask = Task { [weak self] in
-                do { try await Task.sleep(for: .milliseconds(180)) } catch { return }
+                do { try await Task.sleep(for: .seconds(delay)) } catch { return }
                 guard let self else { return }
                 let next = fromGlobal
                     ? self.globalHotkey.holdDeadline(now: ProcessInfo.processInfo.systemUptime)

@@ -305,7 +305,9 @@ struct SettingsView: View {
                     .frame(width: 176)
                     .disabled(model.isListening)
                 }
-                Text(model.tapToTalk ? "点一下开始，再按任意键提交。" : "按住说话，松开提交。")
+                Text(model.tapToTalk ? (model.pushToTalk == .rightCommand && model.languageSwitchEnabled
+                    ? "单击后稍候开始，双击切换语言；录音中再按任意键提交。"
+                    : "点一下开始，再按任意键提交。") : "按住说话，松开提交。")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
 
