@@ -4,10 +4,10 @@
   const chinese='我想试试用英语表达自己的想法。';
   const english="I'd like to try expressing my ideas in English.";
   const modes=[
-    {title:'中文听写',sourceLabel:'你说 · 中文',targetLabel:'输入框 · 中文',source:chinese,target:chinese,hint:'说中文，写中文。记录想法，不经过翻译。'},
-    {title:'中译英',sourceLabel:'你说 · 中文',targetLabel:'输入框 · English',source:chinese,target:english,hint:'用中文组织想法，让英文先出现。'},
-    {title:'英译中',sourceLabel:'你说 · English',targetLabel:'输入框 · 中文',source:english,target:chinese,hint:'用英语开口，查看译成中文后的意思。'},
-    {title:'英文听写',sourceLabel:'你说 · English',targetLabel:'输入框 · English',source:english,target:english,hint:'轮到你自己说。保留英语表达，不经过翻译。'}
+    {title:'中文听写',sourceLabel:'你说 · 中文',targetLabel:'输入框 · 中文',source:chinese,target:chinese},
+    {title:'中译英',sourceLabel:'你说 · 中文',targetLabel:'输入框 · English',source:chinese,target:english},
+    {title:'英译中',sourceLabel:'你说 · English',targetLabel:'输入框 · 中文',source:english,target:chinese},
+    {title:'英文听写',sourceLabel:'你说 · English',targetLabel:'输入框 · English',source:english,target:english}
   ];
   let current=1;
   const buttons=[...document.querySelectorAll('[data-mode]')];
@@ -21,7 +21,7 @@
     for(const [id,value] of Object.entries({
       'practice-mode-title':mode.title,'practice-source-label':mode.sourceLabel,
       'practice-target-label':mode.targetLabel,'practice-source':mode.source,
-      'practice-target':mode.target,'practice-mode-hint':mode.hint
+      'practice-target':mode.target
     })) document.getElementById(id).textContent=value;
     animation?.cancel();
     if(!reduceMotion.matches) animation=result.animate([{opacity:.25,transform:'translateY(5px)'},{opacity:1,transform:'translateY(0)'}],{duration:220,easing:'ease-out'});
