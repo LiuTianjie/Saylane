@@ -7,14 +7,16 @@ struct PinyinCandidate: Equatable {
     var inputLength: Int
     var frequency: Int
     var commitsAll: Bool
+    var engineIndex: Int?
 
-    init(word: String, pinyin: String, inputLength: Int, frequency: Int, preview: String? = nil, commitsAll: Bool = false) {
+    init(word: String, pinyin: String, inputLength: Int, frequency: Int, preview: String? = nil,
+         commitsAll: Bool = false, engineIndex: Int? = nil) {
         self.word = word
         self.preview = preview ?? word
         self.pinyin = pinyin
         self.inputLength = inputLength
         self.frequency = frequency
         self.commitsAll = commitsAll
+        self.engineIndex = engineIndex
     }
 }
-

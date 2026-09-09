@@ -351,7 +351,7 @@ struct SettingsView: View {
 
                 Divider().opacity(0.35)
 
-                Text("整句组词与选词学习由 Rime 提供；词后联想暂不支持。")
+                Text("整句组词与选词学习由 Rime 提供；中文模式可出英文单词。词后联想暂不支持。")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
 

@@ -26,7 +26,8 @@ final class RimeRuntime {
 
     init(sharedData: URL, userData: URL) throws {
         for name in ["saylane_pinyin.schema.yaml", "saylane_pinyin_fuzzy.schema.yaml", "saylane.table.bin",
-                     "saylane_pinyin.prism.bin", "saylane_pinyin_fuzzy.prism.bin"] {
+                     "saylane_pinyin.prism.bin", "saylane_pinyin_fuzzy.prism.bin", "melt_eng.table.bin",
+                     "saylane_en.prism.bin", "saylane_en.schema.yaml"] {
             let file = sharedData.appendingPathComponent("build/\(name)")
             guard FileManager.default.fileExists(atPath: file.path) else { throw SetupError.missingData(file.path) }
         }

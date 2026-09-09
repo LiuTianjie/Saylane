@@ -1,0 +1,8 @@
+# English word table from the pinned rime-ice en_dicts.
+---
+name: melt_eng
+version: "1.0"
+import_tables:
+  - en_dicts/en_ext
+  - en_dicts/en
+...

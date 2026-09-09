@@ -6,6 +6,7 @@ mkdir -p build/tests
 clang -c Sources/IME/Rime/SaylaneRime.c -I Vendor/Rime/Runtime/include -o build/tests/rime-bridge.o
 swiftc -import-objc-header Sources/IME/Rime/SaylaneRime.h \
   Sources/IME/Pinyin/PinyinCandidate.swift Sources/IME/Pinyin/PinyinKeyEvent.swift \
+  Sources/IME/Pinyin/PinyinSyllable.swift \
   Sources/IME/Rime/RimeRuntime.swift Sources/IME/Rime/RimePinyinSession.swift \
   Tests/RimeTests.swift build/tests/rime-bridge.o \
   -L Vendor/Rime/Runtime/lib -lrime -o build/tests/rime

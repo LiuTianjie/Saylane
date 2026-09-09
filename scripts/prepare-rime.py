@@ -49,7 +49,8 @@ def main():
     required = [RUNTIME / 'lib/librime.1.dylib', RUNTIME / 'include/rime_api.h',
                 DATA / 'build/saylane.table.bin', DATA / 'build/saylane_pinyin.prism.bin',
                 DATA / 'build/saylane_pinyin_fuzzy.prism.bin', DATA / 'build/saylane_pinyin.schema.yaml',
-                DATA / 'build/saylane_pinyin_fuzzy.schema.yaml', DATA / 'essay.txt']
+                DATA / 'build/saylane_pinyin_fuzzy.schema.yaml', DATA / 'build/melt_eng.table.bin',
+                DATA / 'build/saylane_en.prism.bin', DATA / 'build/saylane_en.schema.yaml', DATA / 'essay.txt']
     if stamp.exists() and stamp.read_text() == fingerprint and all(p.exists() for p in required):
         print('Rime runtime and prebuilt dictionaries are up to date.')
         return
@@ -75,6 +76,9 @@ def main():
         (data / 'cn_dicts').mkdir(parents=True)
         for name in ['8105', 'base', 'ext', 'others']:
             shutil.copy2(DOWNLOADS / f'{name}.dict.yaml', data / 'cn_dicts')
+        (data / 'en_dicts').mkdir(parents=True)
+        for name in ['en', 'en_ext']:
+            shutil.copy2(DOWNLOADS / f'{name}.dict.yaml', data / 'en_dicts')
         for path in CONFIG.iterdir():
             if path.suffix == '.yaml': shutil.copy2(path, data)
         strict = (CONFIG / 'saylane_pinyin.schema.yaml').read_text()
@@ -112,7 +116,8 @@ def main():
         shutil.copy2(LOCK, data / 'dependencies.lock.json')
         (data / 'SOURCE-NOTICE.txt').write_text(
             'librime 1.17.0: BSD-3-Clause; official unmodified macOS runtime.\n'
-            'rime-ice dictionary subset: 8105, base, ext, others. No Lua or frontend code copied.\n'
+            'rime-ice dictionary subset: 8105, base, ext, others, plus en/en_ext English tables.\n'
+            'No Lua or frontend code copied.\n'
             'Dictionary sources, upstream headers, GPL-3.0 license and pinned URLs are included.\n'
             'rime-essay: LGPL-3.0; source essay.txt, AUTHORS and license included.\n'
             'The compiled data is built from these bundled sources and Saylane schema files.\n'

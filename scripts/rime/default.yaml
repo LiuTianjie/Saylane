@@ -3,6 +3,7 @@ schema_list:
   - schema: saylane_pinyin
   - schema: saylane_pinyin_fuzzy
   - schema: saylane_fuzzy_codes
+  - schema: saylane_en
 menu:
   page_size: 9
 switcher:
