@@ -34,6 +34,16 @@
       "sha256": "c7475d773e619f61b88d47fa8ec789aba02aa0d1c98edaed309e53487b048b32"
     },
     {
+      "file": "en.dict.yaml",
+      "url": "https://raw.githubusercontent.com/iDvel/rime-ice/fbb516b2786e4d5444383706d13c31c2e4d10c08/en_dicts/en.dict.yaml",
+      "sha256": "8aa54fb802a29c6ee5acde01f66ffb3494d604216faccf712cf7dba27a0910d1"
+    },
+    {
+      "file": "en_ext.dict.yaml",
+      "url": "https://raw.githubusercontent.com/iDvel/rime-ice/fbb516b2786e4d5444383706d13c31c2e4d10c08/en_dicts/en_ext.dict.yaml",
+      "sha256": "d0c11afd09443a8a13ddc79c630ae22c6b9a0403031bf0adaa2c301a127f20ea"
+    },
+    {
       "file": "ice-LICENSE",
       "url": "https://raw.githubusercontent.com/iDvel/rime-ice/fbb516b2786e4d5444383706d13c31c2e4d10c08/LICENSE",
       "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"

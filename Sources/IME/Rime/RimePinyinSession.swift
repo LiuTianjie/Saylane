@@ -134,18 +134,33 @@ final class RimePinyinSession {
 
     func selectCandidate(at index: Int) {
         guard candidates.indices.contains(index) else { return }
-        _ = SLRimeSelect(native, index)
+        acceptDisplayedCandidate(at: index)
         refresh()
     }
 
     func commit() {
         if isComposing {
-            // Respect the highlighted candidate, including a manually selected
-            // prefix. Complete any remainder through Rime, not Swift word joins.
-            if showsCandidates { _ = SLRimeSelect(native, highlighted) }
-            SLRimeCommit(native)
+            if showsCandidates, let engineIndex = candidates[highlighted].engineIndex {
+                _ = SLRimeSelect(native, engineIndex)
+                SLRimeCommit(native)
+            } else if showsCandidates {
+                pendingCommit += candidates[highlighted].word
+                SLRimeClear(native)
+            } else {
+                SLRimeCommit(native)
+            }
         }
         refresh()
+    }
+
+    private func acceptDisplayedCandidate(at index: Int) {
+        let choice = candidates[index]
+        if let engineIndex = choice.engineIndex {
+            _ = SLRimeSelect(native, engineIndex)
+        } else {
+            pendingCommit += choice.word
+            SLRimeClear(native)
+        }
     }
 
     func cancel() {
@@ -229,10 +244,34 @@ final class RimePinyinSession {
         markedCaret = cursor == 0 && markedLen > 0 ? markedLen : cursor
         candidates = (0..<snapshot.count).compactMap { i in
             guard let text = snapshot.candidates?[i] else { return nil }
-            return PinyinCandidate(word: String(cString: text), pinyin: "", inputLength: 0, frequency: 0)
+            return PinyinCandidate(word: String(cString: text), pinyin: "", inputLength: 0, frequency: 0, engineIndex: i)
         }
         hasMore = snapshot.has_more != 0
+        if resetHighlight { promoteExactEnglishIfNeeded() }
         highlighted = min(highlighted, max(0, candidates.count - 1))
+    }
+
+    /// Doubao-style mixed input: if the typed latin string is a candidate and
+    /// cannot be read as complete pinyin syllables, keep it first. Real pinyin
+    /// like nihao/chi stays Chinese-first; hello/github/ios surface as English.
+    private func promoteExactEnglishIfNeeded() {
+        let typed = preedit.lowercased()
+        guard typed.count >= 2, typed.unicodeScalars.allSatisfy({ $0.isASCII && CharacterSet.letters.contains($0) }) else { return }
+        if PinyinSyllable.segment(typed) != nil {
+            guard candidates.first?.word.allSatisfy(\.isASCII) == true else { return }
+            guard let chinese = candidates.firstIndex(where: { $0.word.contains(where: { !$0.isASCII }) }) else { return }
+            let item = candidates.remove(at: chinese)
+            candidates.insert(item, at: 0)
+            return
+        }
+        if let english = candidates.firstIndex(where: { $0.word.lowercased() == typed }) {
+            if english > 0 {
+                let item = candidates.remove(at: english)
+                candidates.insert(item, at: 0)
+            }
+            return
+        }
+        candidates.insert(PinyinCandidate(word: typed, pinyin: "", inputLength: typed.count, frequency: 0), at: 0)
     }
 
     private func loadMoreIfNeeded(_ index: Int) {

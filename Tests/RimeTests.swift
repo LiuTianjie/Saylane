@@ -39,6 +39,28 @@ import Carbon.HIToolbox
         type("zhongguo")
         precondition(session.candidates.first?.word == "中国")
         session.cancel()
+        precondition(session.setFuzzyEnabled(true))
+        for input in ["hello", "github", "ios", "python", "world", "app", "ok"] {
+            session.cancel()
+            type(input)
+            let words = session.candidates.prefix(9).map(\.word)
+            precondition(words.contains(where: { $0.lowercased() == input }), "missing English candidate for \(input): \(words)")
+            precondition(session.candidates.first?.word.lowercased() == input, "English should be first for \(input), got \(words)")
+        }
+        session.cancel()
+        type("nihao")
+        precondition(session.candidates.first?.word == "你好")
+        session.cancel()
+        type("chi")
+        precondition(session.candidates.first?.word == "吃")
+        session.cancel()
+        type("beijing")
+        precondition(session.candidates.first?.word == "北京")
+        session.cancel()
+        type("hello")
+        session.selectCandidate(at: 0)
+        precondition(session.takeCommit() == "hello")
+        session.cancel()
         precondition(session.setFuzzyEnabled(false))
         for (input, expected) in [("nihao", "你好"), ("beijing", "北京"), ("shurufa", "输入法"),
                                   ("woxiangqubeijing", "我想去北京"), ("jintiantianqihenhao", "今天天气很好")] {

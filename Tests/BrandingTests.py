@@ -54,5 +54,5 @@ page.feed(html)
 assert page.telemetry == 1
 assert '<h1>Saylane</h1>' in html
 assert html.count('class="brand-name">Saylane</span>') == 2
-assert 'https://github.com/LiuTianjie/Saylane/releases/download/v0.2.51/Saylane-0.2.51.pkg' in html
+assert 'https://github.com/LiuTianjie/Saylane/releases/download/v0.2.52/Saylane-0.2.52.pkg' in html
 print('PASS: Saylane branding, stable identity/storage, upgrade paths, published links and single telemetry script')
