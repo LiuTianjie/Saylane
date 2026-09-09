@@ -2,7 +2,7 @@
 
 macOS 输入法：打字走拼音，按住快捷键说话则在当前输入框写入译文（默认中文 → 英文）。装在 `/Library/Input Methods/`，和系统其它输入法一样切换使用。
 
-当前版本 `0.2.47`。语音识别和翻译默认走 Apple 端侧框架；可选的终稿润色才走外部 API。
+当前版本 `0.2.48`。语音识别和翻译默认走 Apple 端侧框架；可选的终稿润色才走外部 API。
 
 ## 要求
 
@@ -41,7 +41,7 @@ make pkg            # Release + pkg
 
 ## 安装
 
-从 [GitHub Release 下载 v0.2.47 安装包](https://github.com/LiuTianjie/rtranslate/releases/tag/v0.2.47)，或访问 [产品网页](https://liutianjie.github.io/rtranslate/)。Release 同时提供 SHA-256 校验文件。
+从 [GitHub Release 下载 v0.2.48 安装包](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.48)，或访问 [产品网页](https://liutianjie.github.io/Saylane/)。Release 同时提供 SHA-256 校验文件。
 
 注意：包内应用已签名，当前 PKG 安装器未签名、未完成 Apple 公证。
 
@@ -70,6 +70,6 @@ project.yml       XcodeGen 工程定义
 - `~/Library/Application Support/RTranslate`：继续使用已有模型、词频和诊断目录，避免重新下载或丢失用户数据。
 - 安装/卸载脚本兼容旧 `RTranslate.app` 路径，核验 Bundle ID 后才清理；同时支持 `Saylane.app`。
 - 签名环境变量首选 `SAYLANE_SIGNING_IDENTITY`，兼容旧 `RTRANSLATE_SIGNING_IDENTITY`。
-- GitHub 仓库及 Pages 地址仍沿用原路径；已发布 v0.2.47 的文件名和下载地址不变，该历史安装包仍显示旧品牌。源码改名不等于已发布新版原生安装包。
+- GitHub 仓库及 Pages 地址仍沿用原路径；已发布 v0.2.47 的文件名和下载地址不变，该历史安装包仍显示旧品牌。Saylane 新版安装包从 v0.2.48 开始发布。
 
 现有系统安装不会自动改名。新版安装器的升级、系统输入法名称和权限连续性仍须实际安装后验收。
