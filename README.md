@@ -2,7 +2,7 @@
 
 macOS 输入法：打字走拼音，按住快捷键说话则在当前输入框写入译文（默认中文 → 英文）。装在 `/Library/Input Methods/`，和系统其它输入法一样切换使用。
 
-已发布版本 `0.2.48`；当前源码的 Rime 本地测试包版本为 `0.2.51`。语音识别和翻译默认走 Apple 端侧框架；可选的终稿润色才走外部 API。
+已发布版本 `0.2.51`。语音识别和翻译默认走 Apple 端侧框架；可选的终稿润色才走外部 API。
 
 ## 要求
 
@@ -23,7 +23,7 @@ make pkg            # Release + pkg
 `Saylane.xcodeproj` 由 `project.yml` 生成，不要手改，也不进 git。
 首次构建还会通过 `scripts/prepare-rime.py` 下载 SHA-256 固定的 librime/词库并预编译；建议 Python 3.12+。
 
-## Rime 拼音内核（0.2.51 本地测试，未线上发布）
+## Rime 拼音内核（0.2.51）
 
 当前源码已改为 librime + 雾凇词库子集，保留 Saylane 候选窗和语音交互。
 Shift/Caps Lock 在组字中切英文时上屏原始字母，不再先接受中文首选。
@@ -31,7 +31,6 @@ Shift/Caps Lock 在组字中切英文时上屏原始字母，不再先接受中�
 0.2.50 在设置 → 键盘加入手动「检查词库更新」：显示当前版本、比较实际使用的四份词表，支持取消和重试。此入口只检查，不下载或安装词库。
 0.2.51 模糊音改为统一降权补充：精确拼写保持首选，组字光标在末尾，翻页只用 -/=。
 固定依赖、架构、构建方法与验证边界见 [docs/RIME_PINYIN.md](docs/RIME_PINYIN.md)。
-这不改变下方已发布 v0.2.48 安装包的内容。
 
 第一次使用需要：
 
@@ -52,7 +51,7 @@ Shift/Caps Lock 在组字中切英文时上屏原始字母，不再先接受中�
 
 ## 安装
 
-从 [GitHub Release 下载 v0.2.48 安装包](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.48)，或访问 [产品网页](https://liutianjie.github.io/Saylane/)。Release 同时提供 SHA-256 校验文件。
+从 [GitHub Release 下载 v0.2.51 安装包](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.51)，或访问 [产品网页](https://liutianjie.github.io/Saylane/)。Release 同时提供 SHA-256 校验文件。
 
 注意：包内应用已签名，当前 PKG 安装器未签名、未完成 Apple 公证。
 
