@@ -52,11 +52,11 @@ final class RimePinyinSession {
 
     func handle(_ event: PinyinKeyEvent, shiftToggleEnabled: Bool) -> Bool {
         if event.type == .flagsChanged {
-            if event.keyCode == UInt16(kVK_CapsLock), event.flags.contains(.capsLock) {
+            if event.keyCode == UInt16(kVK_CapsLock) {
                 shiftSawKey = true
-                let hadComposition = isComposing
+                guard isComposing else { return false }
                 commitRawInput()
-                return hadComposition
+                return true
             }
             return handleShift(event, enabled: shiftToggleEnabled)
         }
@@ -163,6 +163,10 @@ final class RimePinyinSession {
         refresh()
     }
 
+    func commitRaw() {
+        commitRawInput()
+    }
+
     private func acceptDisplayedCandidate(at index: Int) {
         let choice = candidates[index]
         if let engineIndex = choice.engineIndex {
@@ -263,10 +267,9 @@ final class RimePinyinSession {
         highlighted = min(highlighted, max(0, candidates.count - 1))
     }
 
-    /// If the letters are still readable as pinyin (complete syllables or an
-    /// unfinished last syllable, including the always-on typo spellings), Chinese
-    /// leads. Otherwise an exact English match may lead; unmatched latin of
-    /// length 4+ may be echoed first.
+    /// Pinyin-shaped input (including one mid-string slip) keeps Chinese first.
+    /// English leads only when the whole string is not pinyin and equals a word;
+    /// unmatched latin is echoed only in that non-pinyin case, never over correction.
     private func rankCandidates() {
         let typed = preedit.lowercased().filter(\.isLetter)
         if let preferred = pinned[typed],
@@ -301,13 +304,16 @@ final class RimePinyinSession {
 
     private static func looksLikePinyin(_ typed: String) -> Bool {
         if PinyinSyllable.coversQuanpin(typed) || PinyinSyllable.segment(typed) != nil { return true }
+        if PinyinSyllable.coversQuanpinAllowingOneGap(typed) { return true }
         var fixed = typed
         for (wrong, right) in [("ign", "ing"), ("img", "ing"), ("uei", "ui"), ("iou", "iu"), ("uen", "un")] {
             if fixed.hasSuffix(wrong) {
                 fixed = String(fixed.dropLast(wrong.count)) + right
             }
         }
-        return fixed != typed && (PinyinSyllable.coversQuanpin(fixed) || PinyinSyllable.segment(fixed) != nil)
+        guard fixed != typed else { return false }
+        return PinyinSyllable.coversQuanpin(fixed) || PinyinSyllable.segment(fixed) != nil
+            || PinyinSyllable.coversQuanpinAllowingOneGap(fixed)
     }
 
     private static func loadPinned(_ url: URL) -> [String: String] {

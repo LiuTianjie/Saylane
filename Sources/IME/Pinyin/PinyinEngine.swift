@@ -50,6 +50,11 @@ final class PinyinEngine {
         publish()
     }
 
+    func commitRaw() {
+        session?.commitRaw()
+        publish()
+    }
+
     func cancel() {
         session?.cancel()
         publish()

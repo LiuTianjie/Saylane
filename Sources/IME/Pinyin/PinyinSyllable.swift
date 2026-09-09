@@ -77,6 +77,57 @@ enum PinyinSyllable {
         return false
     }
 
+    /// Long pinyin with one 1–2 letter slip still counts as pinyin, so a mid-string
+    /// typo is not treated as raw English. Short words stay eligible for English.
+    static func coversQuanpinAllowingOneGap(_ input: String) -> Bool {
+        let chars = Array(input)
+        let n = chars.count
+        guard n >= 8 else { return false }
+        var reach = Array(repeating: [false, false], count: n + 1)
+        var letters = Array(repeating: [0, 0], count: n + 1)
+        reach[0][0] = true
+        for index in 0...n {
+            for gap in 0...1 where reach[index][gap] {
+                for length in 1...6 {
+                    let end = index + length
+                    guard end <= n else { break }
+                    let piece = String(chars[index..<end])
+                    if length == 1 && end != n && weakSyllables.contains(piece) { continue }
+                    if all.contains(piece) {
+                        let covered = letters[index][gap] + length
+                        if !reach[end][gap] || covered > letters[end][gap] {
+                            reach[end][gap] = true
+                            letters[end][gap] = covered
+                        }
+                    }
+                }
+                if gap == 0 {
+                    for skip in 1...2 {
+                        let end = index + skip
+                        guard end <= n else { break }
+                        if !reach[end][1] || letters[index][0] > letters[end][1] {
+                            reach[end][1] = true
+                            letters[end][1] = letters[index][0]
+                        }
+                    }
+                }
+            }
+        }
+        func accepted(_ covered: Int) -> Bool {
+            covered >= 4 && covered >= n - 2
+        }
+        if accepted(letters[n][0]) || accepted(letters[n][1]) { return true }
+        for index in 0..<n {
+            for gap in 0...1 where reach[index][gap] {
+                let rest = String(chars[index...])
+                guard prefixes.contains(rest) else { continue }
+                let covered = letters[index][gap] + rest.count
+                if accepted(covered) { return true }
+            }
+        }
+        return false
+    }
+
     static func segment(_ input: String) -> [String]? {
         let chars = Array(input)
         var previous = Array(repeating: -1, count: chars.count + 1)
