@@ -112,6 +112,11 @@ struct CandidateBarView: View {
                         Text(item.word)
                             .font(.system(size: 15, weight: selectedHere ? .semibold : .regular))
                             .foregroundStyle(Color.primary)
+                        if !item.comment.isEmpty {
+                            Text(item.comment)
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     .padding(.horizontal, itemHorizontalInset)
                     .padding(.vertical, itemVerticalInset)
@@ -122,7 +127,7 @@ struct CandidateBarView: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(local + 1) \(item.word)")
+                .accessibilityLabel(item.comment.isEmpty ? "\(local + 1) \(item.word)" : "\(local + 1) \(item.word) \(item.comment)")
             }
         }
     }

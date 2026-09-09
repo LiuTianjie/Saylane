@@ -27,12 +27,16 @@ final class RimePinyinSession {
     private var singleQuoteOpen = false
     private var candidateLimit = 90
     private var hasMore = false
+    private let pinnedURL: URL
+    private var pinned: [String: String]
     var onModeChange: ((Bool) -> Void)?
 
     init(runtime: RimeRuntime, englishMode: Bool = false, fuzzyEnabled: Bool = false) throws {
         native = try runtime.makeSession(fuzzy: fuzzyEnabled)
         self.englishMode = englishMode
         self.fuzzyEnabled = fuzzyEnabled
+        pinnedURL = runtime.userData.appendingPathComponent("first_is_best.json")
+        pinned = Self.loadPinned(pinnedURL)
     }
 
     deinit { SLRimeDestroy(native) }
@@ -134,8 +138,14 @@ final class RimePinyinSession {
 
     func selectCandidate(at index: Int) {
         guard candidates.indices.contains(index) else { return }
+        let typed = preedit.lowercased().filter(\.isLetter)
+        let word = candidates[index].word
         acceptDisplayedCandidate(at: index)
         refresh()
+        if !isComposing, typed.count >= 2, !word.isEmpty {
+            pinned[typed] = word
+            savePinned()
+        }
     }
 
     func commit() {
@@ -244,24 +254,33 @@ final class RimePinyinSession {
         markedCaret = cursor == 0 && markedLen > 0 ? markedLen : cursor
         candidates = (0..<snapshot.count).compactMap { i in
             guard let text = snapshot.candidates?[i] else { return nil }
-            return PinyinCandidate(word: String(cString: text), pinyin: "", inputLength: 0, frequency: 0, engineIndex: i)
+            let comment = snapshot.comments?[i].map { String(cString: $0) } ?? ""
+            return PinyinCandidate(word: String(cString: text), pinyin: "", inputLength: 0, frequency: 0,
+                                   engineIndex: i, comment: comment)
         }
         hasMore = snapshot.has_more != 0
-        if resetHighlight { promoteExactEnglishIfNeeded() }
+        if resetHighlight { rankCandidates() }
         highlighted = min(highlighted, max(0, candidates.count - 1))
     }
 
-    /// Doubao-style mixed input: if the typed latin string is a candidate and
-    /// cannot be read as complete pinyin syllables, keep it first. Real pinyin
-    /// like nihao/chi stays Chinese-first; hello/github/ios surface as English.
-    private func promoteExactEnglishIfNeeded() {
-        let typed = preedit.lowercased()
-        guard typed.count >= 2, typed.unicodeScalars.allSatisfy({ $0.isASCII && CharacterSet.letters.contains($0) }) else { return }
-        if PinyinSyllable.segment(typed) != nil {
-            guard candidates.first?.word.allSatisfy(\.isASCII) == true else { return }
-            guard let chinese = candidates.firstIndex(where: { $0.word.contains(where: { !$0.isASCII }) }) else { return }
-            let item = candidates.remove(at: chinese)
+    /// If the letters are still readable as pinyin (complete syllables or an
+    /// unfinished last syllable, including the always-on typo spellings), Chinese
+    /// leads. Otherwise an exact English match may lead; unmatched latin of
+    /// length 4+ may be echoed first.
+    private func rankCandidates() {
+        let typed = preedit.lowercased().filter(\.isLetter)
+        if let preferred = pinned[typed],
+           let index = candidates.firstIndex(where: { $0.word == preferred }), index > 0 {
+            let item = candidates.remove(at: index)
             candidates.insert(item, at: 0)
+            return
+        }
+        guard typed.count >= 2, typed.unicodeScalars.allSatisfy({ $0.isASCII && CharacterSet.letters.contains($0) }) else { return }
+        if Self.looksLikePinyin(typed) {
+            if let chinese = candidates.firstIndex(where: Self.isChinese), chinese > 0 {
+                let item = candidates.remove(at: chinese)
+                candidates.insert(item, at: 0)
+            }
             return
         }
         if let english = candidates.firstIndex(where: { $0.word.lowercased() == typed }) {
@@ -271,7 +290,35 @@ final class RimePinyinSession {
             }
             return
         }
-        candidates.insert(PinyinCandidate(word: typed, pinyin: "", inputLength: typed.count, frequency: 0), at: 0)
+        if typed.count >= 4 {
+            candidates.insert(PinyinCandidate(word: typed, pinyin: "", inputLength: typed.count, frequency: 0), at: 0)
+        }
+    }
+
+    private static func isChinese(_ item: PinyinCandidate) -> Bool {
+        item.word.contains(where: { !$0.isASCII })
+    }
+
+    private static func looksLikePinyin(_ typed: String) -> Bool {
+        if PinyinSyllable.coversQuanpin(typed) || PinyinSyllable.segment(typed) != nil { return true }
+        var fixed = typed
+        for (wrong, right) in [("ign", "ing"), ("img", "ing"), ("uei", "ui"), ("iou", "iu"), ("uen", "un")] {
+            if fixed.hasSuffix(wrong) {
+                fixed = String(fixed.dropLast(wrong.count)) + right
+            }
+        }
+        return fixed != typed && (PinyinSyllable.coversQuanpin(fixed) || PinyinSyllable.segment(fixed) != nil)
+    }
+
+    private static func loadPinned(_ url: URL) -> [String: String] {
+        guard let data = try? Data(contentsOf: url),
+              let values = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
+        return values
+    }
+
+    private func savePinned() {
+        guard let data = try? JSONEncoder().encode(pinned) else { return }
+        try? data.write(to: pinnedURL, options: .atomic)
     }
 
     private func loadMoreIfNeeded(_ index: Int) {

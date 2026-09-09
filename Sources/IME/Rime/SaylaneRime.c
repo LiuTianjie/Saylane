@@ -36,6 +36,7 @@ SLSession SLRimeCreate(const char *schema) {
         return 0;
     }
     api->set_option(session, "ascii_mode", 0);
+    api->set_option(session, "emoji", 1);
     return session;
 }
 void SLRimeDestroy(SLSession s) { if (s && api && initialized) api->destroy_session(s); }
@@ -45,7 +46,12 @@ void SLRimeFinalize(void) {
         initialized = 0;
     }
 }
-int SLRimeSelectSchema(SLSession s, const char *schema) { return api->select_schema(s, schema); }
+int SLRimeSelectSchema(SLSession s, const char *schema) {
+    if (!api->select_schema(s, schema)) return 0;
+    api->set_option(s, "ascii_mode", 0);
+    api->set_option(s, "emoji", 1);
+    return 1;
+}
 int SLRimeProcess(SLSession s, int key, int modifiers) { return api->process_key(s, key, modifiers); }
 int SLRimeSelect(SLSession s, size_t index) { return api->select_candidate(s, index); }
 void SLRimeClear(SLSession s) { api->clear_composition(s); }
@@ -70,11 +76,20 @@ SLRimeSnapshot SLRimeRead(SLSession s, size_t limit) {
         api->free_context(&context);
     }
     result.candidates = calloc(limit, sizeof(char *));
-    if (!result.candidates) return result;
+    result.comments = calloc(limit, sizeof(char *));
+    if (!result.candidates || !result.comments) {
+        free(result.candidates);
+        free(result.comments);
+        result.candidates = NULL;
+        result.comments = NULL;
+        return result;
+    }
     RimeCandidateListIterator iterator = {0};
     if (api->candidate_list_begin(s, &iterator)) {
         while (result.count < limit && api->candidate_list_next(&iterator)) {
-            result.candidates[result.count++] = strdup(iterator.candidate.text ? iterator.candidate.text : "");
+            result.candidates[result.count] = strdup(iterator.candidate.text ? iterator.candidate.text : "");
+            result.comments[result.count] = strdup(iterator.candidate.comment ? iterator.candidate.comment : "");
+            result.count++;
         }
         result.has_more = api->candidate_list_next(&iterator);
         api->candidate_list_end(&iterator);
@@ -84,8 +99,12 @@ SLRimeSnapshot SLRimeRead(SLSession s, size_t limit) {
 void SLRimeFreeSnapshot(SLRimeSnapshot *snapshot) {
     free(snapshot->input);
     free(snapshot->preedit);
-    for (size_t i = 0; i < snapshot->count; ++i) free(snapshot->candidates[i]);
+    for (size_t i = 0; i < snapshot->count; ++i) {
+        free(snapshot->candidates[i]);
+        free(snapshot->comments[i]);
+    }
     free(snapshot->candidates);
+    free(snapshot->comments);
     memset(snapshot, 0, sizeof(*snapshot));
 }
 void SLRimeFreeString(char *text) { free(text); }

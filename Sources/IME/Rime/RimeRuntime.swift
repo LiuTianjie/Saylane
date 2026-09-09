@@ -31,6 +31,10 @@ final class RimeRuntime {
             let file = sharedData.appendingPathComponent("build/\(name)")
             guard FileManager.default.fileExists(atPath: file.path) else { throw SetupError.missingData(file.path) }
         }
+        for name in ["opencc/emoji.json", "opencc/emoji.txt", "opencc/others.txt"] {
+            let file = sharedData.appendingPathComponent(name)
+            guard FileManager.default.fileExists(atPath: file.path) else { throw SetupError.missingData(file.path) }
+        }
         try FileManager.default.createDirectory(at: userData, withIntermediateDirectories: true)
         self.userData = userData
         guard SLRimeInitialize(sharedData.path, userData.path) != 0 else { throw SetupError.initialization }

@@ -50,7 +50,8 @@ def main():
                 DATA / 'build/saylane.table.bin', DATA / 'build/saylane_pinyin.prism.bin',
                 DATA / 'build/saylane_pinyin_fuzzy.prism.bin', DATA / 'build/saylane_pinyin.schema.yaml',
                 DATA / 'build/saylane_pinyin_fuzzy.schema.yaml', DATA / 'build/melt_eng.table.bin',
-                DATA / 'build/saylane_en.prism.bin', DATA / 'build/saylane_en.schema.yaml', DATA / 'essay.txt']
+                DATA / 'build/saylane_en.prism.bin', DATA / 'build/saylane_en.schema.yaml', DATA / 'essay.txt',
+                DATA / 'opencc/emoji.json', DATA / 'opencc/emoji.txt', DATA / 'opencc/others.txt']
     if stamp.exists() and stamp.read_text() == fingerprint and all(p.exists() for p in required):
         print('Rime runtime and prebuilt dictionaries are up to date.')
         return
@@ -111,12 +112,16 @@ def main():
             '  initial_quality: -4\n'
         )
         (data / 'saylane_pinyin_fuzzy.schema.yaml').write_text(runtime)
+        opencc = data / 'opencc'
+        opencc.mkdir()
+        for name in ['emoji.json', 'emoji.txt', 'others.txt']:
+            shutil.copy2(DOWNLOADS / name, opencc / name)
         for name in ['essay.txt', 'essay-AUTHORS'] + [a['file'] for a in lock['assets'] if a['file'].endswith('-LICENSE')]:
             shutil.copy2(DOWNLOADS / name, data)
         shutil.copy2(LOCK, data / 'dependencies.lock.json')
         (data / 'SOURCE-NOTICE.txt').write_text(
             'librime 1.17.0: BSD-3-Clause; official unmodified macOS runtime.\n'
-            'rime-ice dictionary subset: 8105, base, ext, others, plus en/en_ext English tables.\n'
+            'rime-ice dictionary subset: 8105, base, ext, others, en/en_ext, and opencc emoji tables.\n'
             'No Lua or frontend code copied.\n'
             'Dictionary sources, upstream headers, GPL-3.0 license and pinned URLs are included.\n'
             'rime-essay: LGPL-3.0; source essay.txt, AUTHORS and license included.\n'

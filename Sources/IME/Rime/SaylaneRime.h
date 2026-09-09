@@ -9,6 +9,7 @@ typedef struct {
     char *input;
     char *preedit;
     char **candidates;
+    char **comments;
     size_t count;
     int has_more;
     int cursor;

@@ -40,13 +40,45 @@ import Carbon.HIToolbox
         precondition(session.candidates.first?.word == "中国")
         session.cancel()
         precondition(session.setFuzzyEnabled(true))
-        for input in ["hello", "github", "ios", "python", "world", "app", "ok"] {
+        for input in ["hello", "github", "python", "world"] {
             session.cancel()
             type(input)
             let words = session.candidates.prefix(9).map(\.word)
             precondition(words.contains(where: { $0.lowercased() == input }), "missing English candidate for \(input): \(words)")
             precondition(session.candidates.first?.word.lowercased() == input, "English should be first for \(input), got \(words)")
         }
+        for input in ["app", "ok", "ios"] {
+            session.cancel()
+            type(input)
+            let words = session.candidates.prefix(9).map(\.word)
+            precondition(words.contains(where: { $0.lowercased() == input }), "missing English candidate for \(input): \(words)")
+            if let first = session.candidates.first, first.word.contains(where: { !$0.isASCII }) {
+                continue
+            }
+            precondition(session.candidates.first?.word.lowercased() == input, "English-only input should keep \(input) first, got \(words)")
+        }
+        for input in ["be", "nih", "nh"] {
+            session.cancel()
+            type(input)
+            let first = session.candidates.first?.word ?? ""
+            precondition(first.contains(where: { !$0.isASCII }), "pinyin \(input) must stay Chinese-first, got \(first)")
+        }
+        session.cancel()
+        type("youshih")
+        let youshih = session.candidates.prefix(9).map(\.word)
+        precondition(youshih.contains("有时候"), "youshih should recall 有时候: \(youshih)")
+        precondition(session.candidates.first?.word != "youshih", "raw latin must not beat 有时候: \(youshih)")
+        precondition(session.candidates.first?.word.contains(where: { !$0.isASCII }) == true, "you'shi'h must stay Chinese-first, got \(youshih)")
+        session.cancel()
+        type("xign")
+        let xign = session.candidates.prefix(9).map(\.word)
+        precondition(xign.contains(where: { ["行", "星", "兴", "型", "形"].contains($0) }), "ign→ing should recall 行/星 for xign: \(xign)")
+        session.cancel()
+        type("haha")
+        let haha = session.candidates.prefix(9)
+        precondition(haha.contains(where: { $0.word.contains("哈") }), "haha should still yield 哈: \(haha.map(\.word))")
+        precondition(haha.contains(where: { !$0.comment.isEmpty || $0.word.unicodeScalars.contains { $0.value >= 0x1F300 } }),
+                     "emoji OpenCC should annotate 哈: \(haha.map { "\($0.word)/\($0.comment)" })")
         session.cancel()
         type("nihao")
         precondition(session.candidates.first?.word == "你好")
@@ -152,6 +184,15 @@ import Carbon.HIToolbox
         precondition(session.handle(bracket, shiftToggleEnabled: true))
         let committed = session.takeCommit()
         precondition(committed.hasSuffix("【"), "left bracket should insert 【, not page candidates: \(committed)")
+        session.cancel()
+        type("beijing")
+        precondition(session.candidates.first?.word == "北京")
+        let background = session.candidates.firstIndex(where: { $0.word == "背景" })!
+        session.selectCandidate(at: background)
+        precondition(session.takeCommit() == "背景")
+        type("beijing")
+        precondition(session.candidates.first?.word == "背景", "FirstIsBest should pin 背景 for beijing, got \(session.candidates.prefix(5).map(\.word))")
+        session.cancel()
         var latencies: [Double] = []
         for _ in 0..<5 {
             for ch in "woxiangqubeijing" {

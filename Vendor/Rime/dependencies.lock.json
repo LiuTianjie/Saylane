@@ -44,6 +44,21 @@
       "sha256": "d0c11afd09443a8a13ddc79c630ae22c6b9a0403031bf0adaa2c301a127f20ea"
     },
     {
+      "file": "emoji.json",
+      "url": "https://raw.githubusercontent.com/iDvel/rime-ice/fbb516b2786e4d5444383706d13c31c2e4d10c08/opencc/emoji.json",
+      "sha256": "79fe3b878625d8f96d70aeb6c4d1929ab2a582f8b935d309125b6ccffd799602"
+    },
+    {
+      "file": "emoji.txt",
+      "url": "https://raw.githubusercontent.com/iDvel/rime-ice/fbb516b2786e4d5444383706d13c31c2e4d10c08/opencc/emoji.txt",
+      "sha256": "09e29b83ad367ea273e9ab438e572a7621649d93b36924ead28852762d2898b1"
+    },
+    {
+      "file": "others.txt",
+      "url": "https://raw.githubusercontent.com/iDvel/rime-ice/fbb516b2786e4d5444383706d13c31c2e4d10c08/opencc/others.txt",
+      "sha256": "9595273a49139e1184bca0f1923660793b3873d7b4996d0a5dd665e777d4e55c"
+    },
+    {
       "file": "ice-LICENSE",
       "url": "https://raw.githubusercontent.com/iDvel/rime-ice/fbb516b2786e4d5444383706d13c31c2e4d10c08/LICENSE",
       "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
