@@ -5,6 +5,8 @@ schema:
 switches:
   - name: ascii_mode
     reset: 0
+  - name: emoji
+    reset: 1
 engine:
   processors:
     - speller
@@ -18,6 +20,7 @@ engine:
     - script_translator
     - table_translator@english
   filters:
+    - simplifier@emoji
     - uniquifier
 menu:
   page_size: 9
@@ -27,6 +30,14 @@ speller:
   algebra:
     - derive/^([nl])ue$/$1ve/
     - derive/^([jqxy])u/$1v/
+    # Dictionary codes gain extra spellings so typos reach the same words.
+    # User types xign / qiou / guei; dict still stores xing / qiu / gui.
+    - derive/ing$/ign/
+    - derive/ing$/img/
+    - derive/ui$/uei/
+    - derive/iu$/iou/
+    - derive/un$/uen/
+    # abbrev is weaker than full syllables; do not use derive for jianpin.
     - abbrev/^([a-z]).+$/$1/
     - abbrev/^([zcs]h).+$/$1/
 translator:
@@ -36,6 +47,7 @@ translator:
   enable_user_dict: true
   enable_sentence: true
   enable_completion: true
+  initial_quality: 1.2
   spelling_hints: 0
   preedit_format:
     - xform/ /'/
@@ -43,10 +55,14 @@ translator:
 english:
   dictionary: melt_eng
   prism: saylane_en
-  user_dict: saylane_en
-  enable_user_dict: true
+  enable_user_dict: false
   enable_sentence: false
   enable_completion: false
-  initial_quality: 24
+  initial_quality: 1.1
   comment_format:
     - xform/.*//
+
+emoji:
+  option_name: emoji
+  opencc_config: emoji.json
+  inherit_comment: false
