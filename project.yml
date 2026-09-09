@@ -30,13 +30,6 @@ targets:
         excludes:
           - Resources/AppIcon.iconset/**
           - Resources/AppIcon.png
-          # Kept only as historical regression fixtures, never linked or loaded.
-          - IME/Pinyin/PinyinSession.swift
-          - IME/Pinyin/PinyinLexicon.swift
-          - IME/Pinyin/PinyinLanguageModel.swift
-          - IME/Pinyin/PinyinDecoder.swift
-          - Resources/pinyin.*.tsv
-          - Resources/Pinyin/**
       - path: Vendor/Rime/Rime
         name: Rime
         type: folder

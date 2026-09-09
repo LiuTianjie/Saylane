@@ -24,8 +24,6 @@ swiftc Sources/Models/SetupReadiness.swift Tests/SetupReadinessTests.swift -o bu
 build/tests/setup-readiness
 swiftc Sources/Models/AppLanguage.swift Tests/TranslationDirectionTests.swift -o build/tests/direction
 build/tests/direction
-swiftc Sources/IME/Pinyin/PinyinCandidate.swift Sources/IME/Pinyin/PinyinKeyEvent.swift Sources/IME/Pinyin/PinyinSyllable.swift Sources/IME/Pinyin/PinyinLexicon.swift Sources/IME/Pinyin/PinyinLanguageModel.swift Sources/IME/Pinyin/PinyinDecoder.swift Sources/IME/Pinyin/PinyinSession.swift Tests/PinyinTests.swift -o build/tests/pinyin
-build/tests/pinyin
 swiftc Sources/Models/AppLanguage.swift Sources/Models/SpeechModel.swift Sources/Models/SpeechEngineError.swift Sources/Services/ASRModelInstaller.swift Sources/Services/BufferConverter.swift Sources/Services/QwenAudioBuffer.swift Tests/ASRModelTests.swift -o build/tests/asr-models
 build/tests/asr-models
 swiftc Sources/Models/AppLanguage.swift Sources/Models/SpeechModel.swift Sources/Services/LocalSpeechRuntime.swift Tests/LocalSpeechRuntimeTests.swift -o build/tests/asr-lifetime

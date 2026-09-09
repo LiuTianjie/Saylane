@@ -37,7 +37,23 @@ if printf '%s' "$REQUIREMENT" | /usr/bin/grep -q 'designated => cdhash'; then
 fi
 pkgbuild --analyze --root "$ROOT" "$PWD/dist/components-$VERSION.plist"
 /usr/libexec/PlistBuddy -c 'Set :0:BundleIsRelocatable false' "$PWD/dist/components-$VERSION.plist"
+UNSIGNED="$PWD/dist/Saylane-$VERSION.unsigned.pkg"
+SIGNED="$PWD/dist/Saylane-$VERSION.pkg"
 pkgbuild --root "$ROOT" --component-plist "$PWD/dist/components-$VERSION.plist" \
   --identifier com.rtranslate.app --version "$VERSION" --scripts scripts/pkg \
-  --install-location / "$PWD/dist/Saylane-$VERSION.pkg"
-echo "Built dist/Saylane-$VERSION.pkg (non-relocatable /Library/Input Methods installation)"
+  --install-location / "$UNSIGNED"
+INSTALLER="${SAYLANE_INSTALLER_IDENTITY:-}"
+if [[ -z "$INSTALLER" ]]; then
+  INSTALLER="$(/usr/bin/security find-identity -v | /usr/bin/awk -F'"' '/Developer ID Installer:/ {print $2; exit}')"
+fi
+if [[ -n "$INSTALLER" ]]; then
+  /usr/bin/productsign --sign "$INSTALLER" --timestamp "$UNSIGNED" "$SIGNED"
+  rm -f "$UNSIGNED"
+  /usr/sbin/pkgutil --check-signature "$SIGNED"
+  echo "Built signed dist/Saylane-$VERSION.pkg with $INSTALLER"
+else
+  mv "$UNSIGNED" "$SIGNED"
+  echo "Built dist/Saylane-$VERSION.pkg (app signed; PKG unsigned — no Developer ID Installer identity)" >&2
+  echo "Create one for team L95PYLFT86 at https://developer.apple.com/account/resources/certificates/add then rerun." >&2
+fi
+echo "Non-relocatable /Library/Input Methods installation"

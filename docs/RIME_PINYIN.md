@@ -14,7 +14,7 @@ InputMethodKit / AppModel
 
 - 候选窗保留现有 9 候选一页、展开、点击、数字选择、方向键和翻页交互。
 - 组词与候选选择均使用 Rime session。没有用旧 Swift 解码器再次排序，也没有初始化失败时静默回退到旧引擎。
-- 原 `PinyinSession` / `PinyinDecoder` / `PinyinLexicon` / `PinyinLanguageModel` / `PinyinSyllable` 仅保留历史回归源码，已经从应用 target 排除；旧 TSV 不进入 app bundle。
+- 旧 Swift 拼音解码器已删除。`PinyinSyllable` 只保留音节表，用来区分拼音过程中的输入和英文整词。
 - 运行时调用在输入法主线程串行执行；Rime 返回的文本在桥接层复制，原生 context、commit 和 iterator 均及时释放。
 - `applicationWillTerminate` 结束 Rime service，关闭用户词库。跨进程测试验证选词学习可以恢复。
 

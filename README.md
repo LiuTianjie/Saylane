@@ -66,7 +66,6 @@ Sources/          输入法宿主、拼音、语音、设置
 Tests/            可脱离 Xcode 跑的单测
 Vendor/           Swift ASR 源码、固定版本 Rime 依赖清单与生成资源
 scripts/          打包、词库、图标、卸载
-scripts/data/     拼音词库源数据
 docs/             架构、安装、语音输入契约
 project.yml       XcodeGen 工程定义
 ```
