@@ -38,6 +38,7 @@ class Page(HTMLParser):
             self.in_head = True
         if tag == 'script' and a.get('src') == 'https://vibecafe.ai/telemetry/v1.js':
             assert self.in_head and 'defer' in a
+            assert a['data-vc-auth-key'] == 'vc_web_QiyGrUq2rzni6P87THnMkoUvRykblZjuu6GFoQs_d7c'
             self.telemetry += 1
         for key in ('src', 'href'):
             value = a.get(key, '')
@@ -53,5 +54,5 @@ page.feed(html)
 assert page.telemetry == 1
 assert '<h1>Saylane</h1>' in html
 assert html.count('class="brand-name">Saylane</span>') == 2
-assert 'https://github.com/LiuTianjie/rtranslate/releases/download/v0.2.47/RTranslate-0.2.47.pkg' in html
+assert 'https://github.com/LiuTianjie/Saylane/releases/download/v0.2.48/Saylane-0.2.48.pkg' in html
 print('PASS: Saylane branding, stable identity/storage, upgrade paths, published links and single telemetry script')
