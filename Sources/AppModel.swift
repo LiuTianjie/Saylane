@@ -340,7 +340,15 @@ final class AppModel {
         refreshInputSourceStatus()
     }
 
-    func commitPinyin() { pinyin.commit() }
+    func commitPinyin() {
+        // Caps Lock often makes IMK call commitComposition before flagsChanged.
+        // Commit the typed letters, not the highlighted Chinese candidate.
+        if NSEvent.modifierFlags.contains(.capsLock) {
+            pinyin.commitRaw()
+        } else {
+            pinyin.commit()
+        }
+    }
 
     func togglePinyinEnglishMode() {
         pinyin.setEnglishMode(!pinyinEnglishMode)

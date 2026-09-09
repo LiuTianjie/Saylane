@@ -1,4 +1,4 @@
-# Rime 拼音内核接入（2026-09-09，0.2.53）
+# Rime 拼音内核接入（2026-09-09，0.2.54）
 
 ## 架构
 
@@ -22,7 +22,7 @@ InputMethodKit / AppModel
 
 - `Vendor/Rime/dependencies.lock.json` 固定 librime 1.17.0 官方 macOS universal archive、雾凇词库和 rime-essay 的版本与 SHA-256。
 - 词库采用雾凇 `8105`、`base`、`ext`、`others` 四个表；不复制鼠须管前端，也不加载雾凇整套 Lua 配置。
-- `scripts/rime` 是 Saylane 自己的轻量 Rime 配置。标准/模糊音两套 prism 共用词典及 `saylane` 用户词库；模糊音在精确翻译器之外附加一条统一降权路径：任意模糊对（z/zh、an/ang、in/ing 等）都保持精确拼写的首选，模糊结果只作补充。中文权重 1.2、英文 1.1：有中文候选时中文在前，hello 这类纯英文仍可排第一，不再把未收录字母串插到首位。简拼用 `abbrev` 而不是 `derive`，弱于全拼。非法拼写容错（`ign`→`ing`、`uei`→`ui` 等）始终开启，合法音节之间的模糊音仍走开关。表情用雾凇 OpenCC `emoji.json`，作为候选注释显示。选词在整段上屏后写入 `first_is_best.json`，同一串拼音下次置顶。
+- `scripts/rime` 是 Saylane 自己的轻量 Rime 配置。标准/模糊音两套 prism 共用词典及 `saylane` 用户词库；模糊音在精确翻译器之外附加一条统一降权路径：任意模糊对（z/zh、an/ang、in/ing 等）都保持精确拼写的首选，模糊结果只作补充。中文权重 1.2、英文 1.1。还能读成拼音的输入（含中间 1–2 字母笔误）中文纠错在前；不能当拼音的整词英文才可排第一。简拼用 `abbrev` 而不是 `derive`，弱于全拼。非法拼写容错（`ign`→`ing`、`uei`→`ui` 等）始终开启，合法音节之间的模糊音仍走开关。表情用雾凇 OpenCC `emoji.json`，作为候选注释显示。选词在整段上屏后写入 `first_is_best.json`，同一串拼音下次置顶。
 - 没有搭载额外神经语言模型、octagram、Lua、predict 插件。整句能力来自 Rime 的 script translator 和配套词典，不声称已接入这些扩展。
 - 词后联想暂不支持，设置页已明确提示，不再展示无效开关。保留原联想偏好值，方便以后增加该能力。
 - 拼音运行不发送网络请求。首次源码构建会下载固定依赖，日常输入不下载或编译词库。
@@ -39,7 +39,7 @@ Rime session 的局部选词保留在 marked text 中，直到整段完成；并
 ## 中英切换契约
 
 - `nihao` + 单按 Shift → 上屏原始 `nihao`，切英文；左右 Shift 都支持。
-- `nihao` + Caps Lock 开启 → 上屏原始 `nihao`，后续大写字母/ASCII 标点由宿主处理；Caps Lock 关闭回到原来的中英模式。
+- `nihao` + Caps Lock 开启 → 上屏原始 `nihao`，后续大写字母/ASCII 标点由宿主处理；Caps Lock 关闭回到原来的中英模式。IMK 若在 flagsChanged 之前调用 `commitComposition`，Caps Lock 打开时同样提交原样字母，不接受中文首选。
 - 已显式选中“你”，剩余 `hao` → 切英文时上屏 `你hao`；不能接受未确认的“好”，也不能把确认的“你”变回 `ni`。
 - Return 使用同样的“保留已确认段、剩余原样字母”行为，不改变中英模式。
 - Rime express editor 的 Return 负责这一行为；不调用普通候选提交，也不把英文余串伪装成中文学习。

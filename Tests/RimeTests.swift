@@ -70,6 +70,14 @@ import Carbon.HIToolbox
         precondition(session.candidates.first?.word != "youshih", "raw latin must not beat 有时候: \(youshih)")
         precondition(session.candidates.first?.word.contains(where: { !$0.isASCII }) == true, "you'shi'h must stay Chinese-first, got \(youshih)")
         session.cancel()
+        type("woxiangqxbeijing")
+        let mistype = session.candidates.prefix(9).map(\.word)
+        precondition(session.candidates.first?.word != "woxiangqxbeijing", "mid-string typo must not echo raw latin first: \(mistype)")
+        if mistype.contains(where: { $0.contains(where: { !$0.isASCII }) }) {
+            precondition(session.candidates.first?.word.contains(where: { !$0.isASCII }) == true,
+                         "Chinese correction should lead a mistyped pinyin string: \(mistype)")
+        }
+        session.cancel()
         type("xign")
         let xign = session.candidates.prefix(9).map(\.word)
         precondition(xign.contains(where: { ["行", "星", "兴", "型", "形"].contains($0) }), "ign→ing should recall 行/星 for xign: \(xign)")
@@ -117,8 +125,12 @@ import Carbon.HIToolbox
         precondition(!session.handle(letter("a"), shiftToggleEnabled: true))
         session.setEnglishMode(false)
         type("nihao")
+        precondition(session.candidates.first?.word == "你好")
         _ = session.handle(modifier(kVK_CapsLock, .capsLock), shiftToggleEnabled: true)
         precondition(session.takeCommit() == "nihao" && !session.isComposing)
+        type("nihao")
+        _ = session.handle(modifier(kVK_CapsLock, []), shiftToggleEnabled: true)
+        precondition(session.takeCommit() == "nihao" && !session.isComposing, "Caps Lock must commit letters, not 你好")
         let upper = PinyinKeyEvent(type: .keyDown, keyCode: UInt16(kVK_ANSI_A), characters: "A", letter: "a", flags: .capsLock, isRepeat: false)
         precondition(!session.handle(upper, shiftToggleEnabled: true))
         _ = session.handle(modifier(kVK_CapsLock, []), shiftToggleEnabled: true)
