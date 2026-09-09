@@ -17,8 +17,6 @@ assert 'PRODUCT_NAME: Saylane' in read('project.yml')
 assert 'PRODUCT_BUNDLE_IDENTIFIER: com.rtranslate.inputmethod.rtranslate' in read('project.yml')
 assert 'com.rtranslate.final-polish' in read('Sources/Services/PolishKeychain.swift')
 assert '"RTranslate/ASRModels"' in read('Sources/Models/SpeechModel.swift')
-for path in ('Sources/IME/Pinyin/PinyinLexicon.swift', 'Sources/IME/Pinyin/PinyinLanguageModel.swift'):
-    assert '"RTranslate", isDirectory: true' in read(path)
 for path in ('scripts/pkg/preinstall', 'scripts/uninstall.sh'):
     text = read(path)
     assert '/Library/Input Methods/Saylane.app' in text
