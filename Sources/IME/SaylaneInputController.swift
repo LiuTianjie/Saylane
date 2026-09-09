@@ -116,22 +116,37 @@ final class IMEManager {
                 return self.generation == token && self.controller === controller && self.isOursSelected
             },
             marked: { text in
-                let marked = NSAttributedString(string: text, attributes: [.underlineStyle: NSUnderlineStyle.single.rawValue])
-                client.setMarkedText(marked, selectionRange: NSRange(location: 0, length: (text as NSString).length), replacementRange: NSRange(location: NSNotFound, length: 0))
+                IMEManager.applyMarkedText(text, caret: (text as NSString).length, highlight: NSRange(location: 0, length: 0), to: client)
             },
             insert: { text in client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0)) }
         )
     }
 
-    func setPinyinMarked(_ text: String) {
+    func setPinyinMarked(_ text: String, caret: Int? = nil, highlight: NSRange = NSRange(location: 0, length: 0)) {
         guard let client = controller?.client() else { return }
+        Self.applyMarkedText(text, caret: caret ?? (text as NSString).length, highlight: highlight, to: client)
+    }
+
+    /// Caret sits at the end of the composition, not as a full-range selection.
+    /// The active syllable uses a thicker underline, matching Doubao/Rime frontends.
+    fileprivate static func applyMarkedText(_ text: String, caret: Int, highlight: NSRange, to client: IMKTextInput) {
         if text.isEmpty {
             client.setMarkedText("", selectionRange: NSRange(location: 0, length: 0),
                                  replacementRange: NSRange(location: NSNotFound, length: 0))
             return
         }
-        let marked = NSAttributedString(string: text, attributes: [.underlineStyle: NSUnderlineStyle.single.rawValue])
-        client.setMarkedText(marked, selectionRange: NSRange(location: 0, length: (text as NSString).length),
+        let ns = text as NSString
+        let length = ns.length
+        let marked = NSMutableAttributedString(string: text)
+        marked.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue,
+                            range: NSRange(location: 0, length: length))
+        let start = min(max(0, highlight.location), length)
+        let end = min(max(start, highlight.location + highlight.length), length)
+        if end > start {
+            marked.addAttribute(.underlineStyle, value: NSUnderlineStyle.thick.rawValue,
+                                range: NSRange(location: start, length: end - start))
+        }
+        client.setMarkedText(marked, selectionRange: NSRange(location: min(max(0, caret), length), length: 0),
                              replacementRange: NSRange(location: NSNotFound, length: 0))
     }
 

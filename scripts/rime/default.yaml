@@ -1,0 +1,9 @@
+config_version: '1.0'
+schema_list:
+  - schema: saylane_pinyin
+  - schema: saylane_pinyin_fuzzy
+  - schema: saylane_fuzzy_codes
+menu:
+  page_size: 9
+switcher:
+  hotkeys: []

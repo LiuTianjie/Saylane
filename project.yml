@@ -10,8 +10,8 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
-    MARKETING_VERSION: "0.2.48"
-    CURRENT_PROJECT_VERSION: "48"
+    MARKETING_VERSION: "0.2.51"
+    CURRENT_PROJECT_VERSION: "51"
     DEAD_CODE_STRIPPING: YES
     ARCHS: arm64
     ONLY_ACTIVE_ARCH: NO
@@ -30,12 +30,30 @@ targets:
         excludes:
           - Resources/AppIcon.iconset/**
           - Resources/AppIcon.png
+          # Kept only as historical regression fixtures, never linked or loaded.
+          - IME/Pinyin/PinyinSession.swift
+          - IME/Pinyin/PinyinSyllable.swift
+          - IME/Pinyin/PinyinLexicon.swift
+          - IME/Pinyin/PinyinLanguageModel.swift
+          - IME/Pinyin/PinyinDecoder.swift
+          - Resources/pinyin.*.tsv
+          - Resources/Pinyin/**
+      - path: Vendor/Rime/Rime
+        name: Rime
+        type: folder
+        buildPhase: resources
     dependencies:
       - sdk: InputMethodKit.framework
+      - framework: Vendor/Rime/Runtime/lib/librime.1.dylib
+        embed: true
+        codeSign: true
       - package: MLXASR
         product: MLXASR
     settings:
       base:
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/IME/Rime/SaylaneRime.h
+        LIBRARY_SEARCH_PATHS: "$(inherited) $(SRCROOT)/Vendor/Rime/Runtime/lib"
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/Vendor/Rime/Runtime/include"
         INFOPLIST_FILE: Sources/Info.plist
         GENERATE_INFOPLIST_FILE: false
         PRODUCT_BUNDLE_IDENTIFIER: com.rtranslate.inputmethod.rtranslate

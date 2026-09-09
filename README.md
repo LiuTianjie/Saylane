@@ -2,7 +2,7 @@
 
 macOS 输入法：打字走拼音，按住快捷键说话则在当前输入框写入译文（默认中文 → 英文）。装在 `/Library/Input Methods/`，和系统其它输入法一样切换使用。
 
-当前版本 `0.2.48`。语音识别和翻译默认走 Apple 端侧框架；可选的终稿润色才走外部 API。
+已发布版本 `0.2.48`；当前源码的 Rime 本地测试包版本为 `0.2.51`。语音识别和翻译默认走 Apple 端侧框架；可选的终稿润色才走外部 API。
 
 ## 要求
 
@@ -16,11 +16,22 @@ macOS 输入法：打字走拼音，按住快捷键说话则在当前输入框�
 
 ```bash
 make build          # Debug
-make test           # 本地 swiftc 单测
+make test           # 本地 swiftc 单测 + 真实 librime 回归
 make pkg            # Release + pkg
 ```
 
 `Saylane.xcodeproj` 由 `project.yml` 生成，不要手改，也不进 git。
+首次构建还会通过 `scripts/prepare-rime.py` 下载 SHA-256 固定的 librime/词库并预编译；建议 Python 3.12+。
+
+## Rime 拼音内核（0.2.51 本地测试，未线上发布）
+
+当前源码已改为 librime + 雾凇词库子集，保留 Saylane 候选窗和语音交互。
+Shift/Caps Lock 在组字中切英文时上屏原始字母，不再先接受中文首选。
+词后联想暂不支持；旧学习文件保留但不自动迁移，新 Rime 用户词库独立保存。
+0.2.50 在设置 → 键盘加入手动「检查词库更新」：显示当前版本、比较实际使用的四份词表，支持取消和重试。此入口只检查，不下载或安装词库。
+0.2.51 模糊音改为统一降权补充：精确拼写保持首选，组字光标在末尾，翻页只用 -/=。
+固定依赖、架构、构建方法与验证边界见 [docs/RIME_PINYIN.md](docs/RIME_PINYIN.md)。
+这不改变下方已发布 v0.2.48 安装包的内容。
 
 第一次使用需要：
 
@@ -52,7 +63,7 @@ make pkg            # Release + pkg
 ```
 Sources/          输入法宿主、拼音、语音、设置
 Tests/            可脱离 Xcode 跑的单测
-Vendor/           固定版本的 Swift ASR 运行源码（无模型权重）
+Vendor/           Swift ASR 源码、固定版本 Rime 依赖清单与生成资源
 scripts/          打包、词库、图标、卸载
 scripts/data/     拼音词库源数据
 docs/             架构、安装、语音输入契约
@@ -67,7 +78,7 @@ project.yml       XcodeGen 工程定义
 
 以下旧标识刻意保留，不属于遗漏：
 - `com.rtranslate.*` 的 Bundle ID、输入源 ID、Keychain service、偏好迁移域和安装器 receipt ID：保持应用身份连续性；本次不迁移用户凭据和系统授权。
-- `~/Library/Application Support/RTranslate`：继续使用已有模型、词频和诊断目录，避免重新下载或丢失用户数据。
+- `~/Library/Application Support/RTranslate`：继续使用已有模型和诊断目录；旧词频文件保留。开发中的 Rime 内核使用独立的 Saylane/Rime 用户词库，暂不导入旧词频。
 - 安装/卸载脚本兼容旧 `RTranslate.app` 路径，核验 Bundle ID 后才清理；同时支持 `Saylane.app`。
 - 签名环境变量首选 `SAYLANE_SIGNING_IDENTITY`，兼容旧 `RTRANSLATE_SIGNING_IDENTITY`。
 - GitHub 仓库及 Pages 地址仍沿用原路径；已发布 v0.2.47 的文件名和下载地址不变，该历史安装包仍显示旧品牌。Saylane 新版安装包从 v0.2.48 开始发布。

@@ -25,7 +25,7 @@ final class CandidateWindowController {
     private func render() {
         let candidates = lastCandidates
         guard !candidates.isEmpty else { hide(); return }
-        let pageSize = PinyinSession.pageSize
+        let pageSize = RimePinyinSession.pageSize
         let page = lastHighlight / pageSize
         let start = page * pageSize
         let visible = model.expanded ? pageSize * 2 : pageSize

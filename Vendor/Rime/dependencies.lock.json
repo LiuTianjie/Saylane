@@ -1,0 +1,87 @@
+{
+  "librime": "1.17.0",
+  "ice_commit": "fbb516b2786e4d5444383706d13c31c2e4d10c08",
+  "essay_commit": "e9b1a374a6ea015fca5bdd04318924b4483ac35a",
+  "assets": [
+    {
+      "file": "librime.tar.bz2",
+      "url": "https://github.com/rime/librime/releases/download/1.17.0/rime-33e7814-macOS-universal.tar.bz2",
+      "sha256": "11d8dc663c6ec06d5ccb6111ba664a9e7b631b703ac6acd07cffbac664021850"
+    },
+    {
+      "file": "librime-LICENSE",
+      "url": "https://raw.githubusercontent.com/rime/librime/1.17.0/LICENSE",
+      "sha256": "f67d27a6d2d586fcfed4b4c886a83747095396a39b6641e18e855086be2ec400"
+    },
+    {
+      "file": "8105.dict.yaml",
+      "url": "https://raw.githubusercontent.com/iDvel/rime-ice/fbb516b2786e4d5444383706d13c31c2e4d10c08/cn_dicts/8105.dict.yaml",
+      "sha256": "1f9a42b91dea6982baee2551981780271aeffd78876662b9c9f324e56b37b120"
+    },
+    {
+      "file": "base.dict.yaml",
+      "url": "https://raw.githubusercontent.com/iDvel/rime-ice/fbb516b2786e4d5444383706d13c31c2e4d10c08/cn_dicts/base.dict.yaml",
+      "sha256": "6c594bbd03425600aa36894b713f3d268bd2a11099833a312160249e0a3f0082"
+    },
+    {
+      "file": "ext.dict.yaml",
+      "url": "https://raw.githubusercontent.com/iDvel/rime-ice/fbb516b2786e4d5444383706d13c31c2e4d10c08/cn_dicts/ext.dict.yaml",
+      "sha256": "5435dd8b75d6eb688787a25b6e302867152ef401bec7b263136ab1e2a2ecf4ae"
+    },
+    {
+      "file": "others.dict.yaml",
+      "url": "https://raw.githubusercontent.com/iDvel/rime-ice/fbb516b2786e4d5444383706d13c31c2e4d10c08/cn_dicts/others.dict.yaml",
+      "sha256": "c7475d773e619f61b88d47fa8ec789aba02aa0d1c98edaed309e53487b048b32"
+    },
+    {
+      "file": "ice-LICENSE",
+      "url": "https://raw.githubusercontent.com/iDvel/rime-ice/fbb516b2786e4d5444383706d13c31c2e4d10c08/LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "file": "essay.txt",
+      "url": "https://raw.githubusercontent.com/rime/rime-essay/e9b1a374a6ea015fca5bdd04318924b4483ac35a/essay.txt",
+      "sha256": "a6f8409c261e5d21bd78e6cbcde8f8e1ef7f68c07ff1c2692c07dd4ff4151cea"
+    },
+    {
+      "file": "essay-LICENSE",
+      "url": "https://raw.githubusercontent.com/rime/rime-essay/e9b1a374a6ea015fca5bdd04318924b4483ac35a/LICENSE",
+      "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+    },
+    {
+      "file": "essay-AUTHORS",
+      "url": "https://raw.githubusercontent.com/rime/rime-essay/e9b1a374a6ea015fca5bdd04318924b4483ac35a/AUTHORS",
+      "sha256": "4ab2f81451ff4819f2b0e346583b49cee37aec72a01f8ecd96be1711c4204b75"
+    },
+    {
+      "file": "boost-LICENSE",
+      "url": "https://raw.githubusercontent.com/boostorg/boost/boost-1.89.0/LICENSE_1_0.txt",
+      "sha256": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566"
+    },
+    {
+      "file": "glog-LICENSE",
+      "url": "https://raw.githubusercontent.com/google/glog/7b134a5c82c0c0b5698bb6bf7a835b230c5638e4/COPYING",
+      "sha256": "136d48dea7a681413691f3db3098f6cf5ffaa3119d96d97bb83b8cff3ce38c4a"
+    },
+    {
+      "file": "leveldb-LICENSE",
+      "url": "https://raw.githubusercontent.com/google/leveldb/99b3c03b3284f5886f9ef9a4ef703d57373e61be/LICENSE",
+      "sha256": "ccc19f1da0798ed666609b65a5b44dd8b3abe6fc08b9c0592eb76e82e174db19"
+    },
+    {
+      "file": "marisa-LICENSE",
+      "url": "https://raw.githubusercontent.com/s-yata/marisa-trie/3e87d53b78e15f2f43783d5e376561a8c9722051/COPYING.md",
+      "sha256": "edf58dab34c3dc239ba4ba2d5d3d844d8c5b442aa4dd1149fac81b2d8c6cb8d1"
+    },
+    {
+      "file": "yaml-cpp-LICENSE",
+      "url": "https://raw.githubusercontent.com/jbeder/yaml-cpp/2f86d13775d119edbb69af52e5f566fd65c6953b/LICENSE",
+      "sha256": "aa6fcc27be034e41e21dd832f9175bfe694a48491d9e14ff0fa278e19ad14f1b"
+    },
+    {
+      "file": "opencc-LICENSE",
+      "url": "https://raw.githubusercontent.com/BYVoid/OpenCC/556ed22496d650bd0b13b6c163be9814637970ae/LICENSE",
+      "sha256": "b534e465949558eec2597b04f5092b5e161236a68dfbfd04d547592ac3964308"
+    }
+  ]
+}

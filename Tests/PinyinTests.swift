@@ -5,6 +5,7 @@ import Carbon.HIToolbox
     static func main() {
         normalize()
         sessionSelection()
+        latinModeSwitch()
         dictionary()
         pagingFuzzy()
         userChoice()
@@ -106,6 +107,72 @@ import Carbon.HIToolbox
         precondition(session.handle(up, shiftToggleEnabled: true))
         precondition(session.englishMode)
         precondition(session.handle(letter("a"), shiftToggleEnabled: true) == false)
+    }
+
+    static func latinModeSwitch() {
+        let persisted = PinyinLanguageModel.persistEnabled
+        PinyinLanguageModel.persistEnabled = false
+        defer { PinyinLanguageModel.persistEnabled = persisted }
+        let lexicon = PinyinLexicon()
+        lexicon.replace(with: [
+            PinyinEntry(word: "你好", pinyin: "nihao", frequency: 100),
+            PinyinEntry(word: "你", pinyin: "ni", frequency: 90),
+            PinyinEntry(word: "好", pinyin: "hao", frequency: 80)
+        ])
+        func modifier(_ code: Int, _ flags: NSEvent.ModifierFlags) -> PinyinKeyEvent {
+            PinyinKeyEvent(type: .flagsChanged, keyCode: UInt16(code), characters: "",
+                           letter: nil, flags: flags, isRepeat: false)
+        }
+        func composing() -> PinyinSession {
+            let session = PinyinSession(lexicon: lexicon)
+            for ch in "nihao" { _ = session.handle(letter(ch), shiftToggleEnabled: true) }
+            precondition(session.candidates.first?.word == "你好")
+            return session
+        }
+        for code in [kVK_Shift, kVK_RightShift] {
+            let session = composing()
+            _ = session.handle(modifier(code, .shift), shiftToggleEnabled: true)
+            precondition(session.handle(modifier(code, []), shiftToggleEnabled: true))
+            precondition(session.takeCommit() == "nihao")
+            precondition(session.englishMode && !session.isComposing && !session.showsCandidates)
+            precondition(session.markedText.isEmpty)
+            precondition(!session.handle(letter("a"), shiftToggleEnabled: true))
+            _ = session.handle(modifier(code, .shift), shiftToggleEnabled: true)
+            _ = session.handle(modifier(code, []), shiftToggleEnabled: true)
+            precondition(!session.englishMode && session.takeCommit().isEmpty)
+        }
+        let caps = composing()
+        precondition(caps.handle(modifier(kVK_CapsLock, .capsLock), shiftToggleEnabled: true))
+        precondition(caps.takeCommit() == "nihao")
+        precondition(!caps.isComposing && !caps.showsCandidates && !caps.englishMode)
+        let uppercase = PinyinKeyEvent(type: .keyDown, keyCode: UInt16(kVK_ANSI_A),
+                                      characters: "A", letter: "a", flags: .capsLock, isRepeat: false)
+        precondition(!caps.handle(uppercase, shiftToggleEnabled: true))
+        let punctuation = PinyinKeyEvent(type: .keyDown, keyCode: 0, characters: ",",
+                                        letter: nil, flags: .capsLock, isRepeat: false)
+        precondition(!caps.handle(punctuation, shiftToggleEnabled: true))
+        precondition(!caps.handle(modifier(kVK_CapsLock, []), shiftToggleEnabled: true))
+        precondition(caps.takeCommit().isEmpty)
+        precondition(caps.handle(letter("n"), shiftToggleEnabled: true))
+
+        let disabled = composing()
+        _ = disabled.handle(modifier(kVK_Shift, .shift), shiftToggleEnabled: false)
+        precondition(!disabled.handle(modifier(kVK_Shift, []), shiftToggleEnabled: false))
+        precondition(disabled.preedit == "nihao" && !disabled.englishMode)
+        precondition(disabled.takeCommit().isEmpty)
+
+        let direct = composing()
+        direct.setEnglishMode(true)
+        precondition(direct.takeCommit() == "nihao" && !direct.isComposing)
+        direct.setEnglishMode(true)
+        precondition(direct.takeCommit().isEmpty)
+
+        let partial = composing()
+        partial.selectCandidate(at: partial.candidates.firstIndex(where: { $0.word == "你" })!)
+        precondition(partial.takeCommit() == "你")
+        partial.setEnglishMode(true)
+        precondition(partial.takeCommit() == "hao")
+        precondition(partial.markedText.isEmpty && !partial.showsCandidates)
     }
 
     static func bundledLexicon() -> PinyinLexicon {

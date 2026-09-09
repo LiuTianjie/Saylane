@@ -10,6 +10,9 @@ enum SaylaneMain {
     private static var inputServer: IMKServer?
 
     static func main() {
+        if CommandLine.arguments.contains("--pinyin-self-test") {
+            exit(RimeDiagnostics.run())
+        }
         if CommandLine.arguments.contains("--register-input-source") {
             exit(InputSourceInstall.registerBundle() == noErr ? EXIT_SUCCESS : EXIT_FAILURE)
         }

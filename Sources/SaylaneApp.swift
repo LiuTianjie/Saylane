@@ -43,6 +43,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        SLRimeFinalize()
+    }
+
     @objc private func openPreferences(_ sender: Any?) {
         MainActor.assumeIsolated { AppModel.shared.openSettings() }
     }

@@ -100,6 +100,7 @@ final class AppModel {
     private let globalHotkey = GlobalHotkeyMonitor.shared
     var globalHotkeyActive: Bool { globalHotkey.isListeningToEvents }
     let pinyin = PinyinEngine()
+    let pinyinDictionaryUpdates = RimeDictionaryUpdateModel()
     var pinyinEnglishMode = UserDefaults.standard.bool(forKey: "pinyinEnglishMode")
     var pinyinAssociationEnabled = UserDefaults.standard.bool(forKey: "pinyinAssociationEnabled")
     var pinyinBarPreeditEnabled = UserDefaults.standard.bool(forKey: "pinyinBarPreeditEnabled")
@@ -147,7 +148,12 @@ final class AppModel {
         NSApp.setActivationPolicy(.accessory)
         overlay.prepare()
         overlay.setHotkeyLabel(pushToTalk.shortLabel)
-        PinyinLexicon.shared.loadDefault()
+        pinyinAssociationEnabled = pinyin.associationEnabled
+        if let error = pinyin.initializationError {
+            InputDiagnostics.record("pinyin-init-failed", error)
+        } else {
+            InputDiagnostics.record("pinyin-ready", "librime")
+        }
         coordinator.onState = { [weak self] state in
             guard let self else { return }
             InputDiagnostics.record("session-state", String(describing: state))
