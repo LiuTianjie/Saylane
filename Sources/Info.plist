@@ -13,7 +13,7 @@
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundleDisplayName</key>
-	<string>RTranslate</string>
+	<string>Saylane</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIconName</key>
@@ -31,17 +31,17 @@
 	<key>LSBackgroundOnly</key>
 	<false/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2026 RTranslate</string>
+	<string>Copyright © 2026 Saylane</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>RTranslate 使用麦克风在设备端识别你的语音，并翻译到选定语言。</string>
+	<string>Saylane 使用麦克风在设备端识别你的语音，并翻译到选定语言。</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>RTranslate 在设备端把语音转成文字，音频不会上传到服务器。</string>
+	<string>Saylane 在设备端把语音转成文字，音频不会上传到服务器。</string>
 	<key>InputMethodConnectionName</key>
-	<string>RTranslate_Connection</string>
+	<string>Saylane_Connection</string>
 	<key>InputMethodServerControllerClass</key>
-	<string>RTranslateInputController</string>
+	<string>SaylaneInputController</string>
 	<key>InputMethodServerDelegateClass</key>
-	<string>RTranslateInputController</string>
+	<string>SaylaneInputController</string>
 	<key>tsInputMethodIconFileKey</key>
 	<string>menu_icon.pdf</string>
 	<key>tsInputMethodCharacterRepertoireKey</key>

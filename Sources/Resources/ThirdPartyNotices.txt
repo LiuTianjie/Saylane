@@ -1,4 +1,4 @@
-RTranslate — Third-party runtime notices
+Saylane — Third-party runtime notices
 
 Model weights are NOT bundled. Optional downloaded Qwen3-ASR models are Apache-2.0.
 

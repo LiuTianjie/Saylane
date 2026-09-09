@@ -13,6 +13,6 @@ enum InputDiagnostics {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             let data = try JSONSerialization.data(withJSONObject: entries, options: [.prettyPrinted, .sortedKeys])
             try data.write(to: dir.appendingPathComponent("input-session.json"), options: .atomic)
-        } catch { NSLog("RTranslate diagnostic write failed: %@", error.localizedDescription) }
+        } catch { NSLog("Saylane diagnostic write failed: %@", error.localizedDescription) }
     }
 }

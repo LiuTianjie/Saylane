@@ -1,4 +1,4 @@
-# RTranslate 语音输入 V2：产品流程、架构与验收
+# Saylane 语音输入 V2：产品流程、架构与验收
 
 更新：2026-09-07。本文是下一版的实现契约，不代表下列功能已经全部实现。
 
@@ -10,11 +10,11 @@
 
 ## 2. 唯一主流程
 
-1. 安装器：退出旧 RTranslate，核验 bundle ID 后清理系统/当前用户 Input Methods 和 Applications 的旧副本；保留设置，不碰其他输入法。安装到唯一系统级路径。
+1. 安装器：退出旧 Saylane，核验 bundle ID 后清理系统/当前用户 Input Methods 和 Applications 的旧副本；保留设置，不碰其他输入法。安装到唯一系统级路径。
 2. 在登录用户的 GUI 会话中注册输入源、启用、选中，并读回校验。文件拷贝成功不等于安装成功。失败必须明确报告，不能忽略退出码。
 3. 首次引导显示四个检查项：输入源可见、已选中、麦克风授权、模型准备好。缺哪一项就提供对应修复；最后在引导内的测试输入框完成一次实际听写。
 4. 用户选择“说话语言”“输出语言”。相同时直接听写，完全跳过翻译模型。第一版是显式选择说话语言，不假装已有自动语言检测。
-5. 未选中本输入法时明确显示“切换到 RTranslate”，不偷偷依赖全局键盘监听权限。先保证选中输入法的路径稳定；任意输入法下全局唤起另列功能。
+5. 未选中本输入法时明确显示“切换到 Saylane”，不偷偷依赖全局键盘监听权限。先保证选中输入法的路径稳定；任意输入法下全局唤起另列功能。
 6. 在目标应用聚焦普通文本框，按住用户设定的快捷键。底部居中显示无边框、不可拖的波形胶囊；不抢焦点、不展示识别或译文。
 7. 同语言：partial 通过 IMK setMarkedText 直接更新目标输入框。不同语言：短语级节流翻译，更新同一段 marked text；中间稿可变，不逐条追加，也不承诺中英翻译零延迟逐字同步。
 8. 松开：停止采集，排空已采集音频，等待最终识别；必要时做最后一次翻译，只 insertText 提交一次，然后 HUD 消失。
@@ -155,7 +155,7 @@ Removed the standalone SwiftUI MenuBarExtra and its view. The existing retained
 IMKServer now runs under NSApplication with an app delegate; SwiftUI settings remain
 hosted in NSHostingController. The normal settings window retains its Edit menu.
 The IMK controller supplies the native input-source menu with current language,
-RTranslate settings (`showPreferences:`), and target-language switching commands.
+Saylane settings (`showPreferences:`), and target-language switching commands.
 Opening the installed app directly also opens settings.
 
 The menu icon is now native 16pt PDF vector artwork: an outlined speech bubble
@@ -210,7 +210,7 @@ No input monitoring or Accessibility authorization has been requested implicitly
 
 A separate packaging defect was found: 0.2.6 had a cdhash-only ad-hoc designated
 requirement. Release packaging now uses one available Developer ID Application
-identity (or explicit RTRANSLATE_SIGNING_IDENTITY), enables hardened runtime with
+identity (or explicit SAYLANE_SIGNING_IDENTITY), enables hardened runtime with
 audio-input entitlement, verifies the signature and rejects cdhash-only releases.
 The resulting DR is identifier + Apple chain + team, not binary content hash.
 This is a stable signing foundation, not evidence of cross-version TCC persistence
@@ -250,13 +250,13 @@ Release build, test suite and signed packaging passed. Installer reported succes
 
 ## 0.2.13 — system input-source identity compatibility work
 
-User reports black symbol in menu and caret switch indicator, plus raw bundle naming in system switch UI. Current live TIS query before patch resolves RTranslate and v2 TIFF, whereas supplied screenshot still shows older menu action wording. Root cause is not yet proven; neither asset alpha tests nor TIS URLs establish actual rendering.
+User reports black symbol in menu and caret switch indicator, plus raw bundle naming in system switch UI. Current live TIS query before patch resolves Saylane and v2 TIFF, whereas supplied screenshot still shows older menu action wording. Root cause is not yet proven; neither asset alpha tests nor TIS URLs establish actual rendering.
 
 Add root Resources/InfoPlist.strings fallback with bundle and mode names. Set explicit development region, increment internal build to 13 (previous releases reused 9). Use a separate ICNS input-method fallback and single Retina 16pt TIFF for mode menu/palette/alternate keys, following the resource split and TIFF representation of upstream google/mozc src/mac/Info.plist and src/data/images/mac/hiragana.tiff. Artwork remains our speech outline, no third-party artwork copied. Added fallback-name and resource-key validation. This is a compatibility patch pending real system menu/caret/switch-panel visual acceptance, not a confirmed fix.
 
 ## 0.2.14 — test luminance-based system icon rendering
 
-User screenshots after 0.2.13 still show a solid square in dark menu and empty caret badge. Name is now RTranslate in provided menu screenshot. Prior transparency fixes did not solve the visual defect.
+User screenshots after 0.2.13 still show a solid square in dark menu and empty caret badge. Name is now Saylane in provided menu screenshot. Prior transparency fixes did not solve the visual defect.
 
 Comparison: our v3 TIFF has 582 fully transparent pixels with black RGB and black artwork; upstream Mozc hiragana TIFF has 992 fully opaque pixels out of 1024. Hypothesis: system template conversion consumes RGB/luminance rather than the alpha-only shape. New v4 mask explicitly encodes black artwork on opaque white; all parent/mode/palette/alternate references use this mask. Added luminance contrast assertions instead of treating alpha transparency as acceptance evidence. This is a targeted hypothesis pending actual system rendering; don't call it confirmed from build/tests alone.
 

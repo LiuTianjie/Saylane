@@ -6,12 +6,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // NSHostingController settings still need standard edit/menu commands,
         // but no NSStatusItem/MenuBarExtra is created by this input-method host.
         let menu = NSMenu()
-        let appItem = menu.addItem(withTitle: "RTranslate", action: nil, keyEquivalent: "")
-        let appMenu = NSMenu(title: "RTranslate")
+        let appItem = menu.addItem(withTitle: "Saylane", action: nil, keyEquivalent: "")
+        let appMenu = NSMenu(title: "Saylane")
         appItem.submenu = appMenu
         appMenu.addItem(withTitle: "设置…", action: #selector(openPreferences(_:)), keyEquivalent: ",").target = self
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "退出 RTranslate", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "退出 Saylane", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         let editItem = menu.addItem(withTitle: "编辑", action: nil, keyEquivalent: "")
         let editMenu = NSMenu(title: "编辑")
         editItem.submenu = editMenu

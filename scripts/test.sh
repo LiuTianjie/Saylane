@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p build/tests
+python3 Tests/BrandingTests.py
 swiftc Sources/Services/BufferConverter.swift Tests/PCMCopyTests.swift -o build/tests/pcm
 build/tests/pcm
 swiftc Sources/Models/PushToTalkHotkey.swift Sources/Services/PushToTalkHandler.swift Tests/HotkeyTests.swift -o build/tests/hotkey

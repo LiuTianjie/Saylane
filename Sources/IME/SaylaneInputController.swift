@@ -2,12 +2,12 @@ import AppKit
 import Carbon.HIToolbox
 import InputMethodKit
 
-@objc(RTranslateInputController)
-final class RTranslateInputController: IMKInputController {
+@objc(SaylaneInputController)
+final class SaylaneInputController: IMKInputController {
     override func menu() -> NSMenu! {
         MainActor.assumeIsolated {
             let model = AppModel.shared
-            let menu = NSMenu(title: "RTranslate")
+            let menu = NSMenu(title: "Saylane")
             menu.autoenablesItems = false
             let languages = menu.addItem(withTitle: model.currentDirection.title, action: nil, keyEquivalent: "")
             languages.isEnabled = false
@@ -15,7 +15,7 @@ final class RTranslateInputController: IMKInputController {
                                         action: #selector(togglePinyinMode(_:)), keyEquivalent: "")
             keyboard.target = self
             keyboard.isEnabled = !model.isListening
-            let settings = menu.addItem(withTitle: "RTranslate 设置…", action: #selector(showPreferences(_:)), keyEquivalent: "")
+            let settings = menu.addItem(withTitle: "Saylane 设置…", action: #selector(showPreferences(_:)), keyEquivalent: "")
             settings.target = self
             if model.languageSwitchEnabled {
                 let change = menu.addItem(withTitle: "切换翻译方向", action: #selector(switchOutputLanguage(_:)), keyEquivalent: "")
@@ -78,7 +78,7 @@ final class RTranslateInputController: IMKInputController {
 @MainActor
 final class IMEManager {
     static let shared = IMEManager()
-    private weak var controller: RTranslateInputController?
+    private weak var controller: SaylaneInputController?
     private var generation = 0
     var onTargetLost: (() -> Void)?
     var hasClient: Bool { controller?.client() != nil }
@@ -87,21 +87,21 @@ final class IMEManager {
 
     var onWillSwitchClient: (() -> Void)?
 
-    func attach(_ next: RTranslateInputController) {
+    func attach(_ next: SaylaneInputController) {
         guard controller !== next else { return }
         onWillSwitchClient?()
         onTargetLost?()
         generation += 1
         controller = next
     }
-    func detach(_ old: RTranslateInputController) {
+    func detach(_ old: SaylaneInputController) {
         guard controller === old else { return }
         onWillSwitchClient?()
         onTargetLost?()
         generation += 1
         controller = nil
     }
-    func targetChanged(_ old: RTranslateInputController) {
+    func targetChanged(_ old: SaylaneInputController) {
         guard controller === old else { return }
         onTargetLost?()
         generation += 1

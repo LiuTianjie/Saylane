@@ -1,9 +1,9 @@
 > 当前已落地为系统输入法（拼音打字 + 按住说话翻译），安装到 `/Library/Input Methods/`。
 > 下文是 v1 设计底稿，菜单栏宿主的表述以现实现状为准。语音流程契约见 `docs/VOICE_INPUT_V2.md`。
 
-# RTranslate 技术架构（v1）
+# Saylane 技术架构（v1）
 
-RTranslate 是一个 macOS 菜单栏应用：按住全局快捷键说话，把语音识别结果按选定语言对翻译后，**实时写入当前焦点输入框**。产品形态接近 TypeLess，差异在「源语言 / 目标语言」和「边说边往输入框里写译文」。
+Saylane 是一个 macOS 菜单栏应用：按住全局快捷键说话，把语音识别结果按选定语言对翻译后，**实时写入当前焦点输入框**。产品形态接近 TypeLess，差异在「源语言 / 目标语言」和「边说边往输入框里写译文」。
 
 当前仓库从空项目起步。v1 只打通核心闭环，不做口水话 AI 润色。
 
@@ -97,7 +97,7 @@ Escape → cancelling：停止识别，按已写入长度退格删掉译文
 
 ```
 Sources/
-  RTranslateApp.swift          菜单栏入口、accessory 策略
+  SaylaneApp.swift          菜单栏入口、accessory 策略
   AppModel.swift               设置、权限、语言对、会话编排
   Info.plist / entitlements
   Models/

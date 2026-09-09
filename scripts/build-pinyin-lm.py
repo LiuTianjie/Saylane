@@ -131,7 +131,7 @@ def main() -> None:
     output = pathlib.Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", encoding="utf-8") as handle:
-        handle.write("# word bigrams for RTranslate sentence decoding\n")
+        handle.write("# word bigrams for Saylane sentence decoding\n")
         handle.write("# Phrase splits from the lexicon plus OpenSubtitles-derived counts\n")
         for (left, right), count in rows:
             if count <= 0:

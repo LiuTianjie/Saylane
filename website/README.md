@@ -1,4 +1,4 @@
-# Rtranslate product website
+# Saylane product website
 
 Static product demo deployed to GitHub Pages. No microphone access or live translation API: all sentences are curated examples.
 

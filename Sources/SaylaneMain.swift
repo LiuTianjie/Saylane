@@ -6,7 +6,7 @@ import SwiftUI
 #endif
 
 @main
-enum RTranslateMain {
+enum SaylaneMain {
     private static var inputServer: IMKServer?
 
     static func main() {
@@ -15,7 +15,7 @@ enum RTranslateMain {
         }
         if CommandLine.arguments.contains("--install") {
             let ok = InputSourceInstall.enableAndSelect()
-            fputs(ok ? "RTranslate input source enabled and selected\n" : "\(InputSourceInstall.lastFailure ?? "Input source not found")\n", stderr)
+            fputs(ok ? "Saylane input source enabled and selected\n" : "\(InputSourceInstall.lastFailure ?? "Input source not found")\n", stderr)
             exit(ok ? EXIT_SUCCESS : EXIT_FAILURE)
         }
         if CommandLine.arguments.contains(where: { ["--diagnose", "--recognize-file", "--translation-check", "--download-speech-model", "--asr-memory-check", "--qwen-worker"].contains($0) }) {
@@ -33,7 +33,7 @@ enum RTranslateMain {
                 model.settingsTab = 2
                 let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 760),
                                       styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-                window.title = "RTranslate · 模型预览（开发）"
+                window.title = "Saylane · 模型预览（开发）"
                 window.contentView = NSHostingView(rootView: SettingsView().environment(model))
                 window.center()
                 window.makeKeyAndOrderFront(nil)

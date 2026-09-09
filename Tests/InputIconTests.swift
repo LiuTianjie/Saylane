@@ -9,7 +9,7 @@ import Foundation
         for language in ["en", "zh-Hans"] {
             let data = try Data(contentsOf: URL(fileURLWithPath: "Sources/Resources/\(language).lproj/InfoPlist.strings"))
             let strings = try PropertyListSerialization.propertyList(from: data, format: nil) as! [String: String]
-            precondition(strings["CFBundleName"] == "RTranslate" && strings["CFBundleDisplayName"] == "RTranslate")
+            precondition(strings["CFBundleName"] == "Saylane" && strings["CFBundleDisplayName"] == "Saylane")
         }
         // The input-menu icon is a PDF loaded by TIS file URL, not NSImage(named:).
         let icon = "menu_icon.pdf"

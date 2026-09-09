@@ -121,7 +121,7 @@ final class GlobalHotkeyMonitor: @unchecked Sendable {
             CGEvent.tapEnable(tap: tap, enable: true)
             CFRunLoopRun()
         }
-        thread.name = "rtranslate.global-hotkey"
+        thread.name = "saylane.global-hotkey"
         thread.qualityOfService = .userInteractive
         self.thread = thread
         thread.start()

@@ -1,4 +1,4 @@
-name: RTranslate
+name: Saylane
 options:
   bundleIdPrefix: com.rtranslate
   deploymentTarget:
@@ -22,7 +22,7 @@ packages:
     path: Vendor/MLXASR
 
 targets:
-  RTranslate:
+  Saylane:
     type: application
     platform: macOS
     sources:
@@ -39,8 +39,8 @@ targets:
         INFOPLIST_FILE: Sources/Info.plist
         GENERATE_INFOPLIST_FILE: false
         PRODUCT_BUNDLE_IDENTIFIER: com.rtranslate.inputmethod.rtranslate
-        PRODUCT_NAME: RTranslate
-        CODE_SIGN_ENTITLEMENTS: Sources/RTranslate.entitlements
+        PRODUCT_NAME: Saylane
+        CODE_SIGN_ENTITLEMENTS: Sources/Saylane.entitlements
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "-"
         ENABLE_HARDENED_RUNTIME: NO
@@ -49,7 +49,7 @@ targets:
         COMBINE_HIDPI_IMAGES: YES
 
 schemes:
-  RTranslate:
+  Saylane:
     build:
       targets:
-        RTranslate: all
+        Saylane: all
