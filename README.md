@@ -1,4 +1,4 @@
-# RTranslate
+# Saylane
 
 macOS 输入法：打字走拼音，按住快捷键说话则在当前输入框写入译文（默认中文 → 英文）。装在 `/Library/Input Methods/`，和系统其它输入法一样切换使用。
 
@@ -20,13 +20,13 @@ make test           # 本地 swiftc 单测
 make pkg            # Release + pkg
 ```
 
-`RTranslate.xcodeproj` 由 `project.yml` 生成，不要手改，也不进 git。
+`Saylane.xcodeproj` 由 `project.yml` 生成，不要手改，也不进 git。
 
 第一次使用需要：
 
 1. 麦克风
 2. 语音识别
-3. 把 RTranslate 加到系统输入法并选中
+3. 把 Saylane 加到系统输入法并选中
 4. 若要在其它输入法下按快捷键唤起，再开输入监控
 
 ## 可选千问识别（v0.2.47）
@@ -60,3 +60,16 @@ project.yml       XcodeGen 工程定义
 ```
 
 更完整的设计说明见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。语音输入流程契约见 [docs/VOICE_INPUT_V2.md](docs/VOICE_INPUT_V2.md)。
+
+## Saylane 品牌改名与兼容性
+
+产品显示名、源码入口、Xcode scheme、可执行文件与后续安装包统一为 Saylane。运行 `make build` / `make pkg` 会生成 `Saylane.xcodeproj`、`Saylane.app` 与 `Saylane-<version>.pkg`。
+
+以下旧标识刻意保留，不属于遗漏：
+- `com.rtranslate.*` 的 Bundle ID、输入源 ID、Keychain service、偏好迁移域和安装器 receipt ID：保持应用身份连续性；本次不迁移用户凭据和系统授权。
+- `~/Library/Application Support/RTranslate`：继续使用已有模型、词频和诊断目录，避免重新下载或丢失用户数据。
+- 安装/卸载脚本兼容旧 `RTranslate.app` 路径，核验 Bundle ID 后才清理；同时支持 `Saylane.app`。
+- 签名环境变量首选 `SAYLANE_SIGNING_IDENTITY`，兼容旧 `RTRANSLATE_SIGNING_IDENTITY`。
+- GitHub 仓库及 Pages 地址仍沿用原路径；已发布 v0.2.47 的文件名和下载地址不变，该历史安装包仍显示旧品牌。源码改名不等于已发布新版原生安装包。
+
+现有系统安装不会自动改名。新版安装器的升级、系统输入法名称和权限连续性仍须实际安装后验收。

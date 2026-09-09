@@ -296,9 +296,9 @@ final class AppModel {
         if globalHotkey.isListeningToEvents {
             lastError = nil
         } else if !permissions.inputMonitoringGranted {
-            report("还没有允许输入监控。允许后，在其它输入法下按住快捷键就会切到 RTranslate 并开始语音。")
+            report("还没有允许输入监控。允许后，在其它输入法下按住快捷键就会切到 Saylane 并开始语音。")
         } else {
-            report("输入监控已允许，但全局按键监听没有成功。请再试一次，或先手动切到 RTranslate。")
+            report("输入监控已允许，但全局按键监听没有成功。请再试一次，或先手动切到 Saylane。")
         }
     }
 
@@ -590,7 +590,7 @@ final class AppModel {
                 }
                 try? await Task.sleep(for: .milliseconds(500))
             }
-            self.report("文件已安装，但系统尚未启用 RTranslate。请完成系统的允许或添加操作；若添加列表仍不可见，请保存工作后注销并重新登录。当前不能开始输入。")
+            self.report("文件已安装，但系统尚未启用 Saylane。请完成系统的允许或添加操作；若添加列表仍不可见，请保存工作后注销并重新登录。当前不能开始输入。")
         }
     }
 
@@ -737,7 +737,7 @@ final class AppModel {
     private func report(_ message: String) {
         lastError = message
         InputDiagnostics.record("error", message)
-        NSLog("RTranslate: %@", message)
+        NSLog("Saylane: %@", message)
         // Error persists in menu/settings; do not steal focus from the target app.
     }
 }

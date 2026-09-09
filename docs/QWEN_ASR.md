@@ -56,8 +56,8 @@ scripts/assert-no-model-weights.sh 是打包门禁，检查 .app 内没有 safet
 - MLX 构建需要 Metal Toolchain：`xcodebuild -downloadComponent MetalToolchain`（仅开发机）。
 - `make build` 使用 scripts/generate-project.sh 恢复固定 Package.resolved。
 - `make test` 包含清单/哈希/取消/安装状态/语言/音频转换/30 秒上限以及原有 coordinator 回归测试。
-- 显式诊断下载：`RTranslate --download-speech-model qwen3-asr-0.6b-4bit`（或 6bit）。
-- 文件识别：`RTranslate --recognize-file /absolute/path/audio.wav zh-CN --speech-model qwen3-asr-0.6b-4bit`。
+- 显式诊断下载：`Saylane --download-speech-model qwen3-asr-0.6b-4bit`（或 6bit）。
+- 文件识别：`Saylane --recognize-file /absolute/path/audio.wav zh-CN --speech-model qwen3-asr-0.6b-4bit`。
   不传 --speech-model 时诊断仍用 Apple。仅此显式文件诊断打印转写文字。
 - Debug 专用 `--preview-models` 展示真实设置视图，但不注册 IMK server，也不启用全局热键。
 
@@ -92,7 +92,7 @@ scripts/assert-no-model-weights.sh 是打包门禁，检查 .app 内没有 safet
 - 切回 Apple、删除当前模型或替换量化版本时，释放 worker owner，终止并等待该进程退出。正常仅用 Apple 的用户不会启动识别子进程或初始化 MLX。
 - 取消/失败的推理会使当前 worker 失效并回收，下次准备重新加载。加载/推理 IPC 有 120 秒兜底超时；超时终止 worker，不无限等待。主进程关闭后 worker 从管道读到 EOF 会退出。
 - 生命周期测试覆盖重复准备合并、取消单个等待者、推理期间切换/卸载、20 次快速 4→6→卸载、旧加载不复活，以及释放时模型对象数量归零。
-- 显式诊断：`RTranslate --asr-memory-check /absolute/path/audio.wav`。仅使用已下载模型，不更改偏好；两轮加载/识别/释放，并检查每个 worker PID 确实消失，另测加载中断后的恢复。诊断输出内存和时延，不输出录音文本。
+- 显式诊断：`Saylane --asr-memory-check /absolute/path/audio.wav`。仅使用已下载模型，不更改偏好；两轮加载/识别/释放，并检查每个 worker PID 确实消失，另测加载中断后的恢复。诊断输出内存和时延，不输出录音文本。
 
 本机 Apple M3 Max / 36 GiB，Debug 构建，官方 4.20 秒中文音频，两轮测量：
 

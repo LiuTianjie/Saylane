@@ -14,8 +14,9 @@ remove_bundle() {
   /bin/rm -rf -- "$path"
   echo "Removed: $path"
 }
+/usr/bin/pkill -x Saylane || true
 /usr/bin/pkill -x RTranslate || true
-for path in '/Library/Input Methods/RTranslate.app' '/Applications/RTranslate.app' "$USER_HOME/Library/Input Methods/RTranslate.app" "$USER_HOME/Applications/RTranslate.app"; do
+for path in '/Library/Input Methods/RTranslate.app' '/Applications/RTranslate.app' "$USER_HOME/Library/Input Methods/RTranslate.app" "$USER_HOME/Applications/RTranslate.app" '/Library/Input Methods/Saylane.app' '/Applications/Saylane.app' "$USER_HOME/Library/Input Methods/Saylane.app" "$USER_HOME/Applications/Saylane.app"; do
   [[ -d "$path" ]] || continue
   bid=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$path/Contents/Info.plist")
   case "$bid" in
@@ -25,4 +26,4 @@ for path in '/Library/Input Methods/RTranslate.app' '/Applications/RTranslate.ap
 done
 remove_bundle "$USER_HOME/Library/Input Methods/RTranslate-SignedProbe.app" com.rtranslate.inputmethod.signedprobe
 remove_bundle "$USER_HOME/Library/Input Methods/RTranslate-MetadataProbe.app" com.rtranslate.inputmethod.metadataprobe
-echo 'RTranslate uninstalled. Preferences and downloaded models preserved.'
+echo 'Saylane uninstalled. Preferences and downloaded models preserved.'

@@ -22,7 +22,7 @@ enum InputSourceInstall {
             return OSStatus(paramErr)
         }
         let status = TISRegisterInputSource(Bundle.main.bundleURL as CFURL)
-        NSLog("RTranslate: register status=%d path=%@", status, Bundle.main.bundlePath)
+        NSLog("Saylane: register status=%d path=%@", status, Bundle.main.bundlePath)
         if status != noErr { lastFailure = "系统输入法注册失败（错误码 \(status)）。" }
         return status
     }

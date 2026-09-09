@@ -167,7 +167,7 @@ def main() -> None:
     output = pathlib.Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", encoding="utf-8") as handle:
-        handle.write("# RTranslate pinyin lexicon\n")
+        handle.write("# Saylane pinyin lexicon\n")
         handle.write("# Readings: mozillazg/pinyin-data and phrase-pinyin-data (MIT)\n")
         handle.write("# Frequency: hermitdave/FrequencyWords zh_cn_full (CC-BY-SA-4.0)\n")
         for syllables, freq, word in rows:

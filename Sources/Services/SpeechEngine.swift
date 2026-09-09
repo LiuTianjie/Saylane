@@ -154,7 +154,7 @@ final class SpeechEngine: SpeechRecognizing {
             do {
                 try await AssetInventory.reserve(locale: locale)
             } catch {
-                NSLog("RTranslate: could not reserve locale \(locale.identifier): \(error.localizedDescription)")
+                NSLog("Saylane: could not reserve locale \(locale.identifier): \(error.localizedDescription)")
             }
         }
     }

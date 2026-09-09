@@ -16,7 +16,7 @@ final class SettingsController {
             self.window = window
         } else {
             let window = NSWindow(contentViewController: hosting)
-            window.title = "RTranslate"
+            window.title = "Saylane"
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             window.setContentSize(NSSize(width: 860, height: 700))
             window.minSize = NSSize(width: 760, height: 610)

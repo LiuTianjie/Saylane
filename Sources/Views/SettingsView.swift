@@ -101,7 +101,7 @@ struct SettingsView: View {
                     .resizable()
                     .frame(width: 28, height: 28)
                     .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                Text("RTranslate")
+                Text("Saylane")
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
             }
             .padding(.horizontal, 18)
@@ -410,7 +410,7 @@ struct SettingsView: View {
                     }.disabled(model.permissions.isRequestingMicrophone)
                 }
                 Divider().opacity(0.4)
-                checkRow("2", title: "输入法", detail: model.inputSourceSelected ? "已选中 RTranslate" : model.inputSourceEnabled ? "已启用，按快捷键会自动选中" : model.inputSourceInstalled ? "已安装，尚未启用" : "系统还没发现组件", ready: model.inputSourceEnabled) {
+                checkRow("2", title: "输入法", detail: model.inputSourceSelected ? "已选中 Saylane" : model.inputSourceEnabled ? "已启用，按快捷键会自动选中" : model.inputSourceInstalled ? "已安装，尚未启用" : "系统还没发现组件", ready: model.inputSourceEnabled) {
                     Button(model.isActivatingInputSource ? "等待启用…" : model.inputSourceEnabled ? "选中" : "启用") { model.enableInputSource() }
                         .disabled(model.isActivatingInputSource || !model.installationPathValid)
                 }

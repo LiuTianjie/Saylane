@@ -138,7 +138,7 @@ private final class ModelDownloadTransfer: NSObject, URLSessionDownloadDelegate,
         do {
             guard let response = downloadTask.response else { throw ASRModelError.invalidDownload("缺少响应") }
             // URLSession deletes its location after this callback. Own the verified input until install completes.
-            let owned = FileManager.default.temporaryDirectory.appendingPathComponent("rtranslate-model-" + UUID().uuidString)
+            let owned = FileManager.default.temporaryDirectory.appendingPathComponent("saylane-model-" + UUID().uuidString)
             try FileManager.default.moveItem(at: location, to: owned)
             result = .success((owned, response))
         } catch { result = .failure(error) }

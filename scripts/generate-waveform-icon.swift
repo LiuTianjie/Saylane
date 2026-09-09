@@ -24,13 +24,13 @@ let image = NSImage(contentsOfFile: path)!
     let view = VStack(spacing: 0) {
         HStack(spacing: 20) {
             Image(nsImage: image).renderingMode(.template).frame(width: 16, height: 16)
-            Text("RTranslate").font(.system(size: 14, weight: .medium))
+            Text("Saylane").font(.system(size: 14, weight: .medium))
             Spacer()
             Text("16 pt").font(.system(size: 11)).opacity(0.5)
         }.foregroundStyle(.black).padding(22).background(Color(white: 0.96))
         HStack(spacing: 20) {
             Image(nsImage: image).renderingMode(.template).frame(width: 16, height: 16)
-            Text("RTranslate").font(.system(size: 14, weight: .medium))
+            Text("Saylane").font(.system(size: 14, weight: .medium))
             Spacer()
             Text("16 pt").font(.system(size: 11)).opacity(0.5)
         }.foregroundStyle(.white).padding(22).background(Color(white: 0.12))

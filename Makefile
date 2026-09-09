@@ -1,4 +1,4 @@
-APP_NAME=RTranslate
+APP_NAME=Saylane
 DERIVED=build
 
 .PHONY: generate build release pkg open-pkg test clean
@@ -7,10 +7,10 @@ generate:
 	scripts/generate-project.sh
 
 build: generate
-	xcodebuild -project RTranslate.xcodeproj -scheme RTranslate -configuration Debug -destination 'platform=macOS' -derivedDataPath $(DERIVED) build
+	xcodebuild -project Saylane.xcodeproj -scheme Saylane -configuration Debug -destination 'platform=macOS' -derivedDataPath $(DERIVED) build
 
 release: generate
-	xcodebuild -project RTranslate.xcodeproj -scheme RTranslate -configuration Release -destination 'platform=macOS' -derivedDataPath $(DERIVED) build
+	xcodebuild -project Saylane.xcodeproj -scheme Saylane -configuration Release -destination 'platform=macOS' -derivedDataPath $(DERIVED) build
 
 pkg: release
 	scripts/package.sh
@@ -22,4 +22,4 @@ test:
 	scripts/test.sh
 
 clean:
-	rm -rf build dist RTranslate.xcodeproj
+	rm -rf build dist Saylane.xcodeproj
