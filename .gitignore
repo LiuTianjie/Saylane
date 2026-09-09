@@ -39,3 +39,11 @@ venv/
 *.swo
 .idea/
 .vscode/
+
+# Reproducible pinned Rime downloads and compiled native dictionaries
+Vendor/Rime/Downloads/
+Vendor/Rime/Runtime/
+Vendor/Rime/Data/
+Vendor/Rime/Rime/
+Vendor/Rime/.prepared
+Vendor/Rime/prepare-*/

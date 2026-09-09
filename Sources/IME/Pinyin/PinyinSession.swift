@@ -1,35 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
 
-struct PinyinKeyEvent {
-    var type: NSEvent.EventType
-    var keyCode: UInt16
-    var characters: String
-    var letter: Character?
-    var flags: NSEvent.ModifierFlags
-    var isRepeat: Bool
-
-    init(type: NSEvent.EventType, keyCode: UInt16, characters: String, letter: Character?,
-         flags: NSEvent.ModifierFlags, isRepeat: Bool) {
-        self.type = type; self.keyCode = keyCode; self.characters = characters
-        self.letter = letter; self.flags = flags; self.isRepeat = isRepeat
-    }
-
-    init(_ event: NSEvent) {
-        type = event.type
-        keyCode = event.keyCode
-        characters = event.characters ?? ""
-        flags = event.modifierFlags
-        isRepeat = event.isARepeat
-        if let raw = event.charactersIgnoringModifiers?.lowercased(), raw.count == 1,
-           let character = raw.first, character.isASCII, character.isLetter {
-            letter = character
-        } else {
-            letter = nil
-        }
-    }
-}
-
 final class PinyinSession {
     static let pageSize = PinyinLexicon.pageSize
     private var lexicon: PinyinLexicon
@@ -79,6 +50,11 @@ final class PinyinSession {
 
     func handle(_ event: PinyinKeyEvent, shiftToggleEnabled: Bool) -> Bool {
         if event.type == .flagsChanged {
+            if event.keyCode == UInt16(kVK_CapsLock), event.flags.contains(.capsLock) {
+                let hadSelection = isSelecting
+                commitRawInput()
+                return hadSelection
+            }
             return handleShift(event, enabled: shiftToggleEnabled)
         }
         guard event.type == .keyDown else { return false }
@@ -88,6 +64,8 @@ final class PinyinSession {
             return false
         }
         if shiftDown { shiftSawKey = true }
+        // Caps Lock uses the client's Latin input, including ASCII punctuation.
+        if event.flags.contains(.capsLock) && !isSelecting { return false }
 
         if event.keyCode == UInt16(kVK_Escape) {
             guard isSelecting else { return false }
@@ -233,9 +211,18 @@ final class PinyinSession {
 
     func setEnglishMode(_ enabled: Bool) {
         guard englishMode != enabled else { return }
-        if enabled { commit() }
+        if enabled { commitRawInput() }
         englishMode = enabled
         onModeChange?(enabled)
+    }
+
+    /// Switching to Latin input submits the literal buffer, never a Chinese candidate.
+    /// Do not learn this buffer as a Chinese phrase or carry its context into later input.
+    private func commitRawInput() {
+        pendingCommit += preedit
+        clearComposition()
+        dismissAssociation()
+        history = []
     }
 
     func setAssociationEnabled(_ enabled: Bool) {

@@ -1,6 +1,13 @@
 Saylane — Third-party runtime notices
 
-Model weights are NOT bundled. Optional downloaded Qwen3-ASR models are Apache-2.0.
+Optional ASR model weights are NOT bundled. Downloaded Qwen3-ASR models are Apache-2.0.
+
+Pinyin runtime: librime 1.17.0 (BSD-3-Clause).
+Rime dictionaries and frequency data are bundled, unlike optional ASR weights.
+The app's Resources/Rime folder contains full license texts for librime and its
+native dependencies, rime-ice dictionary sources (GPL-3.0), rime-essay source
+(LGPL-3.0), AUTHORS, schema sources and a pinned source/checksum manifest.
+No Squirrel frontend code or optional Rime Lua/prediction/grammar plugins are bundled.
 
 
 ========================================================================

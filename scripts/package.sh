@@ -2,6 +2,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' build/Build/Products/Release/Saylane.app/Contents/Info.plist)"
+SOURCE_VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Sources/Info.plist)"
+PROJECT_VERSION="$(awk -F '\"' '/MARKETING_VERSION:/ {print $2; exit}' project.yml)"
+[[ "$VERSION" == "$SOURCE_VERSION" && "$VERSION" == "$PROJECT_VERSION" ]] || {
+  echo "Version mismatch: built=$VERSION plist=$SOURCE_VERSION project=$PROJECT_VERSION; rebuild before packaging." >&2
+  exit 1
+}
 ROOT="$PWD/dist/pkgroot-$VERSION"
 mkdir -p "$ROOT/Library/Input Methods"
 # Exact build staging path only; never remove live installations without Installer privileges.
@@ -18,6 +24,9 @@ if [[ -z "$IDENTITY" ]]; then
 fi
 STAGED_APP="$ROOT/Library/Input Methods/Saylane.app"
 scripts/assert-no-model-weights.sh "$STAGED_APP"
+# Embedded native code must have the same stable identity before the outer seal.
+/usr/bin/codesign --force --options runtime --timestamp --sign "$IDENTITY" \
+  "$STAGED_APP/Contents/Frameworks/librime.1.dylib"
 /usr/bin/codesign --force --options runtime --timestamp --sign "$IDENTITY" \
   --entitlements Sources/Saylane.entitlements "$STAGED_APP"
 /usr/bin/codesign --verify --strict --verbose=2 "$STAGED_APP"

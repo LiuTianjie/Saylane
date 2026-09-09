@@ -1,0 +1,13 @@
+# Simplified Chinese data from the pinned rime-ice distribution.
+# Original sources and licenses are shipped in this directory.
+---
+name: saylane
+version: '2026.09.09'
+sort: by_weight
+use_preset_vocabulary: true
+import_tables:
+  - cn_dicts/8105
+  - cn_dicts/base
+  - cn_dicts/ext
+  - cn_dicts/others
+...

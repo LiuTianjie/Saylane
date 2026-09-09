@@ -327,7 +327,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(model.pinyinEnglishMode ? "英文键盘" : "拼音中文")
                             .font(.system(size: 14, weight: .medium))
-                        Text("空格上屏 · 数字改词 · Shift 中英")
+                        Text("Rime 拼音 · 空格上屏 · 数字改词 · Shift 中英")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     }
@@ -342,11 +342,18 @@ struct SettingsView: View {
 
                 Divider().opacity(0.35)
 
-                toggleRow("词后联想", "上屏后继续出词，默认关闭", Binding(
-                    get: { model.pinyinAssociationEnabled },
-                    set: { model.setPinyinAssociationEnabled($0) }
-                ))
-                .disabled(model.isListening)
+                if let error = model.pinyin.initializationError {
+                    Text("拼音引擎未就绪：\(error)")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.red)
+                }
+                RimeDictionaryUpdateView(model: model.pinyinDictionaryUpdates)
+
+                Divider().opacity(0.35)
+
+                Text("整句组词与选词学习由 Rime 提供；词后联想暂不支持。")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
 
                 Divider().opacity(0.35)
 

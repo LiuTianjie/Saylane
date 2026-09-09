@@ -3,37 +3,42 @@ import Carbon.HIToolbox
 
 @MainActor
 final class PinyinEngine {
-    private let session: PinyinSession
+    private let session: RimePinyinSession?
+    private(set) var initializationError: String?
     private let window = CandidateWindowController()
-    var englishMode: Bool { session.englishMode }
-    var associationEnabled: Bool { session.associationEnabled }
+    var englishMode: Bool { session?.englishMode ?? UserDefaults.standard.bool(forKey: "pinyinEnglishMode") }
+    var associationEnabled: Bool { session?.associationEnabled ?? false }
     private(set) var barPreeditEnabled: Bool
     private(set) var fuzzyEnabled: Bool
-    var isComposing: Bool { session.isComposing }
+    var isComposing: Bool { session?.isComposing ?? false }
 
     init() {
         let stored = UserDefaults.standard.bool(forKey: "pinyinEnglishMode")
-        let association = UserDefaults.standard.bool(forKey: "pinyinAssociationEnabled")
         barPreeditEnabled = UserDefaults.standard.bool(forKey: "pinyinBarPreeditEnabled")
         fuzzyEnabled = UserDefaults.standard.object(forKey: "pinyinFuzzyEnabled") as? Bool ?? true
-        PinyinLexicon.shared.fuzzyEnabled = fuzzyEnabled
-        session = PinyinSession(lexicon: PinyinLexicon.shared, englishMode: stored, associationEnabled: association)
-        session.onModeChange = { enabled in
+        do {
+            session = try RimePinyinSession(runtime: RimeRuntime.shared.get(), englishMode: stored, fuzzyEnabled: fuzzyEnabled)
+        } catch {
+            session = nil
+            initializationError = error.localizedDescription
+        }
+        session?.onModeChange = { enabled in
             UserDefaults.standard.set(enabled, forKey: "pinyinEnglishMode")
         }
         window.setOnPick { [weak self] index in
             guard let self else { return }
-            self.session.selectCandidate(at: index)
+            self.session?.selectCandidate(at: index)
             self.publish()
         }
         window.setOnPage { [weak self] delta in
             guard let self else { return }
-            self.session.pageCandidates(delta)
+            self.session?.pageCandidates(delta)
             self.publish()
         }
     }
 
     func handle(_ event: NSEvent, pushToTalk: PushToTalkHotkey) -> Bool {
+        guard let session else { return false }
         let shiftEnabled = shiftToggleEnabled(event.keyCode, pushToTalk: pushToTalk)
         let consumed = session.handle(PinyinKeyEvent(event), shiftToggleEnabled: shiftEnabled)
         if consumed { publish() }
@@ -41,23 +46,23 @@ final class PinyinEngine {
     }
 
     func commit() {
-        session.commit()
+        session?.commit()
         publish()
     }
 
     func cancel() {
-        session.cancel()
+        session?.cancel()
         publish()
     }
 
     func setEnglishMode(_ enabled: Bool) {
-        session.setEnglishMode(enabled)
+        session?.setEnglishMode(enabled)
         publish()
     }
 
     func setAssociationEnabled(_ enabled: Bool) {
-        session.setAssociationEnabled(enabled)
-        UserDefaults.standard.set(session.associationEnabled, forKey: "pinyinAssociationEnabled")
+        // Prediction requires a separate model/plugin; the shipped core does not
+        // expose this capability. Preserve the saved preference for a later upgrade.
         publish()
     }
 
@@ -68,16 +73,17 @@ final class PinyinEngine {
     }
 
     func setFuzzyEnabled(_ enabled: Bool) {
+        guard session?.setFuzzyEnabled(enabled) == true else { return }
         fuzzyEnabled = enabled
-        PinyinLexicon.shared.fuzzyEnabled = enabled
         UserDefaults.standard.set(enabled, forKey: "pinyinFuzzyEnabled")
         publish()
     }
 
     private func publish() {
+        guard let session else { window.hide(); return }
         let committed = session.takeCommit()
         if !committed.isEmpty { IMEManager.shared.insertPinyin(committed) }
-        IMEManager.shared.setPinyinMarked(session.markedText)
+        IMEManager.shared.setPinyinMarked(session.markedText, caret: session.markedCaret, highlight: session.markedHighlight)
         if session.showsCandidates {
             window.update(candidates: session.candidates, highlight: session.highlighted,
                           caret: IMEManager.shared.caretScreenRect(),
