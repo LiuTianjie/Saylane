@@ -306,7 +306,7 @@ final class RimePinyinSession {
         if PinyinSyllable.coversQuanpin(typed) || PinyinSyllable.segment(typed) != nil { return true }
         if PinyinSyllable.coversQuanpinAllowingOneGap(typed) { return true }
         var fixed = typed
-        for (wrong, right) in [("ign", "ing"), ("img", "ing"), ("uei", "ui"), ("iou", "iu"), ("uen", "un")] {
+        for (wrong, right) in [("ign", "ing")] {
             if fixed.hasSuffix(wrong) {
                 fixed = String(fixed.dropLast(wrong.count)) + right
             }

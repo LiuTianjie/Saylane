@@ -27,19 +27,57 @@ menu:
 speller:
   alphabet: abcdefghijklmnopqrstuvwxyz
   delimiter: " '"
+  # Spelling rules from rime-ice rime_ice.schema.yaml @ fbb516b.
+  # Skip ice's uppercase/backtick alphabet (Caps Lock must stay Latin)
+  # and the commented fuzzy/old-spelling maps (fuzzy is a separate schema).
   algebra:
-    - derive/^([nl])ue$/$1ve/
-    - derive/^([jqxy])u/$1v/
-    # Dictionary codes gain extra spellings so typos reach the same words.
-    # User types xign / qiou / guei; dict still stores xing / qiu / gui.
-    - derive/ing$/ign/
-    - derive/ing$/img/
-    - derive/ui$/uei/
-    - derive/iu$/iou/
-    - derive/un$/uen/
-    # abbrev is weaker than full syllables; do not use derive for jianpin.
+    - erase/^hm$/
+    - erase/^m$/
+    - erase/^n$/
+    - erase/^ng$/
     - abbrev/^([a-z]).+$/$1/
     - abbrev/^([zcs]h).+$/$1/
+    - derive/^([nl])ve$/$1ue/
+    - derive/^([jqxy])u/$1v/
+    - derive/^([nl])ue$/$1ve/
+    - derive/^([jqxy])v/$1u/
+    - derive/([zcs])h(a|e|i|u|ai|ei|an|en|ou|uo|ua|un|ui|uan|uai|uang|ang|eng|ong)$/h$1$2/
+    - derive/([zcs])h([aeiu])$/$1$2h/
+    - derive/^([wghk])ai$/$1ia/
+    - derive/([wfghkz])ei$/$1ie/
+    - derive/([jqx])ie$/$1ei/
+    - derive/([rtypsdghklzcbnm])ao$/$1oa/
+    - derive/([ypfm])ou$/$1uo/
+    - derive/([wrtypsdfghklzcbnm])ang$/$1nag/
+    - derive/([wrtypsdfghklzcbnm])ang$/$1agn/
+    - derive/([wrtpsdfghklzcbnm])eng$/$1neg/
+    - derive/([wrtpsdfghklzcbnm])eng$/$1egn/
+    - derive/([qtypdjlxbnm])ing$/$1nig/
+    - derive/([qtypdjlxbnm])ing$/$1ign/
+    - derive/([rtysdghklzcn])ong$/$1nog/
+    - derive/([rtysdghklzcn])ong$/$1ogn/
+    - derive/([qtpdjlxbnm])iao$/$1ioa/
+    - derive/([qtpdjlxbnm])iao$/$1oia/
+    - derive/([rtsghkzc])ui$/$1iu/
+    - derive/([qjlxnm])iu$/$1ui/
+    - derive/([qjlxn])iang$/$1aing/
+    - derive/([qjlxn])iang$/$1inag/
+    - derive/([g|k|h|zh|sh])ua$/$1au/
+    - derive/([g|h|k|zh|sh])uai$/$1aui/
+    - derive/([qrtysdghjklzxcn])uan$/$1aun/
+    - derive/([nlyjqx])ue$/$1eu/
+    - derive/([g|h|k|zh|ch|sh])uang$/$1aung/
+    - derive/([g|h|k|zh|ch|sh])uang$/$1uagn/
+    - derive/([g|h|k|zh|ch|sh])uang$/$1unag/
+    - derive/([g|h|k|zh|ch|sh])uang$/$1augn/
+    - derive/([jqx])iong$/$1inog/
+    - derive/([jqx])iong$/$1oing/
+    - derive/([jqx])iong$/$1iogn/
+    - derive/([jqx])iong$/$1oign/
+    - derive/([rtsdghkzc])o(u|ng)$/$1o/
+    - derive/(.+)ong$/$1on/
+    - derive/([tl])eng$/$1en/
+    - derive/([qwrtypsdfghjklzxcbnm])([aeio])ng$/$1ng/
 translator:
   dictionary: saylane
   prism: saylane_pinyin
