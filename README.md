@@ -2,7 +2,7 @@
 
 macOS 输入法：打字走拼音，按住快捷键说话则在当前输入框写入译文（默认中文 → 英文）。装在 `/Library/Input Methods/`，和系统其它输入法一样切换使用。
 
-已发布版本 `0.2.55`。语音识别和翻译默认走 Apple 端侧框架；可选的终稿润色才走外部 API。
+已发布版本 `0.2.56`。语音识别和翻译默认走 Apple 端侧框架；可选的终稿润色才走外部 API。
 
 ## 要求
 
@@ -55,7 +55,7 @@ Shift/Caps Lock 在组字中切英文时上屏原始字母，不再先接受中�
 
 ## 安装
 
-从 [GitHub Release 下载 v0.2.55 安装包](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.55)，或访问 [产品网页](https://liutianjie.github.io/Saylane/)。Release 同时提供 SHA-256 校验文件。
+从 [GitHub Release 下载 v0.2.56 安装包](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.56)，或访问 [产品网页](https://liutianjie.github.io/Saylane/)。Release 同时提供 SHA-256 校验文件。
 
 注意：包内应用已签名，当前 PKG 安装器未签名、未完成 Apple 公证。
 
