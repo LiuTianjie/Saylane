@@ -19,7 +19,7 @@ The animation pauses offscreen or when the tab is hidden and respects reduced mo
 
 ## Publish
 
-`.github/workflows/pages.yml` publishes only `website/` on relevant pushes to `main`, or through manual workflow dispatch. Native app source and build output are not included. The download section links to the published v0.2.55 PKG, release notes, SHA-256 checksums and installation guide. It explicitly states the installer is unsigned and not notarized. When publishing a new version, update these version-pinned links and size together.
+`.github/workflows/pages.yml` publishes only `website/` on relevant pushes to `main`, or through manual workflow dispatch. Native app source and build output are not included. The download section links to the published v0.2.56 PKG, release notes, SHA-256 checksums and installation guide. It explicitly states the installer is unsigned and not notarized. When publishing a new version, update these version-pinned links and size together.
 
 ## Language switching / English practice section
 
