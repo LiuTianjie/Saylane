@@ -9,6 +9,7 @@ final class PermissionService {
     var isRequestingMicrophone = false
     var microphone: Status = .notDetermined
     var inputMonitoringGranted = false
+    var screenCaptureGranted = false
     var allCriticalGranted: Bool { microphone == .granted }
     func refresh() {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
@@ -17,6 +18,17 @@ final class PermissionService {
         default: microphone = .denied
         }
         inputMonitoringGranted = CGPreflightListenEventAccess()
+        screenCaptureGranted = CGPreflightScreenCaptureAccess()
+    }
+
+    func requestScreenCapture() {
+        if !CGPreflightScreenCaptureAccess() {
+            _ = CGRequestScreenCaptureAccess()
+        }
+        refresh()
+        if !screenCaptureGranted {
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
+        }
     }
     func requestInputMonitoring() {
         if !CGPreflightListenEventAccess() {

@@ -24,6 +24,12 @@ swiftc Sources/Models/SetupReadiness.swift Tests/SetupReadinessTests.swift -o bu
 build/tests/setup-readiness
 swiftc Sources/Models/AppLanguage.swift Tests/TranslationDirectionTests.swift -o build/tests/direction
 build/tests/direction
+swiftc -framework AppKit Sources/Models/AppLanguage.swift Sources/Models/ScreenTranslate.swift Tests/ScreenTranslateTests.swift -o build/tests/screen-translate
+build/tests/screen-translate
+swiftc -framework AppKit Sources/Models/PushToTalkHotkey.swift Sources/Services/ScreenHoldHandler.swift Tests/ScreenHoldTests.swift -o build/tests/screen-hold
+build/tests/screen-hold
+swiftc -framework AppKit -framework CoreImage Sources/Models/AppLanguage.swift Sources/Models/ScreenTranslate.swift Sources/Services/ScreenPinRenderer.swift Tests/ScreenPinRendererTests.swift -o build/tests/screen-pin
+build/tests/screen-pin
 swiftc Sources/Models/AppLanguage.swift Sources/Models/SpeechModel.swift Sources/Models/SpeechEngineError.swift Sources/Services/ASRModelInstaller.swift Sources/Services/BufferConverter.swift Sources/Services/QwenAudioBuffer.swift Tests/ASRModelTests.swift -o build/tests/asr-models
 build/tests/asr-models
 swiftc Sources/Models/AppLanguage.swift Sources/Models/SpeechModel.swift Sources/Services/LocalSpeechRuntime.swift Tests/LocalSpeechRuntimeTests.swift -o build/tests/asr-lifetime

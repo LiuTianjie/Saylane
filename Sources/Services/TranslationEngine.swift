@@ -21,6 +21,7 @@ final class TranslationEngine {
     var isPassthrough = false
     var session: TranslationSession?
     private var generation = 0
+    private var outputLocale: Locale?
 
     func reset() {
         generation += 1
@@ -28,6 +29,7 @@ final class TranslationEngine {
         isReady = false
         needsDownload = false
         isPassthrough = false
+        outputLocale = nil
     }
 
     func enablePassthrough() {
@@ -48,6 +50,7 @@ final class TranslationEngine {
 
     func prepareInstalled(source: Locale.Language, target: Locale.Language) async throws {
         let token = generation
+        outputLocale = Locale(identifier: target.maximalIdentifier)
         let availability = LanguageAvailability()
         let status = await availability.status(from: source, to: target)
         guard token == generation, !Task.isCancelled else { throw CancellationError() }
@@ -75,6 +78,10 @@ final class TranslationEngine {
         if isPassthrough { return trimmed }
         guard let session else { throw TranslationEngineError.notReady }
         let response = try await session.translate(trimmed)
-        return response.targetText
+        let text = response.targetText
+        if let outputLocale {
+            return QwenLanguage.normalize(text, locale: outputLocale)
+        }
+        return text
     }
 }

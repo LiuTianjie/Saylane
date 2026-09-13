@@ -21,6 +21,7 @@ struct SettingsView: View {
                         case 1: preferences
                         case 2: models
                         case 3: FinalPolishSettingsView()
+                        case 4: screen
                         default: onboarding
                         }
                     }
@@ -81,6 +82,7 @@ struct SettingsView: View {
         case 1: return "语音输入"
         case 2: return "本地模型"
         case 3: return "AI 润色"
+        case 4: return "截屏翻译"
         default: return "开始使用"
         }
     }
@@ -89,7 +91,8 @@ struct SettingsView: View {
         switch model.settingsTab {
         case 1: return "打字用拼音，说话用快捷键。两件事互不抢。"
         case 2: return "语音和翻译都在这台电脑上跑。"
-        case 3: return "说完再润色一次，可选。"
+        case 3: return "说完再润色一次，可选。截屏翻译在「截屏翻译」里单独开关。"
+        case 4: return "按住左 ⌘ 划一块，译文贴在原文上。"
         default: return "授权、启用、试一句。做完就能用。"
         }
     }
@@ -110,6 +113,7 @@ struct SettingsView: View {
 
             VStack(spacing: 2) {
                 navigationItem("语音输入", icon: "mic.fill", tab: 1)
+                navigationItem("截屏翻译", icon: "text.viewfinder", tab: 4)
                 navigationItem("AI 润色", icon: "wand.and.stars", tab: 3)
                 navigationItem("本地模型", icon: "cpu", tab: 2)
                 navigationItem("开始使用", icon: "flag.fill", tab: 0)
@@ -375,6 +379,63 @@ struct SettingsView: View {
     }
 
     // MARK: - Onboarding View
+    private var screen: some View {
+        @Bindable var model = model
+        return VStack(alignment: .leading, spacing: 20) {
+            SettingsSection(title: "划选") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("按住左 ⌘ 画出要翻译的区域，松鼠标即翻译，松开 ⌘ 取消。钉住后点一下左 ⌘ 可在原文和译文之间切换。")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    Text("默认译入你的常用语言。划选或钉住时双击右 ⌘ 切换方向，不影响说话。")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+                Divider().opacity(0.35)
+                HStack(alignment: .center, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("额外快捷键").font(.system(size: 14, weight: .medium))
+                        Text("可再设一个组合键，和按住左 ⌘ 同时可用。")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button {
+                        model.beginRecordScreenShortcut()
+                    } label: {
+                        Text(model.isRecordingScreenShortcut ? "按下新快捷键…" : model.screenCaptureShortcut.displayName)
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(model.isRecordingScreenShortcut ? Theme.accent.opacity(0.16) : Theme.fillStrong, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .help("点击后按下新的截屏快捷键")
+                }
+            }
+
+            SettingsSection(title: "译文") {
+                toggleRow("AI 润色", "用「AI 润色」页里的接口和模型，对划选译文再润色一次。失败则保留普通译文。", $model.screenPolishEnabled)
+            }
+
+            SettingsSection(title: "权限") {
+                HStack(alignment: .center, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("屏幕录制").font(.system(size: 14, weight: .medium))
+                        Text(model.permissions.screenCaptureGranted ? "已允许，只截你划出的区域" : "需要允许后才能截屏翻译")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if !model.permissions.screenCaptureGranted {
+                        Button("允许") { model.requestScreenCapturePermission() }
+                            .controlSize(.small)
+                    }
+                }
+            }
+        }
+    }
+
     private var onboarding: some View {
         @Bindable var model = model
         return VStack(alignment: .leading, spacing: 22) {

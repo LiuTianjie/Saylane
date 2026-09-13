@@ -36,6 +36,8 @@
 	<string>Saylane 使用麦克风在设备端识别你的语音，并翻译到选定语言。</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Saylane 在设备端把语音转成文字，音频不会上传到服务器。</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Saylane 截取你划出的屏幕区域，在这台电脑上识别并翻译其中的文字。</string>
 	<key>InputMethodConnectionName</key>
 	<string>Saylane_Connection</string>
 	<key>InputMethodServerControllerClass</key>

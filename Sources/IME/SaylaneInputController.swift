@@ -22,6 +22,8 @@ final class SaylaneInputController: IMKInputController {
                 change.target = self
                 change.isEnabled = !model.isListening && !model.isPreparingModels
             }
+            let screen = menu.addItem(withTitle: "截屏翻译", action: #selector(captureScreen(_:)), keyEquivalent: "")
+            screen.target = self
             return menu
         }
     }
@@ -36,6 +38,10 @@ final class SaylaneInputController: IMKInputController {
 
     @objc private func togglePinyinMode(_ sender: Any!) {
         MainActor.assumeIsolated { AppModel.shared.togglePinyinEnglishMode() }
+    }
+
+    @objc private func captureScreen(_ sender: Any!) {
+        MainActor.assumeIsolated { AppModel.shared.handleScreenCaptureHotkey() }
     }
 
     override func recognizedEvents(_ sender: Any!) -> Int {
