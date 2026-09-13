@@ -35,6 +35,14 @@ final class AppModel {
     var overlayEnabled: Bool {
         didSet { UserDefaults.standard.set(overlayEnabled, forKey: "overlayEnabled") }
     }
+    var screenCaptureShortcut: ScreenCaptureShortcut {
+        didSet {
+            UserDefaults.standard.set(Int(screenCaptureShortcut.keyCode), forKey: "screenCaptureKeyCode")
+            UserDefaults.standard.set(Int(screenCaptureShortcut.modifierFlags), forKey: "screenCaptureModifiers")
+            globalHotkey.setScreenCaptureShortcut(screenCaptureShortcut)
+        }
+    }
+    var isRecordingScreenShortcut = false
     var pushToTalk: PushToTalkHotkey {
         didSet {
             coordinator.cancel(); resetShortcuts()
@@ -57,6 +65,9 @@ final class AppModel {
     }
     var finalPolishModel: String {
         didSet { UserDefaults.standard.set(finalPolishModel, forKey: "finalPolishModel") }
+    }
+    var screenPolishEnabled: Bool {
+        didSet { UserDefaults.standard.set(screenPolishEnabled, forKey: "screenPolishEnabled") }
     }
     var lastError: String?
     var translationConfiguration: TranslationSession.Configuration?
@@ -95,6 +106,8 @@ final class AppModel {
     var isSetupRunning = false
     private var lastBlockedPromptTime: TimeInterval = 0
     private let overlay = OverlayController()
+    let screenTranslate = ScreenTranslateController()
+    private var listeningStartedAt: TimeInterval?
     private let settingsWindow = SettingsController()
     private var keys = InputShortcutHandler()
     private let globalHotkey = GlobalHotkeyMonitor.shared
@@ -106,6 +119,7 @@ final class AppModel {
     var pinyinBarPreeditEnabled = UserDefaults.standard.bool(forKey: "pinyinBarPreeditEnabled")
     var pinyinFuzzyEnabled = UserDefaults.standard.object(forKey: "pinyinFuzzyEnabled") as? Bool ?? true
     private var holdTask: Task<Void, Never>?
+    private var screenHoldTask: Task<Void, Never>?
     private var modelTask: Task<Void, Never>?
     private var globalStartTask: Task<Void, Never>?
     private var settingsRevision = 0
@@ -126,6 +140,7 @@ final class AppModel {
         finalPolishEnabled = UserDefaults.standard.bool(forKey: "finalPolishEnabled")
         finalPolishEndpoint = UserDefaults.standard.string(forKey: "finalPolishEndpoint") ?? ""
         finalPolishModel = UserDefaults.standard.string(forKey: "finalPolishModel") ?? ""
+        screenPolishEnabled = UserDefaults.standard.bool(forKey: "screenPolishEnabled")
         languageSwitchEnabled = UserDefaults.standard.object(forKey: "languageSwitchEnabled") as? Bool ?? true
         tapToTalk = UserDefaults.standard.bool(forKey: "tapToTalk")
         let initialSource = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "sourceLanguage") ?? "") ?? .zhHans
@@ -141,6 +156,18 @@ final class AppModel {
         updatingLanguagePair = false
         pushToTalk = PushToTalkHotkey(rawValue: UserDefaults.standard.string(forKey: "pushToTalkHotkey") ?? "") ?? .rightOption
         overlayEnabled = (UserDefaults.standard.object(forKey: "overlayEnabled") as? Bool) ?? true
+        if let key = UserDefaults.standard.object(forKey: "screenCaptureKeyCode") as? Int {
+            let flags: UInt64
+            if let stored = UserDefaults.standard.object(forKey: "screenCaptureModifiers") as? Int {
+                flags = UInt64(stored)
+            } else {
+                flags = ScreenCaptureShortcut.optionT.modifierFlags
+            }
+            let shortcut = ScreenCaptureShortcut(keyCode: UInt16(key), modifierFlags: flags)
+            screenCaptureShortcut = shortcut.isUsable ? shortcut : .optionT
+        } else {
+            screenCaptureShortcut = .optionT
+        }
     }
 
     func bootstrap() {
@@ -159,17 +186,21 @@ final class AppModel {
             InputDiagnostics.record("session-state", String(describing: state))
             switch state {
             case .idle:
-                break
+                self.listeningStartedAt = nil
             case .preparing:
                 self.overlay.hide()
                 if self.overlayEnabled {
                     self.overlay.show(source: self.sourceLanguage.shortName, target: self.targetLanguage.shortName,
                                       liveInject: true, hotkeyLabel: self.pushToTalk.shortLabel)
                 }
-            case .listening: self.overlay.setPhase(.listening)
+            case .listening:
+                self.listeningStartedAt = ProcessInfo.processInfo.systemUptime
+                self.overlay.setPhase(.listening)
             case .finalizing: self.overlay.setPhase(.finalizing)
             case .polishing: self.overlay.setPhase(.polishing)
-            case .cancelling: self.overlay.hide()
+            case .cancelling:
+                self.listeningStartedAt = nil
+                self.overlay.hide()
             }
         }
         coordinator.onCompletion = { [weak self] feedback in
@@ -312,6 +343,21 @@ final class AppModel {
         globalHotkey.onAction = { [weak self] action in
             Task { @MainActor in self?.performShortcut(action, fromGlobal: true) }
         }
+        globalHotkey.onScreenCapture = { [weak self] in
+            Task { @MainActor in self?.handleScreenCaptureHotkey() }
+        }
+        globalHotkey.onScreenHold = { [weak self] action in
+            Task { @MainActor in self?.handleScreenHold(action) }
+        }
+        globalHotkey.onRecordedShortcut = { [weak self] shortcut in
+            Task { @MainActor in
+                guard let self else { return }
+                self.isRecordingScreenShortcut = false
+                self.globalHotkey.setRecordingShortcut(false)
+                if let shortcut { self.screenCaptureShortcut = shortcut }
+            }
+        }
+        globalHotkey.setScreenCaptureShortcut(screenCaptureShortcut)
         globalHotkey.updateContext(selected: InputSourceInstall.isSelected, trigger: pushToTalk,
                                    switchEnabled: languageSwitchEnabled, listening: isListening,
                                    tapToTalk: tapToTalk)
@@ -372,6 +418,7 @@ final class AppModel {
 
     private func resetShortcuts() {
         holdTask?.cancel(); holdTask = nil
+        screenHoldTask?.cancel(); screenHoldTask = nil
         globalStartTask?.cancel(); globalStartTask = nil
         keys.reset()
         globalHotkey.resetGesture()
@@ -449,6 +496,7 @@ final class AppModel {
         if action != .none { InputDiagnostics.record("shortcut-action", "\(String(describing: action)) global=\(fromGlobal)") }
         switch action {
         case .armHold, .armTap:
+            if screenTranslate.isActive { return }
             let delay = action == .armTap ? InputShortcutHandler.doubleTapGap : InputShortcutHandler.holdDelay
             holdTask?.cancel()
             holdTask = Task { [weak self] in
@@ -459,7 +507,9 @@ final class AppModel {
                     : self.keys.holdDeadline(now: ProcessInfo.processInfo.systemUptime)
                 self.performShortcut(next, fromGlobal: fromGlobal)
             }
-        case .press: startSession(fromGlobal: fromGlobal)
+        case .press:
+            if screenTranslate.isActive { return }
+            startSession(fromGlobal: fromGlobal)
         case .release:
             holdTask?.cancel(); globalStartTask?.cancel()
             coordinator.release()
@@ -468,7 +518,13 @@ final class AppModel {
             holdTask?.cancel(); globalStartTask?.cancel()
             coordinator.cancel()
             endShortcutDirect()
-        case .switchTarget: holdTask?.cancel(); swapTranslationDirection()
+        case .switchTarget:
+            holdTask?.cancel()
+            if screenTranslate.isActive {
+                screenTranslate.cycleDirection(a: pairSource, b: pairTarget)
+            } else {
+                swapTranslationDirection()
+            }
         case .none: break
         }
     }
@@ -477,6 +533,7 @@ final class AppModel {
 
     private func startSession(fromGlobal: Bool = false) {
         guard !isListening else { return }
+        guard !screenTranslate.isActive else { return }
         if fromGlobal {
             beginShortcutDirect()
             InputDiagnostics.record("global-press", "current=\(InputSourceInstall.currentID ?? "none")")
@@ -746,6 +803,107 @@ final class AppModel {
             guard revision == settingsRevision else { return }
             await refreshModelStatus()
         } catch { if revision == settingsRevision { report(error.localizedDescription) } }
+    }
+
+    func handleScreenCaptureHotkey() {
+        if isRecordingScreenShortcut { return }
+        if screenTranslate.isSelecting {
+            screenTranslate.cancel()
+            return
+        }
+        if isListening {
+            let elapsed = listeningStartedAt.map { ProcessInfo.processInfo.systemUptime - $0 } ?? 1
+            if elapsed > 0.35 { return }
+            coordinator.cancel()
+            endShortcutDirect()
+            resetShortcuts()
+        }
+        permissions.refresh()
+        if !permissions.screenCaptureGranted {
+            permissions.requestScreenCapture()
+            if !permissions.screenCaptureGranted {
+                report("截屏翻译需要屏幕录制权限。允许后按住左 ⌘ 划区。")
+                settingsTab = 4
+                openSettings()
+                return
+            }
+        }
+        var last: TranslationDirection?
+        if let source = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "screenTranslateSource") ?? ""),
+           let target = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "screenTranslateTarget") ?? "") {
+            last = TranslationDirection(source: source, target: target)
+        }
+        screenTranslate.onError = { [weak self] message in self?.report(message) }
+        screenTranslate.onSelectionEnded = { [weak self] in
+            self?.globalHotkey.resetScreenHold()
+        }
+        screenTranslate.onPinVisibilityChanged = { [weak self] visible in
+            self?.globalHotkey.setPinVisible(visible)
+        }
+        screenTranslate.onScreenActiveChanged = { [weak self] active in
+            self?.globalHotkey.setScreenActive(active)
+        }
+        if screenPolishEnabled {
+            let endpoint = finalPolishEndpoint
+            let model = finalPolishModel
+            screenTranslate.polish = { original, draft, source, target in
+                let config = try FinalPolishConfiguration(endpoint: endpoint, model: model)
+                let key = try PolishKeychain.read(endpoint: config.endpoint)
+                return try await FinalPolishService.polish(
+                    configuration: config,
+                    apiKey: key,
+                    original: original,
+                    draft: draft,
+                    sourceLanguage: source,
+                    targetLanguage: target
+                )
+            }
+        } else {
+            screenTranslate.polish = nil
+        }
+        screenTranslate.beginSelection(a: pairSource, b: pairTarget, last: last)
+    }
+
+    private func handleScreenHold(_ action: ScreenHoldHandler.Action) {
+        switch action {
+        case .armHold:
+            screenHoldTask?.cancel()
+            screenHoldTask = Task { [weak self] in
+                do { try await Task.sleep(for: .seconds(ScreenHoldHandler.holdDelay)) } catch { return }
+                guard let self else { return }
+                let next = self.globalHotkey.screenHoldDeadline(now: ProcessInfo.processInfo.systemUptime)
+                self.handleScreenHold(next)
+            }
+        case .begin:
+            handleScreenCaptureHotkey()
+        case .cancel:
+            screenHoldTask?.cancel()
+            screenHoldTask = nil
+            if screenTranslate.isSelecting {
+                screenTranslate.cancel()
+            }
+        case .toggle:
+            screenHoldTask?.cancel()
+            screenHoldTask = nil
+            screenTranslate.toggleOverlay()
+        case .none:
+            break
+        }
+    }
+
+    func requestScreenCapturePermission() {
+        permissions.requestScreenCapture()
+        refreshInputSourceStatus()
+        if permissions.screenCaptureGranted {
+            lastError = nil
+        } else {
+            report("还没有允许屏幕录制。允许后可以按住左 ⌘ 划区翻译。")
+        }
+    }
+
+    func beginRecordScreenShortcut() {
+        isRecordingScreenShortcut = true
+        globalHotkey.setRecordingShortcut(true)
     }
 
     private func report(_ message: String) {

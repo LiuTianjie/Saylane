@@ -7,9 +7,16 @@ import Foundation
 struct GlobalHotkeyRouter: Equatable {
     private(set) var owningGesture = false
 
-    func shouldInterpret(isOursSelected: Bool, keyCode: UInt16, triggerKeyCode: UInt16) -> Bool {
+    func shouldInterpret(
+        isOursSelected: Bool,
+        keyCode: UInt16,
+        triggerKeyCode: UInt16,
+        languageSwitchKeyCode: UInt16? = nil
+    ) -> Bool {
         if owningGesture { return true }
-        return keyCode == triggerKeyCode
+        if keyCode == triggerKeyCode { return true }
+        if let languageSwitchKeyCode, keyCode == languageSwitchKeyCode { return true }
+        return false
     }
 
     mutating func note(_ action: InputShortcutHandler.Action) {

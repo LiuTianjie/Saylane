@@ -12,6 +12,9 @@ import Carbon.HIToolbox
         precondition(router.shouldInterpret(isOursSelected: false, keyCode: option, triggerKeyCode: option) == true)
         precondition(router.shouldInterpret(isOursSelected: false, keyCode: letterA, triggerKeyCode: option) == false)
         precondition(router.shouldInterpret(isOursSelected: true, keyCode: letterA, triggerKeyCode: option) == false)
+        let rightCommand = UInt16(kVK_RightCommand)
+        precondition(router.shouldInterpret(isOursSelected: false, keyCode: rightCommand, triggerKeyCode: option) == false)
+        precondition(router.shouldInterpret(isOursSelected: false, keyCode: rightCommand, triggerKeyCode: option, languageSwitchKeyCode: rightCommand) == true)
 
         router.note(.press)
         precondition(router.owningGesture)

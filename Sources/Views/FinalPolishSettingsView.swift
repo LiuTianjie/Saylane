@@ -9,8 +9,8 @@ struct FinalPolishSettingsView: View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: 18) {
             SettingsCard(title: "AI 最终润色（可选）", subtitle: "默认关闭。普通识别和实时翻译保持原样，只在松手后对完整内容调用一次大模型。") {
-                Toggle("启用 AI 最终润色", isOn: $model.finalPolishEnabled)
-                Text("开启后会向下方接口发送本次原始识别文字、源语言、目标语言和译文草稿，不发送音频，也不读取输入框的其他内容。远程服务可能保存文本并产生费用，取决于你选择的服务。")
+                Toggle("启用语音润色", isOn: $model.finalPolishEnabled)
+                Text("开启后，松手提交时会把本次识别原文和译文草稿发给下方接口。截屏翻译的润色在「截屏翻译」页单独开关，共用这里的接口和模型。不发送音频。远程服务可能保存文本并产生费用。")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
                 Text("请求失败或超过 8 秒，提交普通结果；Esc 仍取消整次听写。即使语言相同，开启本选项后也会进行同语言润色。")
                     .font(.system(size: 12)).foregroundStyle(.secondary)

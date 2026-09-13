@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import CoreGraphics
 
 /// Global PTT tap. The callback must never block: no AppKit, TIS, MainActor, or mouse events.
@@ -21,6 +22,14 @@ final class GlobalHotkeyMonitor: @unchecked Sendable {
     private(set) var router = GlobalHotkeyRouter()
     private var globalMonitor: Any?
     var onAction: ((InputShortcutHandler.Action) -> Void)?
+    var onScreenCapture: (() -> Void)?
+    var onScreenHold: ((ScreenHoldHandler.Action) -> Void)?
+    var onRecordedShortcut: ((ScreenCaptureShortcut?) -> Void)?
+    private var screenShortcut = ScreenCaptureShortcut.optionT
+    private var recordingShortcut = false
+    private var screenHold = ScreenHoldHandler()
+    private var rightCommandTap = RightCommandDoubleTap()
+    private var screenActive = false
 
     var isListeningToEvents: Bool {
         if let tap, CGEvent.tapIsEnabled(tap: tap) { return true }
@@ -46,6 +55,45 @@ final class GlobalHotkeyMonitor: @unchecked Sendable {
         lock.lock()
         keys.reset()
         router.reset()
+        screenHold.reset()
+        rightCommandTap.reset()
+        lock.unlock()
+    }
+
+    func resetScreenHold() {
+        lock.lock()
+        screenHold.noteEndedSelection()
+        lock.unlock()
+    }
+
+    func setPinVisible(_ visible: Bool) {
+        lock.lock()
+        screenHold.setPinVisible(visible)
+        lock.unlock()
+    }
+
+    func setScreenActive(_ active: Bool) {
+        lock.lock()
+        screenActive = active
+        lock.unlock()
+    }
+
+    func screenHoldDeadline(now: TimeInterval) -> ScreenHoldHandler.Action {
+        lock.lock()
+        let next = screenHold.holdDeadline(now: now)
+        lock.unlock()
+        return next
+    }
+
+    func setScreenCaptureShortcut(_ shortcut: ScreenCaptureShortcut) {
+        lock.lock()
+        screenShortcut = shortcut
+        lock.unlock()
+    }
+
+    func setRecordingShortcut(_ recording: Bool) {
+        lock.lock()
+        recordingShortcut = recording
         lock.unlock()
     }
 
@@ -172,9 +220,57 @@ final class GlobalHotkeyMonitor: @unchecked Sendable {
         let switchEnabled = self.switchEnabled
         let listening = self.listening
         let tapToTalk = self.tapToTalk
-        let interpret = router.shouldInterpret(isOursSelected: selected, keyCode: keyCode,
-                                               triggerKeyCode: UInt16(trigger.keyCode))
-            || (tapToTalk && listening)
+        let shortcut = self.screenShortcut
+        let recording = self.recordingShortcut
+        let screenActive = self.screenActive
+        lock.unlock()
+
+        if recording, nsType == .keyDown, !isRepeat {
+            if keyCode == UInt16(kVK_Escape) {
+                DispatchQueue.main.async { self.onRecordedShortcut?(nil) }
+                return isFiltering ? nil : Unmanaged.passUnretained(event)
+            }
+            if !Self.isModifierKey(keyCode) {
+                let recorded = ScreenCaptureShortcut(keyCode: keyCode, modifierFlags: flags)
+                if recorded.isUsable {
+                    DispatchQueue.main.async { self.onRecordedShortcut?(recorded) }
+                    return isFiltering ? nil : Unmanaged.passUnretained(event)
+                }
+            }
+        }
+
+        lock.lock()
+        let screenAction = screenHold.handle(type: nsType, keyCode: keyCode, flags: flags,
+                                             now: ProcessInfo.processInfo.systemUptime)
+        lock.unlock()
+        if screenAction != .none {
+            DispatchQueue.main.async { self.onScreenHold?(screenAction) }
+        }
+
+        if switchEnabled, nsType == .flagsChanged, trigger != .rightCommand || screenActive {
+            lock.lock()
+            let switched = rightCommandTap.handle(flags: flags, now: ProcessInfo.processInfo.systemUptime)
+            lock.unlock()
+            if switched {
+                DispatchQueue.main.async { self.onAction?(.switchTarget) }
+            }
+        }
+
+        if nsType == .keyDown, !isRepeat, shortcut.matches(keyCode: keyCode, flags: flags) {
+            DispatchQueue.main.async { self.onScreenCapture?() }
+            return isFiltering ? nil : Unmanaged.passUnretained(event)
+        }
+
+        if screenActive {
+            return Unmanaged.passUnretained(event)
+        }
+
+        lock.lock()
+        let interpret = router.shouldInterpret(
+            isOursSelected: selected,
+            keyCode: keyCode,
+            triggerKeyCode: UInt16(trigger.keyCode)
+        ) || (tapToTalk && listening)
         guard interpret else {
             lock.unlock()
             return Unmanaged.passUnretained(event)
@@ -193,5 +289,15 @@ final class GlobalHotkeyMonitor: @unchecked Sendable {
             return nil
         }
         return Unmanaged.passUnretained(event)
+    }
+
+    private static func isModifierKey(_ keyCode: UInt16) -> Bool {
+        switch Int(keyCode) {
+        case kVK_Command, kVK_RightCommand, kVK_Option, kVK_RightOption,
+             kVK_Control, kVK_RightControl, kVK_Shift, kVK_RightShift, kVK_Function:
+            return true
+        default:
+            return false
+        }
     }
 }
