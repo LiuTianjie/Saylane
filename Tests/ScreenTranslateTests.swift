@@ -36,6 +36,13 @@ import Foundation
         precondition(voiceAfter != current)
         precondition(ScreenTranslate.screenMode(current: current, a: a, b: b) == current)
 
+        precondition(ScreenTranslate.ocrLanguageHints(source: .en, target: .zhHans) == [
+            "en-US", "en", "zh-CN", "zh-Hans"
+        ], "Source language must stay first and deterministic")
+        precondition(ScreenTranslate.ocrLanguageHints(source: .zhHans, target: .en) == [
+            "zh-CN", "zh-Hans", "en-US", "en"
+        ], "Reversing direction must also reverse OCR language priority")
+
         let screenFrame = CGRect(x: 0, y: 0, width: 1000, height: 800)
         let rect = CGRect(x: 100, y: 100, width: 200, height: 50)
         let captured = ScreenTranslate.captureSourceRect(appKitRect: rect, screenFrame: screenFrame)

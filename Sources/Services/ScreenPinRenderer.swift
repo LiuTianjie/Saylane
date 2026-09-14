@@ -87,6 +87,19 @@ enum ScreenPinRenderer {
         ]
     }
 
+    /// Create the fixed blurred backdrop used by live block views. The bitmap
+    /// renderer computes this per composite; live views compute it once and
+    /// crop the same bitmap for every progressive block.
+    static func blurredBackdrop(
+        image: CGImage,
+        items: [ScreenLaidOutBlock],
+        canvasSize: CGSize
+    ) -> CGImage? {
+        guard canvasSize.width > 0, !items.isEmpty else { return nil }
+        let scale = CGFloat(image.width) / canvasSize.width
+        return backdrop(image, radius: blurRadius(items, scale: scale))
+    }
+
     /// Sample the source paper and alignment for live block views.
     static func prepareItems(
         _ items: [ScreenLaidOutBlock],
@@ -152,7 +165,9 @@ enum ScreenPinRenderer {
     }
 
     private static func blurRadius(_ items: [ScreenLaidOutBlock], scale: CGFloat) -> CGFloat {
-        let heights = items.map(\.rect.height).filter { $0 > 0 }.sorted()
+        let heights = items.map { $0.sourceRect.height > 1 ? $0.sourceRect.height : $0.rect.height }
+            .filter { $0 > 0 }
+            .sorted()
         let median = heights.isEmpty ? 16 : heights[heights.count / 2]
         return min(36, max(12, median * 0.55 * scale))
     }
