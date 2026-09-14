@@ -822,7 +822,7 @@ final class AppModel {
         if !permissions.screenCaptureGranted {
             permissions.requestScreenCapture()
             if !permissions.screenCaptureGranted {
-                report("截屏翻译需要屏幕录制权限。允许后按住左 ⌘ 划区。")
+                report("截屏翻译需要屏幕录制权限。允许后按住左 ⌃ 划区。")
                 settingsTab = 4
                 openSettings()
                 return
@@ -897,7 +897,7 @@ final class AppModel {
         if permissions.screenCaptureGranted {
             lastError = nil
         } else {
-            report("还没有允许屏幕录制。允许后可以按住左 ⌘ 划区翻译。")
+            report("还没有允许屏幕录制。允许后可以按住左 ⌃ 划区翻译。")
         }
     }
 

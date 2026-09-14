@@ -47,13 +47,14 @@ struct RightCommandDoubleTap {
     }
 }
 
-/// Long-press left Command to start screen selection. A short press must
-/// still be Command+C and other chords. Time is injected for tests.
+/// Long-press left Control to start screen selection. A short press and
+/// Control+letter chords must not fire. Time is injected for tests.
 struct ScreenHoldHandler {
     enum Action: Equatable { case none, armHold, begin, cancel, toggle }
 
-    static let holdDelay: TimeInterval = 0.18
+    static let holdDelay: TimeInterval = 0.5
 
+    private let trigger = PushToTalkHotkey.leftControl
     private var holding = false
     private var pendingAt: TimeInterval?
     private var selecting = false
@@ -87,18 +88,19 @@ struct ScreenHoldHandler {
         flags: UInt64,
         now: TimeInterval
     ) -> Action {
-        let trigger = PushToTalkHotkey.leftCommand
-        let forbidden = NSEvent.ModifierFlags([.option, .control, .shift]).rawValue
+        let forbidden = NSEvent.ModifierFlags([.option, .command, .shift]).rawValue
 
         if type == .keyDown {
             if keyCode == UInt16(kVK_Escape), selecting {
                 reset()
                 return .cancel
             }
-            if pendingAt != nil {
-                pendingAt = nil
-                holding = false
-            }
+            abortPending()
+            return .none
+        }
+
+        if type == .flagsChanged, pendingAt != nil, flags & UInt64(forbidden) != 0 {
+            abortPending()
             return .none
         }
 
@@ -130,5 +132,10 @@ struct ScreenHoldHandler {
             return .toggle
         }
         return .none
+    }
+
+    private mutating func abortPending() {
+        pendingAt = nil
+        holding = false
     }
 }
