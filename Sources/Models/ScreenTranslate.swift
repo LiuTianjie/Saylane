@@ -142,6 +142,11 @@ struct ScreenLaidOutBlock: Equatable {
     var centered: Bool = false
     var background: NSColor = .white
     var foreground: NSColor = .black
+    /// True when a translation had to be truncated to keep the selected
+    /// screen rectangle fixed. The renderer uses the last-visible-line clamp;
+    /// this flag is kept explicit so layout tests do not mistake clipping for
+    /// a successful fit.
+    var isClipped: Bool = false
 }
 
 enum ScreenTranslate {
@@ -460,17 +465,19 @@ enum ScreenTranslate {
             if needed > source.height + 1 {
                 next.rect.size.height = min(needed, maxHeight)
             }
+            next.isClipped = needed > maxHeight + 1
             return next
         }
     }
 
     static func contentHeight(items: [ScreenLaidOutBlock], canvasHeight: CGFloat) -> CGFloat {
-        let bottom = items.map(\.rect.maxY).max() ?? 0
-        return max(canvasHeight, ceil(bottom + 6))
+        // The selected screen rectangle is the only canvas. Plates may use
+        // empty space inside it, but never grow the pin or scroll its height.
+        return canvasHeight
     }
 
-    /// Visible pin frame on screen. Content can be taller; the window is
-    /// clamped and the extra is scrolled inside.
+    /// Visible pin frame on screen. A large original selection may be taller
+    /// than the available display area; it is scrolled without scaling.
     static func visiblePinRect(
         content: CGSize,
         originRect: CGRect,
@@ -652,7 +659,14 @@ enum ScreenTranslate {
                 isHeading: paragraph.isHeading
             )
         }
-        return expandAndStack(items)
+        return expandAndStack(items).map { item in
+            var next = item
+            if next.rect.maxY > canvasSize.height {
+                next.rect.size.height = max(1, canvasSize.height - next.rect.minY)
+                next.isClipped = true
+            }
+            return next
+        }
     }
 
     static func layoutPlates(_ lines: [ScreenOCRLine], canvasSize: CGSize) -> [ScreenLaidOutBlock] {

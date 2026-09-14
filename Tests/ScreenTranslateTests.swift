@@ -222,6 +222,20 @@ import Foundation
         let headingBox = ScreenTranslate.topLeftRect(visionBox: headingAfter.visionBox, canvasSize: canvas)
         precondition(packed.count == 2)
         precondition(abs(packed[1].rect.minY - headingBox.minY) < 8, "Short translations must not stretch paragraph spacing")
+        var bottomLong = ScreenOCRLine(
+            text: "A translation near the bottom of the selection",
+            visionBox: CGRect(x: 0.1, y: 0.02, width: 0.18, height: 0.04)
+        )
+        bottomLong.translation = "这是一段靠近选区底边的很长译文，可以在框内利用空隙，但不能把选区画布撑高。"
+        let fixed = ScreenTranslate.layoutPlates([bottomLong], canvasSize: canvas)
+        precondition(fixed.count == 1)
+        precondition(fixed[0].rect.maxY <= canvas.height + 0.5, "A bottom-edge translation cannot grow the selected canvas")
+        precondition(fixed[0].isClipped, "Overflow is clipped instead of expanding the screen selection")
+        precondition(
+            ScreenTranslate.contentHeight(items: fixed, canvasHeight: canvas.height) == canvas.height,
+            "The pin canvas height remains exactly the selected screen height"
+        )
+
         let bubbleA = ScreenOCRLine(
             text: "First chat message on its own bubble",
             visionBox: CGRect(x: 0.40, y: 0.70, width: 0.48, height: 0.04),
@@ -289,6 +303,6 @@ import Foundation
         precondition(abs(short.height - 120) < 1)
         precondition(abs(short.maxY - origin.maxY) < 1, "Short content keeps the original top edge")
 
-        print("PASS: screen shortcut, paragraph grouping, expand instead of overlap")
+        print("PASS: screen shortcut, paragraph grouping, fixed canvas, and no overlap")
     }
 }

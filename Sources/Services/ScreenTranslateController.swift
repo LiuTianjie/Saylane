@@ -172,13 +172,15 @@ final class ScreenTranslateController {
                 setChromeStatus("", working: false)
                 return
             }
+            paragraphs = grouped
+            refreshDisplayed()
             for index in grouped.indices {
                 guard token == generation, !Task.isCancelled else { return }
                 grouped[index].translation = try await engine.translate(grouped[index].original)
+                paragraphs = grouped
+                refreshDisplayed()
             }
             guard token == generation, !Task.isCancelled else { return }
-            paragraphs = grouped
-            refreshDisplayed()
             if let polish {
                 setChromeStatus("正在润色", working: true)
                 let sourceName = direction.source.displayName
@@ -195,10 +197,10 @@ final class ScreenTranslateController {
                     } catch {
                         continue
                     }
+                    paragraphs = grouped
+                    refreshDisplayed()
                 }
                 guard token == generation, !Task.isCancelled else { return }
-                paragraphs = grouped
-                refreshDisplayed()
             }
             setChromeStatus("", working: false)
             InputDiagnostics.record("screen-translated", "paragraphs=\(grouped.count)")
@@ -276,7 +278,8 @@ final class ScreenTranslateController {
 
     private func refreshDisplayed() {
         pinModel.overlayEnabled = overlayEnabled
-        pinPanel?.updateOverlay(image: renderedOverlay())
+        let items = ScreenTranslate.layoutPlates(paragraphs, canvasSize: originalImage.size)
+        pinPanel?.updateOverlay(items: items, overlayEnabled: overlayEnabled)
         pinPanel?.setWorking(pinModel.isWorking)
     }
 
@@ -284,14 +287,10 @@ final class ScreenTranslateController {
         guard overlayEnabled else { return originalImage }
         let sourceCanvas = originalImage.size
         let items = ScreenTranslate.layoutPlates(paragraphs, canvasSize: sourceCanvas)
-        let canvas = CGSize(
-            width: sourceCanvas.width,
-            height: ScreenTranslate.contentHeight(items: items, canvasHeight: sourceCanvas.height)
-        )
         return ScreenPinRenderer.composite(
             image: originalImage,
             items: items,
-            canvasSize: canvas,
+            canvasSize: sourceCanvas,
             overlayEnabled: !items.isEmpty
         )
     }
@@ -333,8 +332,16 @@ final class ScreenTranslateController {
                 _ = self.copyImage()
                 return nil
             }
+            if self.isPinVisible, event.keyCode == UInt16(kVK_Tab) {
+                self.toggleOverlay()
+                return nil
+            }
             if self.isPinVisible, event.keyCode == UInt16(kVK_Space) {
                 self.toggleOverlay()
+                return nil
+            }
+            if self.isPinVisible, event.charactersIgnoringModifiers == "r" {
+                Task { await self.retranslate() }
                 return nil
             }
             return event
@@ -694,6 +701,101 @@ private final class ScreenPinBorderView: NSView {
     }
 }
 
+private final class ScreenPinCanvasView: NSView {
+    private var sourceImage = NSImage()
+
+    override var isFlipped: Bool { true }
+    override var isOpaque: Bool { true }
+
+    init() {
+        super.init(frame: .zero)
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:)") }
+
+    func setSource(_ image: NSImage) {
+        sourceImage = image
+        frame = CGRect(origin: .zero, size: image.size)
+        needsDisplay = true
+    }
+
+    func update(items: [ScreenLaidOutBlock]) {
+        let visible = items.filter { !$0.text.isEmpty }
+        while subviews.count < visible.count {
+            addSubview(ScreenPinBlockView(item: visible[subviews.count]))
+        }
+        for (index, item) in visible.enumerated() {
+            guard let block = subviews[index] as? ScreenPinBlockView else { continue }
+            block.configure(item: item)
+        }
+        if subviews.count > visible.count {
+            subviews[visible.count...].forEach { $0.removeFromSuperview() }
+        }
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        sourceImage.draw(
+            in: bounds,
+            from: .zero,
+            operation: .copy,
+            fraction: 1,
+            respectFlipped: true,
+            hints: [.interpolation: NSImageInterpolation.none.rawValue]
+        )
+    }
+}
+
+private final class ScreenPinBlockView: NSView {
+    private var item: ScreenLaidOutBlock
+
+    init(item: ScreenLaidOutBlock) {
+        self.item = item
+        super.init(frame: item.rect)
+        wantsLayer = true
+    }
+
+    func configure(item: ScreenLaidOutBlock) {
+        self.item = item
+        frame = item.rect
+        needsDisplay = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:)") }
+
+    override var isFlipped: Bool { true }
+    override var isOpaque: Bool { false }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let radius = min(5, bounds.height / 2.4)
+        let plate = NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius)
+        item.background.withAlphaComponent(0.97).setFill()
+        plate.fill()
+
+        NSColor.black.withAlphaComponent(0.06).setStroke()
+        plate.lineWidth = 0.5
+        plate.stroke()
+
+        let fontSize = item.fontSize
+        let insetX = min(max(2, fontSize * 0.08), max(1, bounds.width * 0.06))
+        let insetY = min(max(1, fontSize * 0.06), bounds.height * 0.10)
+        let textRect = bounds.insetBy(dx: insetX, dy: insetY)
+        let attributes = ScreenPinRenderer.attributes(
+            fontSize: fontSize,
+            heading: item.isHeading,
+            color: item.foreground,
+            centered: item.centered,
+            linePitch: item.linePitch
+        )
+        (item.text as NSString).draw(
+            with: textRect,
+            options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
+            attributes: attributes
+        )
+    }
+}
+
 private final class ScreenPinPanel: NSPanel {
     var onToggleOverlay: (() -> Void)?
     var onCopy: (() -> Void)?
@@ -705,7 +807,7 @@ private final class ScreenPinPanel: NSPanel {
     private let chrome: ScreenPinChromePanel
     private let card = NSView()
     private let scrollView = NSScrollView()
-    private let imageView = NSImageView()
+    private let canvasView = ScreenPinCanvasView()
     private let borderView = ScreenPinBorderView()
     private var sourceImage = NSImage()
     private var freezePanels: [ScreenPinFreezePanel] = []
@@ -739,11 +841,6 @@ private final class ScreenPinPanel: NSPanel {
         card.layer?.cornerRadius = ScreenTranslate.windowCornerRadius
         card.layer?.masksToBounds = true
 
-        imageView.imageScaling = .scaleNone
-        imageView.imageAlignment = .alignCenter
-        imageView.wantsLayer = true
-        imageView.layer?.contentsGravity = .center
-
         scrollView.drawsBackground = false
         scrollView.backgroundColor = .clear
         scrollView.borderType = .noBorder
@@ -756,7 +853,7 @@ private final class ScreenPinPanel: NSPanel {
         scrollView.wantsLayer = true
         scrollView.layer?.backgroundColor = NSColor.clear.cgColor
         scrollView.contentView.drawsBackground = false
-        scrollView.documentView = imageView
+        scrollView.documentView = canvasView
 
         card.addSubview(scrollView)
         root.addSubview(card)
@@ -778,8 +875,8 @@ private final class ScreenPinPanel: NSPanel {
     func present(source: NSImage, at rect: CGRect) {
         pinRect = rect
         sourceImage = source
+        canvasView.setSource(source)
         layoutCard(size: rect.size)
-        placeImage(source)
         refreshChrome()
         installFreezePanels()
         NSApp.activate(ignoringOtherApps: true)
@@ -801,14 +898,14 @@ private final class ScreenPinPanel: NSPanel {
         setFrame(padded, display: true)
         card.frame = CGRect(x: glowPad, y: glowPad, width: displayRect.width, height: displayRect.height)
         scrollView.frame = card.bounds
-        imageView.frame = CGRect(origin: .zero, size: size)
+        canvasView.frame = CGRect(origin: .zero, size: size)
         scrollView.hasVerticalScroller = size.height > displayRect.height + 1
         borderView.frame = card.frame
     }
 
     private func scrollToTop() {
         let clip = scrollView.contentView
-        let y = max(0, imageView.frame.height - clip.bounds.height)
+        let y = max(0, canvasView.frame.height - clip.bounds.height)
         clip.scroll(to: NSPoint(x: 0, y: y))
         scrollView.reflectScrolledClipView(clip)
     }
@@ -826,26 +923,15 @@ private final class ScreenPinPanel: NSPanel {
         }
     }
 
-    private func placeImage(_ image: NSImage) {
-        imageView.image = nil
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            imageView.image = image
+    func updateOverlay(items: [ScreenLaidOutBlock], overlayEnabled: Bool) {
+        guard let cgImage = sourceImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            canvasView.update(items: [])
             return
         }
-        imageView.wantsLayer = true
-        imageView.layer?.contents = cgImage
-        imageView.layer?.contentsGravity = .center
-        let pointWidth = image.size.width
-        imageView.layer?.contentsScale = pointWidth > 0 ? CGFloat(cgImage.width) / pointWidth : 1
-        imageView.frame = CGRect(origin: .zero, size: image.size)
-        scrollView.documentView = imageView
-        scrollToTop()
-    }
-
-    func updateOverlay(image: NSImage) {
-        let size = image.size.width > 1 && image.size.height > 1 ? image.size : pinRect.size
-        layoutCard(size: CGSize(width: pinRect.width, height: size.height))
-        placeImage(image)
+        let prepared = overlayEnabled
+            ? ScreenPinRenderer.prepareItems(items, image: cgImage, canvasSize: canvasSize)
+            : []
+        canvasView.update(items: prepared)
         refreshChrome()
     }
 
