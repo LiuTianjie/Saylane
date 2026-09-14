@@ -197,6 +197,19 @@ enum ScreenTranslate {
         )
     }
 
+    /// Vision uses the order of recognition languages as a hint. Keep the
+    /// selected source first and make the list deterministic; a Set here made
+    /// OCR quality depend on hash ordering.
+    static func ocrLanguageHints(source: AppLanguage, target: AppLanguage) -> [String] {
+        var hints: [String] = []
+        for value in [source.speechIdentifier, source.rawValue, target.speechIdentifier, target.rawValue] {
+            if !value.isEmpty && !hints.contains(value) {
+                hints.append(value)
+            }
+        }
+        return hints
+    }
+
     /// Vision normalized box (origin bottom-left) → canvas rect (origin top-left).
     static func topLeftRect(visionBox: CGRect, canvasSize: CGSize) -> CGRect {
         CGRect(

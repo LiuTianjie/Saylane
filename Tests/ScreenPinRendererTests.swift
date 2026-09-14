@@ -20,6 +20,13 @@ import Foundation
         precondition(items.count == 1)
         precondition(abs(items[0].fontSize - ScreenTranslate.fontSize(lineHeight: 0.28 * 80)) < 0.6)
 
+        let backdrop = ScreenPinRenderer.blurredBackdrop(
+            image: image.cgImage(forProposedRect: nil, context: nil, hints: nil)!,
+            items: items,
+            canvasSize: canvas
+        )
+        precondition(backdrop?.width == 200 && backdrop?.height == 80, "Live blur backdrop keeps source dimensions")
+
         let original = ScreenPinRenderer.composite(
             image: image, items: items, canvasSize: canvas, overlayEnabled: false
         )

@@ -38,6 +38,7 @@ final class ScreenTranslateController {
     private var work: Task<Void, Never>?
     private var lines: [ScreenOCRLine] = []
     private var paragraphs: [ScreenParagraph] = []
+    private var recognizedSource: AppLanguage?
     private var originalImage = NSImage()
     private var generation = 0
     private var pairA: AppLanguage = .zhHans
@@ -94,7 +95,7 @@ final class ScreenTranslateController {
             for panel in selectionPanels { panel.setTitle(direction.compactTitle) }
             return
         }
-        Task { await retranslate() }
+        restartTranslation(reRecognize: recognizedSource != direction.source)
     }
 
     func toggleOverlay() {
@@ -135,13 +136,16 @@ final class ScreenTranslateController {
                 self.paragraphs = []
                 self.showPin(image: image, at: rect)
                 self.setChromeStatus("正在识别", working: true)
-                let languages = Array(Set([self.direction.source.speechIdentifier, self.direction.source.rawValue,
-                                           self.direction.target.speechIdentifier, self.direction.target.rawValue]))
+                let languages = ScreenTranslate.ocrLanguageHints(
+                    source: self.direction.source,
+                    target: self.direction.target
+                )
                 async let recognized = ScreenOCRService.recognize(image, languages: languages)
                 async let prepared: Void = self.prepareEngine()
                 let lines = try await recognized
                 guard token == self.generation, !Task.isCancelled else { return }
                 self.lines = lines
+                self.recognizedSource = self.direction.source
                 if lines.isEmpty {
                     self.setChromeStatus("没有识别到文字", working: false)
                     return
@@ -158,13 +162,54 @@ final class ScreenTranslateController {
         }
     }
 
-    private func retranslate() async {
+    /// Direction changes and manual retries must supersede an in-flight
+    /// translation. Previously both tasks shared one generation and could
+    /// interleave, letting the old direction overwrite the new one.
+    private func restartTranslation(reRecognize: Bool) {
+        work?.cancel()
+        work = nil
+        generation += 1
+        if reRecognize {
+            recognizedSource = nil
+            lines = []
+            paragraphs = []
+            refreshDisplayed()
+            setChromeStatus("正在识别", working: true)
+            InputDiagnostics.record("screen-reocr", direction.id)
+        }
+        work = Task { [weak self] in
+            await self?.retranslate(reRecognizing: reRecognize)
+        }
+    }
+
+    private func retranslate(reRecognizing: Bool = false) async {
         let token = generation
         pinModel.directionTitle = direction.compactTitle
-        setChromeStatus("正在翻译", working: true)
+        setChromeStatus(reRecognizing ? "正在识别" : "正在翻译", working: true)
         do {
-            try await prepareEngine()
+            if reRecognizing {
+                let languages = ScreenTranslate.ocrLanguageHints(
+                    source: direction.source,
+                    target: direction.target
+                )
+                async let recognized = ScreenOCRService.recognize(originalImage, languages: languages)
+                async let prepared: Void = prepareEngine()
+                let recognizedLines = try await recognized
+                guard token == generation, !Task.isCancelled else { return }
+                lines = recognizedLines
+                recognizedSource = direction.source
+                if recognizedLines.isEmpty {
+                    paragraphs = []
+                    refreshDisplayed()
+                    setChromeStatus("没有识别到文字", working: false)
+                    return
+                }
+                try await prepared
+            } else {
+                try await prepareEngine()
+            }
             guard token == generation, !Task.isCancelled else { return }
+            setChromeStatus("正在翻译", working: true)
             var grouped = ScreenTranslate.groupParagraphs(from: lines)
             guard !grouped.isEmpty else {
                 paragraphs = []
@@ -172,6 +217,7 @@ final class ScreenTranslateController {
                 setChromeStatus("", working: false)
                 return
             }
+            pinPanel?.prepareBackdrop(items: backdropProbeItems(for: grouped))
             paragraphs = grouped
             refreshDisplayed()
             for index in grouped.indices {
@@ -276,6 +322,16 @@ final class ScreenTranslateController {
         installEventMonitor()
     }
 
+    /// Probe blocks include untranslated paragraphs so the live blur radius is
+    /// based on all OCR blocks, not only the first paragraph that finishes.
+    private func backdropProbeItems(for grouped: [ScreenParagraph]) -> [ScreenLaidOutBlock] {
+        var probes = grouped
+        for index in probes.indices where probes[index].translation.isEmpty {
+            probes[index].translation = probes[index].original
+        }
+        return ScreenTranslate.layoutPlates(probes, canvasSize: originalImage.size)
+    }
+
     private func refreshDisplayed() {
         pinModel.overlayEnabled = overlayEnabled
         let items = ScreenTranslate.layoutPlates(paragraphs, canvasSize: originalImage.size)
@@ -341,7 +397,7 @@ final class ScreenTranslateController {
                 return nil
             }
             if self.isPinVisible, event.charactersIgnoringModifiers == "r" {
-                Task { await self.retranslate() }
+                self.restartTranslation(reRecognize: false)
                 return nil
             }
             return event
@@ -720,14 +776,22 @@ private final class ScreenPinCanvasView: NSView {
         needsDisplay = true
     }
 
-    func update(items: [ScreenLaidOutBlock]) {
+    func update(
+        items: [ScreenLaidOutBlock],
+        blurredImage: CGImage?,
+        canvasSize: CGSize
+    ) {
         let visible = items.filter { !$0.text.isEmpty }
         while subviews.count < visible.count {
-            addSubview(ScreenPinBlockView(item: visible[subviews.count]))
+            addSubview(ScreenPinBlockView(
+                item: visible[subviews.count],
+                blurredImage: blurredImage,
+                canvasSize: canvasSize
+            ))
         }
         for (index, item) in visible.enumerated() {
             guard let block = subviews[index] as? ScreenPinBlockView else { continue }
-            block.configure(item: item)
+            block.configure(item: item, blurredImage: blurredImage, canvasSize: canvasSize)
         }
         if subviews.count > visible.count {
             subviews[visible.count...].forEach { $0.removeFromSuperview() }
@@ -749,15 +813,29 @@ private final class ScreenPinCanvasView: NSView {
 
 private final class ScreenPinBlockView: NSView {
     private var item: ScreenLaidOutBlock
+    private var blurredImage: CGImage?
+    private var canvasSize: CGSize
 
-    init(item: ScreenLaidOutBlock) {
+    init(
+        item: ScreenLaidOutBlock,
+        blurredImage: CGImage?,
+        canvasSize: CGSize
+    ) {
         self.item = item
+        self.blurredImage = blurredImage
+        self.canvasSize = canvasSize
         super.init(frame: item.rect)
         wantsLayer = true
     }
 
-    func configure(item: ScreenLaidOutBlock) {
+    func configure(
+        item: ScreenLaidOutBlock,
+        blurredImage: CGImage?,
+        canvasSize: CGSize
+    ) {
         self.item = item
+        self.blurredImage = blurredImage
+        self.canvasSize = canvasSize
         frame = item.rect
         needsDisplay = true
     }
@@ -770,11 +848,15 @@ private final class ScreenPinBlockView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         let radius = min(5, bounds.height / 2.4)
         let plate = NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius)
-        item.background.withAlphaComponent(0.97).setFill()
-        plate.fill()
 
-        NSColor.black.withAlphaComponent(0.06).setStroke()
+        NSGraphicsContext.saveGraphicsState()
+        plate.addClip()
+        drawBackdrop()
+        plate.fill()
+        NSGraphicsContext.restoreGraphicsState()
+
         plate.lineWidth = 0.5
+        borderColor().setStroke()
         plate.stroke()
 
         let fontSize = item.fontSize
@@ -794,6 +876,58 @@ private final class ScreenPinBlockView: NSView {
             attributes: attributes
         )
     }
+
+    private func drawBackdrop() {
+        if let blurredImage {
+            drawCroppedBackdrop(blurredImage)
+            return
+        }
+        item.background.withAlphaComponent(0.97).setFill()
+    }
+
+    private func drawCroppedBackdrop(_ image: CGImage) {
+        guard canvasSize.width > 0, canvasSize.height > 0, bounds.width > 0, bounds.height > 0 else {
+            item.background.withAlphaComponent(0.97).setFill()
+            return
+        }
+        let crop = CGRect(
+            x: item.rect.minX / canvasSize.width * CGFloat(image.width),
+            y: (1 - item.rect.maxY / canvasSize.height) * CGFloat(image.height),
+            width: item.rect.width / canvasSize.width * CGFloat(image.width),
+            height: item.rect.height / canvasSize.height * CGFloat(image.height)
+        ).integral
+        guard let cropped = image.cropping(to: crop) else {
+            item.background.withAlphaComponent(0.97).setFill()
+            return
+        }
+        let backdrop = NSImage(cgImage: cropped, size: bounds.size)
+        backdrop.draw(
+            in: bounds,
+            from: .zero,
+            operation: .sourceOver,
+            fraction: 1,
+            respectFlipped: true,
+            hints: [.interpolation: NSImageInterpolation.high.rawValue]
+        )
+        veilColor().setFill()
+    }
+
+    private func veilColor() -> NSColor {
+        return isLightBackdrop()
+            ? NSColor.white.withAlphaComponent(0.42)
+            : NSColor.black.withAlphaComponent(0.34)
+    }
+
+    private func isLightBackdrop() -> Bool {
+        let red = item.background.redComponent
+        let green = item.background.greenComponent
+        let blue = item.background.blueComponent
+        return 0.2126 * red + 0.7152 * green + 0.0722 * blue > 0.58
+    }
+
+    private func borderColor() -> NSColor {
+        NSColor.black.withAlphaComponent(isLightBackdrop() ? 0.06 : 0.18)
+    }
 }
 
 private final class ScreenPinPanel: NSPanel {
@@ -810,6 +944,7 @@ private final class ScreenPinPanel: NSPanel {
     private let canvasView = ScreenPinCanvasView()
     private let borderView = ScreenPinBorderView()
     private var sourceImage = NSImage()
+    private var blurredBackdropImage: CGImage?
     private var freezePanels: [ScreenPinFreezePanel] = []
     private let glowPad: CGFloat = 10
     private var pinRect = CGRect.zero
@@ -875,6 +1010,7 @@ private final class ScreenPinPanel: NSPanel {
     func present(source: NSImage, at rect: CGRect) {
         pinRect = rect
         sourceImage = source
+        blurredBackdropImage = nil
         canvasView.setSource(source)
         layoutCard(size: rect.size)
         refreshChrome()
@@ -923,15 +1059,36 @@ private final class ScreenPinPanel: NSPanel {
         }
     }
 
+    func prepareBackdrop(items: [ScreenLaidOutBlock]) {
+        guard let cgImage = sourceImage.cgImage(forProposedRect: nil, context: nil, hints: nil),
+              blurredBackdropImage == nil else { return }
+        blurredBackdropImage = ScreenPinRenderer.blurredBackdrop(
+            image: cgImage,
+            items: items,
+            canvasSize: canvasSize
+        )
+    }
+
     func updateOverlay(items: [ScreenLaidOutBlock], overlayEnabled: Bool) {
         guard let cgImage = sourceImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            canvasView.update(items: [])
+            canvasView.update(items: [], blurredImage: nil, canvasSize: canvasSize)
             return
         }
         let prepared = overlayEnabled
             ? ScreenPinRenderer.prepareItems(items, image: cgImage, canvasSize: canvasSize)
             : []
-        canvasView.update(items: prepared)
+        if overlayEnabled, !prepared.isEmpty, blurredBackdropImage == nil {
+            blurredBackdropImage = ScreenPinRenderer.blurredBackdrop(
+                image: cgImage,
+                items: prepared,
+                canvasSize: canvasSize
+            )
+        }
+        canvasView.update(
+            items: prepared,
+            blurredImage: blurredBackdropImage,
+            canvasSize: canvasSize
+        )
         refreshChrome()
     }
 
