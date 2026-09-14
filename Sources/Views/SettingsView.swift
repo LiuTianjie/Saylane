@@ -92,7 +92,7 @@ struct SettingsView: View {
         case 1: return "打字用拼音，说话用快捷键。两件事互不抢。"
         case 2: return "语音和翻译都在这台电脑上跑。"
         case 3: return "说完再润色一次，可选。截屏翻译在「截屏翻译」里单独开关。"
-        case 4: return "按住左 ⌘ 划一块，译文贴在原文上。"
+        case 4: return "按住左 ⌃ 划一块，译文贴在原文上。"
         default: return "授权、启用、试一句。做完就能用。"
         }
     }
@@ -384,7 +384,7 @@ struct SettingsView: View {
         return VStack(alignment: .leading, spacing: 20) {
             SettingsSection(title: "划选") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("按住左 ⌘ 画出要翻译的区域，松鼠标即翻译，松开 ⌘ 取消。钉住后点一下左 ⌘ 可在原文和译文之间切换。")
+                    Text("按住左 ⌃ 约半秒画出要翻译的区域，松鼠标即翻译，松开 ⌃ 取消。和别的键一起按时不会触发。钉住后点一下左 ⌃ 可在原文和译文之间切换。")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                     Text("默认译入你的常用语言。划选或钉住时双击右 ⌘ 切换方向，不影响说话。")
@@ -395,7 +395,7 @@ struct SettingsView: View {
                 HStack(alignment: .center, spacing: 16) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("额外快捷键").font(.system(size: 14, weight: .medium))
-                        Text("可再设一个组合键，和按住左 ⌘ 同时可用。")
+                        Text("可再设一个组合键，和按住左 ⌃ 同时可用。")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     }
