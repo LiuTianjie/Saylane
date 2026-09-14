@@ -4,8 +4,8 @@ import CoreImage
 enum ScreenPinRenderer {
     private static let ciContext = CIContext(options: [.cacheIntermediates: false])
 
-    /// Draw translations on the original pixels. Long lines grow downward;
-    /// later plates have already been pushed so they do not overlap.
+    /// Draw translations on the original pixels. A plate may use empty space
+    /// inside the selected rectangle, but the canvas itself never grows.
     /// Plate fill is a backdrop blur of the original, not a sampled solid.
     static func composite(
         image: NSImage,
@@ -87,6 +87,15 @@ enum ScreenPinRenderer {
         ]
     }
 
+    /// Sample the source paper and alignment for live block views.
+    static func prepareItems(
+        _ items: [ScreenLaidOutBlock],
+        image: CGImage,
+        canvasSize: CGSize
+    ) -> [ScreenLaidOutBlock] {
+        finishItems(items, image: image, canvasSize: canvasSize)
+    }
+
     private static func finishItems(
         _ items: [ScreenLaidOutBlock],
         image: CGImage,
@@ -122,7 +131,15 @@ enum ScreenPinRenderer {
             let sample = item.sourceRect.width > 1 ? item.sourceRect : item.rect
             let box = pixelBox(sample)
             let paper = average(pixel: pixel, box: box, imageWidth: width, imageHeight: height)
-            next.foreground = NSColor(srgbRed: 0.08, green: 0.08, blue: 0.09, alpha: 1)
+            next.background = NSColor(
+                srgbRed: paper.0,
+                green: paper.1,
+                blue: paper.2,
+                alpha: 1
+            )
+            next.foreground = luma(paper) > 0.58
+                ? NSColor(srgbRed: 0.08, green: 0.08, blue: 0.09, alpha: 1)
+                : NSColor(srgbRed: 0.94, green: 0.94, blue: 0.95, alpha: 1)
             next.centered = sampleCentered(
                 pixel: pixel,
                 box: box,
