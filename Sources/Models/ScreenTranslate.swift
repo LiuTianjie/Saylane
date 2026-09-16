@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import Carbon.HIToolbox
 import Foundation
 
@@ -130,6 +131,7 @@ struct ScreenParagraph: Equatable {
     var linePitch: CGFloat
     var isHeading: Bool
     var lineCount: Int
+    var sourceLines: [ScreenOCRLine] = []
 }
 
 struct ScreenLaidOutBlock: Equatable {
@@ -142,10 +144,11 @@ struct ScreenLaidOutBlock: Equatable {
     var centered: Bool = false
     var background: NSColor = .white
     var foreground: NSColor = .black
-    /// True when a translation had to be truncated to keep the selected
-    /// screen rectangle fixed. The renderer uses the last-visible-line clamp;
-    /// this flag is kept explicit so layout tests do not mistake clipping for
-    /// a successful fit.
+    /// Full text document height; the source-anchored viewport may scroll.
+    var availableHeight: CGFloat = 0
+    var availableRect: CGRect = .zero
+    var textContentHeight: CGFloat = 0
+    var textScrollOffset: CGFloat = 0
     var isClipped: Bool = false
 }
 
@@ -228,6 +231,55 @@ enum ScreenTranslate {
         let probe = readingFont(size: 100, heading: heading)
         let lineBox = max(1, probe.ascender - probe.descender)
         return min(64, max(5, lineHeight * 100 / lineBox * fontToLineHeight))
+    }
+
+    /// OCR bounds describe ink, not the font's ascender/descender line box.
+    /// Calibrate against the recognized glyphs to avoid shrinking lowercase
+    /// text or enlarging strings with descenders at the same source size.
+    static func sourceFontSize(text: String, inkHeight: CGFloat, inkWidth: CGFloat? = nil) -> CGFloat {
+        let font = readingFont(size: 100, heading: false)
+        let string = NSAttributedString(string: text, attributes: [.font: font])
+        let line = CTLineCreateWithAttributedString(string)
+        let ink = CTLineGetImageBounds(line, nil)
+        let fromHeight = inkHeight * 100 / max(25, ink.height)
+        if let inkWidth, ink.width > 50 {
+            let fromWidth = inkWidth * 100 / ink.width
+            // Vision adds vertical padding. Width is a better estimate for
+            // ordinary single-line text; reject severe OCR/string mismatch.
+            return min(fromHeight, fromWidth)
+        }
+        return fromHeight
+    }
+
+    static func paragraphFonts(_ paragraphs: [ScreenParagraph], canvasSize: CGSize) -> [CGFloat] {
+        let estimates = paragraphs.map { paragraph -> CGFloat in
+            let samples = paragraph.sourceLines.isEmpty
+                ? [ScreenOCRLine(text: paragraph.original, visionBox: paragraph.visionBox)] : paragraph.sourceLines
+            let sizes = samples.map { line in
+                sourceFontSize(text: line.text, inkHeight: line.visionBox.height * canvasSize.height,
+                    inkWidth: line.visionBox.width * canvasSize.width)
+            }.sorted()
+            return sizes[sizes.count / 2]
+        }
+        return paragraphs.indices.map { index in
+            let own = paragraphs[index]
+            let alignedPeers = paragraphs.indices.filter { other in
+                abs(paragraphs[other].visionBox.minX - own.visionBox.minX) * canvasSize.width < max(own.lineHeight * canvasSize.height * 2, 8)
+            }
+            var estimate = estimates[index]
+            let sourceAspect = own.visionBox.width * canvasSize.width / max(1, own.visionBox.height * canvasSize.height)
+            if own.lineCount == 1, sourceAspect < 3.5, !own.isHeading, own.original.count > 40 {
+                let smaller = alignedPeers.filter { paragraphs[$0].lineHeight < own.lineHeight * 0.65 }
+                    .map { estimates[$0] }.sorted()
+                if !smaller.isEmpty { estimate = smaller[smaller.count / 2] }
+            }
+            let peers = alignedPeers.filter { other in
+                let ratio = paragraphs[other].lineHeight / max(0.0001, own.lineHeight)
+                return ratio >= 0.8 && ratio <= 1.25
+            }.map { estimates[$0] }.sorted()
+            let stable = estimate != estimates[index] || peers.isEmpty ? estimate : peers[peers.count / 2]
+            return max(5, min(96, stable))
+        }
     }
 
     /// How far a plate may grow before it hits another OCR box.
@@ -416,11 +468,12 @@ enum ScreenTranslate {
         paragraph.lineBreakMode = .byWordWrapping
         paragraph.lineSpacing = 0
         paragraph.paragraphSpacing = 0
-        let pitch = linePitch > 0 ? max(linePitch, fontSize) : fontSize
+        let font = readingFont(size: max(5, fontSize), heading: heading)
+        let pitch = max(linePitch, ceil(font.ascender - font.descender + font.leading))
         paragraph.minimumLineHeight = pitch
         paragraph.maximumLineHeight = pitch
         let bounds = (text as NSString).boundingRect(
-            with: CGSize(width: max(8, width), height: CGFloat.greatestFiniteMagnitude),
+            with: CGSize(width: max(1, width), height: CGFloat.greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             attributes: [
                 .font: readingFont(size: max(5, fontSize), heading: heading),
@@ -434,59 +487,48 @@ enum ScreenTranslate {
         a.minX < b.maxX - 1 && b.minX < a.maxX - 1
     }
 
-    /// Keep every plate on its original OCR box. A long translation may
-    /// grow into the empty gap before the next box; it never moves, and
-    /// it never covers the next line.
-    static func expandAndStack(_ items: [ScreenLaidOutBlock], gap: CGFloat = 4) -> [ScreenLaidOutBlock] {
-        guard !items.isEmpty else { return items }
-        let sources = items.map { $0.sourceRect.width > 1 ? $0.sourceRect : $0.rect }
-        return items.enumerated().map { index, item in
-            var next = item
-            let source = sources[index]
-            let insetX = max(3, item.fontSize * 0.12)
-            let width = max(8, source.width - insetX * 2)
-            var font = item.fontSize
-            var pitch = item.linePitch > 0 ? item.linePitch : item.fontSize
-            if pitch > source.height, source.height > 4 {
-                pitch = source.height
-                font = min(font, source.height)
-            }
-            var needed = textHeight(
-                text: item.text,
-                fontSize: font,
-                width: width,
-                heading: item.isHeading,
-                linePitch: pitch
-            )
-            let room = padLimits(box: source, obstacles: sources).y
-            let extra = room.isFinite ? max(0, room) : needed
-            let maxHeight = source.height + extra
-            while needed > maxHeight + 1, font > item.fontSize * 0.72 {
-                font = max(item.fontSize * 0.72, font * 0.9)
-                pitch = font
-                needed = textHeight(
-                    text: item.text,
-                    fontSize: font,
-                    width: width,
-                    heading: item.isHeading,
-                    linePitch: pitch
-                )
-            }
-            next.fontSize = font
-            next.linePitch = pitch
-            next.rect = source
-            if needed > source.height + 1 {
-                next.rect.size.height = min(needed, maxHeight)
-            }
-            next.isClipped = needed > maxHeight + 1
-            return next
+    /// Keep every source anchor fixed. Overflow scrolls inside its text block;
+    /// background pixels are never sliced, moved, or stretched.
+    static func expandAndStack(_ items: [ScreenLaidOutBlock]) -> [ScreenLaidOutBlock] {
+        items.map { input in
+            var item = input
+            let source = item.sourceRect.width > 1 ? item.sourceRect : item.rect
+            item.sourceRect = source
+            item.rect = source
+            let inset = textInsets(fontSize: item.fontSize)
+            item.textContentHeight = ceil(textHeight(text: item.text, fontSize: item.fontSize,
+                width: max(1, source.width - inset.width * 2), heading: item.isHeading,
+                linePitch: item.linePitch) + inset.height * 2)
+            item.isClipped = false
+            return item
         }
     }
 
+    static func fitViewport(_ input: ScreenLaidOutBlock, available: CGRect) -> ScreenLaidOutBlock {
+        var item = input
+        let source = item.sourceRect
+        let inset = textInsets(fontSize: item.fontSize)
+        let naturalWidth = (item.text as NSString).size(withAttributes: [
+            .font: readingFont(size: item.fontSize, heading: item.isHeading)
+        ]).width + inset.width * 2
+        item.rect.size.width = max(source.width, min(available.width, ceil(naturalWidth)))
+        item.textContentHeight = ceil(textHeight(text: item.text, fontSize: item.fontSize,
+            width: max(1, item.rect.width - inset.width * 2), heading: item.isHeading,
+            linePitch: item.linePitch) + inset.height * 2)
+        let up = min(source.minY - available.minY, max(0, item.fontSize * 1.3 - source.height) / 2)
+        item.rect.origin.y = source.minY - max(0, up)
+        item.rect.size.height = max(source.height, min(item.textContentHeight, available.maxY - item.rect.minY))
+        item.availableRect = available
+        item.availableHeight = available.height
+        return item
+    }
+
+    static func textInsets(fontSize: CGFloat) -> CGSize {
+        CGSize(width: max(2, fontSize * 0.08), height: max(1, fontSize * 0.06))
+    }
+
     static func contentHeight(items: [ScreenLaidOutBlock], canvasHeight: CGFloat) -> CGFloat {
-        // The selected screen rectangle is the only canvas. Plates may use
-        // empty space inside it, but never grow the pin or scroll its height.
-        return canvasHeight
+        canvasHeight
     }
 
     /// Visible pin frame on screen. A large original selection may be taller
@@ -625,7 +667,8 @@ enum ScreenTranslate {
                 lineHeight: group.map(\.visionBox.height).reduce(0, +) / CGFloat(group.count),
                 linePitch: box.height / CGFloat(max(1, group.count)),
                 isHeading: group.count == 1 && isStandaloneLine(group[0], bodyHeight: bodyHeight),
-                lineCount: group.count
+                lineCount: group.count,
+                sourceLines: group
             )
         }
     }
@@ -639,12 +682,17 @@ enum ScreenTranslate {
         canvasHeight: CGFloat
     ) -> CGFloat {
         let own = paragraph.lineHeight
+        // Tall OCR boxes in body paragraphs often include ascenders, formulas,
+        // or multiple lines. They are not evidence of a larger text style.
+        if !paragraph.isHeading, own > bodyNorm * 1.4 {
+            return max(1, bodyNorm * canvasHeight)
+        }
         if paragraph.lineCount == 1, isWrappedBlock(paragraph.visionBox), own > bodyNorm * 1.2 {
             return max(1, bodyNorm * canvasHeight)
         }
         if bodyNorm > 0 {
             let ratio = own / bodyNorm
-            if ratio >= 0.7 && ratio <= 1.35 {
+            if ratio >= 0.65 && ratio <= 1.40 {
                 return max(1, bodyNorm * canvasHeight)
             }
         }
@@ -653,33 +701,24 @@ enum ScreenTranslate {
 
     static func layoutPlates(_ paragraphs: [ScreenParagraph], canvasSize: CGSize) -> [ScreenLaidOutBlock] {
         guard canvasSize.width > 1, canvasSize.height > 1 else { return [] }
-        let bodyNorm = bodyLineHeight(paragraphs.map { ($0.lineHeight, $0.visionBox.width * CGFloat($0.lineCount)) })
-        let items: [ScreenLaidOutBlock] = paragraphs.compactMap { paragraph in
+        let fonts = paragraphFonts(paragraphs, canvasSize: canvasSize)
+        let items: [ScreenLaidOutBlock] = paragraphs.enumerated().compactMap { index, paragraph in
             let text = paragraph.translation.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { return nil }
             let rect = topLeftRect(visionBox: paragraph.visionBox, canvasSize: canvasSize)
             guard rect.width > 2, rect.height > 1.5 else { return nil }
-            let slot = lineSlot(paragraph, bodyNorm: bodyNorm, canvasHeight: canvasSize.height)
-            let pitch = paragraph.lineCount > 1
-                ? paragraph.linePitch * canvasSize.height
-                : slot
+            let font = fonts[index]
+            let pitch = ceil(font * 1.3)
             return ScreenLaidOutBlock(
                 text: text,
                 rect: rect,
                 sourceRect: rect,
-                fontSize: fontSize(lineHeight: slot),
+                fontSize: font,
                 linePitch: pitch,
                 isHeading: paragraph.isHeading
             )
         }
-        return expandAndStack(items).map { item in
-            var next = item
-            if next.rect.maxY > canvasSize.height {
-                next.rect.size.height = max(1, canvasSize.height - next.rect.minY)
-                next.isClipped = true
-            }
-            return next
-        }
+        return expandAndStack(items)
     }
 
     static func layoutPlates(_ lines: [ScreenOCRLine], canvasSize: CGSize) -> [ScreenLaidOutBlock] {

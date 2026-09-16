@@ -25,6 +25,8 @@ build/tests/setup-readiness
 swiftc Sources/Models/AppLanguage.swift Tests/TranslationDirectionTests.swift -o build/tests/direction
 build/tests/direction
 swiftc -framework AppKit Sources/Models/AppLanguage.swift Sources/Models/ScreenTranslate.swift Tests/ScreenTranslateTests.swift -o build/tests/screen-translate
+swiftc -framework AppKit -framework Vision Sources/Models/AppLanguage.swift Sources/Models/ScreenTranslate.swift Sources/Services/ScreenOCRService.swift Tests/ScreenFontCalibrationTests.swift -o build/tests/screen-font
+build/tests/screen-font
 build/tests/screen-translate
 swiftc -framework AppKit Sources/Models/PushToTalkHotkey.swift Sources/Services/ScreenHoldHandler.swift Tests/ScreenHoldTests.swift -o build/tests/screen-hold
 build/tests/screen-hold
