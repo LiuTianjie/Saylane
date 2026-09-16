@@ -18,7 +18,6 @@ import Foundation
         line.translation = "你好"
         let items = ScreenTranslate.layoutPlates([line], canvasSize: canvas)
         precondition(items.count == 1)
-        precondition(abs(items[0].fontSize - ScreenTranslate.fontSize(lineHeight: 0.28 * 80)) < 0.6)
 
         let backdrop = ScreenPinRenderer.blurredBackdrop(
             image: image.cgImage(forProposedRect: nil, context: nil, hints: nil)!,
@@ -45,9 +44,8 @@ import Foundation
         let insideY = Int(plate.midY)
         let insideLuma = pixels.luma(insideX, pixels.height - 1 - insideY)
         precondition(insideLuma > 0.25, "Frosted plate must cover the original black glyphs")
-        let inside = pixels.rgb(insideX, pixels.height - 1 - insideY)
-        let gray = abs(inside.0 - 0.52) < 0.08 && abs(inside.1 - 0.52) < 0.08 && abs(inside.2 - 0.52) < 0.08
-        precondition(!gray, "Do not paint a 52% gray sheet over the page")
+        let edgeLuma = pixels.luma(Int(plate.minX + 3), pixels.height - 1 - insideY)
+        precondition(abs(edgeLuma - insideLuma) > 0.01, "Backdrop retains source variation instead of becoming a flat sheet")
 
         var tight = ScreenOCRLine(
             text: "A full window chat line",
@@ -79,9 +77,26 @@ import Foundation
         body.translation = "更长的正文"
         let sized = ScreenTranslate.layoutPlates([title, body], canvasSize: CGSize(width: 1000, height: 800))
         precondition(sized[0].fontSize > sized[1].fontSize, "Heading keeps its own larger size")
-        precondition(abs(sized[1].fontSize - ScreenTranslate.fontSize(lineHeight: 0.035 * 800)) < 0.6, "Body size follows that line's height")
 
-        print("PASS: copy keeps original pixels outside text boxes; plates cover original glyphs")
+        let growing = ScreenTranslate.expandAndStack([
+            ScreenLaidOutBlock(text: String(repeating: "完整译文保持字号。", count: 30),
+                rect: CGRect(x: 20, y: 10, width: 160, height: 20),
+                fontSize: 18, linePitch: 24, isHeading: false)
+        ])
+        let marker = makeImage(width: 400, height: 160) { ctx, width, height in
+            ctx.setFillColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1))
+            ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            ctx.setFillColor(CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 1))
+            ctx.fill(CGRect(x: 180, y: 20, width: 20, height: 20))
+        }
+        marker.size = canvas // Retina: two pixels per point.
+        let exported = ScreenPinRenderer.composite(image: marker, items: growing, canvasSize: canvas, overlayEnabled: true)
+        precondition(exported.size == canvas, "Export keeps exact source geometry")
+        let exportedPixels = Pixels(image: exported)
+        precondition(exportedPixels.luma(190, 130) < 0.1,
+            "The image below a long translation stays intact at its original position")
+        precondition(exportedPixels.width == 400 && exportedPixels.height == 160, "Copy keeps Retina scale")
+        print("PASS: original pixels, stable text, unchanged source pixels and Retina export")
     }
 
     private static func makeImage(

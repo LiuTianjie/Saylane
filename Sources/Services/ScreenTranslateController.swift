@@ -220,32 +220,41 @@ final class ScreenTranslateController {
             pinPanel?.prepareBackdrop(items: backdropProbeItems(for: grouped))
             paragraphs = grouped
             refreshDisplayed()
-            for index in grouped.indices {
-                guard token == generation, !Task.isCancelled else { return }
-                grouped[index].translation = try await engine.translate(grouped[index].original)
-                paragraphs = grouped
-                refreshDisplayed()
-            }
+            let translations = try await engine.translateBatch(grouped.map(\.original))
+            guard token == generation, !Task.isCancelled else { return }
+            for index in grouped.indices { grouped[index].translation = translations[index] }
+            paragraphs = grouped
+            refreshDisplayed()
             guard token == generation, !Task.isCancelled else { return }
             if let polish {
                 setChromeStatus("正在润色", working: true)
                 let sourceName = direction.source.displayName
                 let targetName = direction.target.displayName
-                for index in grouped.indices {
+                // Bound concurrent network work, and publish one coherent result
+                // instead of moving the page after every polished paragraph.
+                for start in stride(from: 0, to: grouped.count, by: 4) {
                     guard token == generation, !Task.isCancelled else { return }
-                    do {
-                        grouped[index].translation = try await polish(
-                            grouped[index].original,
-                            grouped[index].translation,
-                            sourceName,
-                            targetName
-                        )
-                    } catch {
-                        continue
+                    let inputs = (start..<min(start + 4, grouped.count)).map { ($0, grouped[$0]) }
+                    let results = await withTaskGroup(of: (Int, String?).self) { group in
+                        for (index, paragraph) in inputs {
+                            group.addTask { @MainActor in
+                                let result = try? await polish(paragraph.original, paragraph.translation, sourceName, targetName)
+                                return (index, result)
+                            }
+                        }
+                        var results: [(Int, String?)] = []
+                        for await result in group { results.append(result) }
+                        return results
                     }
-                    paragraphs = grouped
-                    refreshDisplayed()
+                    guard token == generation, !Task.isCancelled else { return }
+                    for (index, result) in results {
+                        if let result, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            grouped[index].translation = result
+                        }
+                    }
                 }
+                paragraphs = grouped
+                refreshDisplayed()
                 guard token == generation, !Task.isCancelled else { return }
             }
             setChromeStatus("", working: false)
@@ -342,7 +351,8 @@ final class ScreenTranslateController {
     private func renderedOverlay() -> NSImage {
         guard overlayEnabled else { return originalImage }
         let sourceCanvas = originalImage.size
-        let items = ScreenTranslate.layoutPlates(paragraphs, canvasSize: sourceCanvas)
+        let items = pinPanel?.displayedItemsForCopy()
+            ?? ScreenTranslate.layoutPlates(paragraphs, canvasSize: sourceCanvas)
         return ScreenPinRenderer.composite(
             image: originalImage,
             items: items,
@@ -759,6 +769,7 @@ private final class ScreenPinBorderView: NSView {
 
 private final class ScreenPinCanvasView: NSView {
     private var sourceImage = NSImage()
+    private var scrollOffsets: [String: CGFloat] = [:]
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { true }
@@ -772,6 +783,7 @@ private final class ScreenPinCanvasView: NSView {
 
     func setSource(_ image: NSImage) {
         sourceImage = image
+        scrollOffsets = [:]
         frame = CGRect(origin: .zero, size: image.size)
         needsDisplay = true
     }
@@ -781,7 +793,14 @@ private final class ScreenPinCanvasView: NSView {
         blurredImage: CGImage?,
         canvasSize: CGSize
     ) {
-        let visible = items.filter { !$0.text.isEmpty }
+        for item in displayedItemsForCopy() {
+            scrollOffsets[NSStringFromRect(item.sourceRect)] = item.textScrollOffset
+        }
+        let visible = items.filter { !$0.text.isEmpty }.map { item in
+            var next = item
+            next.textScrollOffset = scrollOffsets[NSStringFromRect(item.sourceRect)] ?? 0
+            return next
+        }
         while subviews.count < visible.count {
             addSubview(ScreenPinBlockView(
                 item: visible[subviews.count],
@@ -799,9 +818,13 @@ private final class ScreenPinCanvasView: NSView {
         needsDisplay = true
     }
 
+    func displayedItemsForCopy() -> [ScreenLaidOutBlock] {
+        subviews.compactMap { ($0 as? ScreenPinBlockView)?.displayedItem }
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         sourceImage.draw(
-            in: bounds,
+            in: CGRect(origin: .zero, size: sourceImage.size),
             from: .zero,
             operation: .copy,
             fraction: 1,
@@ -815,6 +838,8 @@ private final class ScreenPinBlockView: NSView {
     private var item: ScreenLaidOutBlock
     private var blurredImage: CGImage?
     private var canvasSize: CGSize
+    private let textScroll = NSScrollView()
+    private let textDocument = ScreenPinTextView()
 
     init(
         item: ScreenLaidOutBlock,
@@ -826,6 +851,16 @@ private final class ScreenPinBlockView: NSView {
         self.canvasSize = canvasSize
         super.init(frame: item.rect)
         wantsLayer = true
+        textScroll.drawsBackground = false
+        textScroll.contentView.drawsBackground = false
+        textScroll.borderType = .noBorder
+        textScroll.scrollerStyle = .overlay
+        textScroll.autohidesScrollers = true
+        textScroll.hasHorizontalScroller = false
+        textScroll.verticalScrollElasticity = .none
+        textScroll.documentView = textDocument
+        addSubview(textScroll)
+        configure(item: item, blurredImage: blurredImage, canvasSize: canvasSize)
     }
 
     func configure(
@@ -837,7 +872,23 @@ private final class ScreenPinBlockView: NSView {
         self.blurredImage = blurredImage
         self.canvasSize = canvasSize
         frame = item.rect
+        let oldY = item.textScrollOffset
+        textScroll.frame = bounds
+        textDocument.item = item
+        textDocument.frame = CGRect(x: 0, y: 0, width: bounds.width,
+            height: max(bounds.height, item.textContentHeight))
+        textScroll.hasVerticalScroller = textDocument.frame.height > bounds.height + 1
+        textScroll.contentView.scroll(to: NSPoint(x: 0, y: min(oldY, max(0, textDocument.frame.height - bounds.height))))
+        textScroll.reflectScrolledClipView(textScroll.contentView)
+        textDocument.needsDisplay = true
+        toolTip = textScroll.hasVerticalScroller ? "在这段文字内滚动查看完整译文" : nil
         needsDisplay = true
+    }
+
+    var displayedItem: ScreenLaidOutBlock {
+        var current = item
+        current.textScrollOffset = textScroll.contentView.bounds.minY
+        return current
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:)") }
@@ -859,22 +910,6 @@ private final class ScreenPinBlockView: NSView {
         borderColor().setStroke()
         plate.stroke()
 
-        let fontSize = item.fontSize
-        let insetX = min(max(2, fontSize * 0.08), max(1, bounds.width * 0.06))
-        let insetY = min(max(1, fontSize * 0.06), bounds.height * 0.10)
-        let textRect = bounds.insetBy(dx: insetX, dy: insetY)
-        let attributes = ScreenPinRenderer.attributes(
-            fontSize: fontSize,
-            heading: item.isHeading,
-            color: item.foreground,
-            centered: item.centered,
-            linePitch: item.linePitch
-        )
-        (item.text as NSString).draw(
-            with: textRect,
-            options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
-            attributes: attributes
-        )
     }
 
     private func drawBackdrop() {
@@ -891,10 +926,10 @@ private final class ScreenPinBlockView: NSView {
             return
         }
         let crop = CGRect(
-            x: item.rect.minX / canvasSize.width * CGFloat(image.width),
-            y: (1 - item.rect.maxY / canvasSize.height) * CGFloat(image.height),
-            width: item.rect.width / canvasSize.width * CGFloat(image.width),
-            height: item.rect.height / canvasSize.height * CGFloat(image.height)
+            x: item.sourceRect.minX / canvasSize.width * CGFloat(image.width),
+            y: item.sourceRect.minY / canvasSize.height * CGFloat(image.height),
+            width: item.sourceRect.width / canvasSize.width * CGFloat(image.width),
+            height: item.sourceRect.height / canvasSize.height * CGFloat(image.height)
         ).integral
         guard let cropped = image.cropping(to: crop) else {
             item.background.withAlphaComponent(0.97).setFill()
@@ -930,6 +965,30 @@ private final class ScreenPinBlockView: NSView {
     }
 }
 
+private final class ScreenPinTextView: NSView {
+    var item: ScreenLaidOutBlock?
+    override var isFlipped: Bool { true }
+    override var isOpaque: Bool { false }
+    override func draw(_ dirtyRect: NSRect) {
+        guard let item else { return }
+        let fontSize = item.fontSize
+        let inset = ScreenTranslate.textInsets(fontSize: fontSize)
+        let textRect = bounds.insetBy(dx: inset.width, dy: inset.height)
+        let attributes = ScreenPinRenderer.attributes(
+            fontSize: fontSize,
+            heading: item.isHeading,
+            color: item.foreground,
+            centered: item.centered,
+            linePitch: item.linePitch
+        )
+        (item.text as NSString).draw(
+            with: textRect,
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: attributes
+        )
+    }
+}
+
 private final class ScreenPinPanel: NSPanel {
     var onToggleOverlay: (() -> Void)?
     var onCopy: (() -> Void)?
@@ -949,6 +1008,9 @@ private final class ScreenPinPanel: NSPanel {
     private let glowPad: CGFloat = 10
     private var pinRect = CGRect.zero
     private var displayRect = CGRect.zero
+    private var showingOverlay = true
+    private var translatedScrollY: CGFloat = 0
+    private var sourceStyles: [String: ScreenLaidOutBlock] = [:]
 
     init(model: ScreenPinModel) {
         self.model = model
@@ -1011,6 +1073,7 @@ private final class ScreenPinPanel: NSPanel {
         pinRect = rect
         sourceImage = source
         blurredBackdropImage = nil
+        sourceStyles = [:]
         canvasView.setSource(source)
         layoutCard(size: rect.size)
         refreshChrome()
@@ -1041,8 +1104,7 @@ private final class ScreenPinPanel: NSPanel {
 
     private func scrollToTop() {
         let clip = scrollView.contentView
-        let y = max(0, canvasView.frame.height - clip.bounds.height)
-        clip.scroll(to: NSPoint(x: 0, y: y))
+        clip.scroll(to: .zero)
         scrollView.reflectScrolledClipView(clip)
     }
 
@@ -1067,6 +1129,9 @@ private final class ScreenPinPanel: NSPanel {
             items: items,
             canvasSize: canvasSize
         )
+        for item in ScreenPinRenderer.prepareItems(items, image: cgImage, canvasSize: canvasSize) {
+            sourceStyles[NSStringFromRect(item.sourceRect)] = item
+        }
     }
 
     func updateOverlay(items: [ScreenLaidOutBlock], overlayEnabled: Bool) {
@@ -1074,9 +1139,22 @@ private final class ScreenPinPanel: NSPanel {
             canvasView.update(items: [], blurredImage: nil, canvasSize: canvasSize)
             return
         }
-        let prepared = overlayEnabled
-            ? ScreenPinRenderer.prepareItems(items, image: cgImage, canvasSize: canvasSize)
-            : []
+        let missing = items.filter { sourceStyles[NSStringFromRect($0.sourceRect)] == nil }
+        if overlayEnabled, !missing.isEmpty {
+            for item in ScreenPinRenderer.prepareItems(missing, image: cgImage, canvasSize: canvasSize) {
+                sourceStyles[NSStringFromRect(item.sourceRect)] = item
+            }
+        }
+        let prepared: [ScreenLaidOutBlock] = overlayEnabled ? items.map { item in
+            var next = item
+            if let style = sourceStyles[NSStringFromRect(item.sourceRect)] {
+                next.background = style.background
+                next.foreground = style.foreground
+                next.centered = style.centered
+                next = ScreenTranslate.fitViewport(next, available: style.availableRect)
+            }
+            return next
+        } : []
         if overlayEnabled, !prepared.isEmpty, blurredBackdropImage == nil {
             blurredBackdropImage = ScreenPinRenderer.blurredBackdrop(
                 image: cgImage,
@@ -1084,12 +1162,27 @@ private final class ScreenPinPanel: NSPanel {
                 canvasSize: canvasSize
             )
         }
+        let clip = scrollView.contentView
+        if showingOverlay { translatedScrollY = clip.bounds.minY }
+        let height = overlayEnabled
+            ? ScreenTranslate.contentHeight(items: prepared, canvasHeight: sourceImage.size.height)
+            : sourceImage.size.height
+        canvasView.setFrameSize(CGSize(width: sourceImage.size.width, height: height))
+        scrollView.hasVerticalScroller = height > displayRect.height + 1
+        let scrollY = overlayEnabled ? translatedScrollY : 0
+        clip.scroll(to: NSPoint(x: 0, y: min(max(0, scrollY), max(0, height - clip.bounds.height))))
+        scrollView.reflectScrolledClipView(clip)
+        showingOverlay = overlayEnabled
         canvasView.update(
             items: prepared,
             blurredImage: blurredBackdropImage,
             canvasSize: canvasSize
         )
         refreshChrome()
+    }
+
+    func displayedItemsForCopy() -> [ScreenLaidOutBlock] {
+        canvasView.displayedItemsForCopy()
     }
 
     func setWorking(_ working: Bool) {

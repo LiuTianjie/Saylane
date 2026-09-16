@@ -72,6 +72,25 @@ final class TranslationEngine {
         }
     }
 
+    /// Preserve IDs because batch responses need not arrive in request order.
+    func translateBatch(_ texts: [String]) async throws -> [String] {
+        if isPassthrough { return texts }
+        guard let session else { throw TranslationEngineError.notReady }
+        let token = generation
+        let requests = texts.enumerated().map {
+            TranslationSession.Request(sourceText: $0.element, clientIdentifier: String($0.offset))
+        }
+        let responses = try await session.translations(from: requests)
+        guard token == generation, !Task.isCancelled else { throw CancellationError() }
+        var results = Array<String?>(repeating: nil, count: texts.count)
+        for response in responses {
+            guard let id = response.clientIdentifier, let index = Int(id), results.indices.contains(index) else { continue }
+            results[index] = outputLocale.map { QwenLanguage.normalize(response.targetText, locale: $0) } ?? response.targetText
+        }
+        guard results.allSatisfy({ $0 != nil }) else { throw TranslationEngineError.notReady }
+        return results.map { $0! }
+    }
+
     func translate(_ text: String) async throws -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }

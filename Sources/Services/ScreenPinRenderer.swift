@@ -4,9 +4,7 @@ import CoreImage
 enum ScreenPinRenderer {
     private static let ciContext = CIContext(options: [.cacheIntermediates: false])
 
-    /// Draw translations on the original pixels. A plate may use empty space
-    /// inside the selected rectangle, but the canvas itself never grows.
-    /// Plate fill is a backdrop blur of the original, not a sampled solid.
+    /// Copy the source-anchored overlay at the original pixel scale.
     static func composite(
         image: NSImage,
         items: [ScreenLaidOutBlock],
@@ -16,6 +14,8 @@ enum ScreenPinRenderer {
         guard overlayEnabled, !items.isEmpty,
               let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
               canvasSize.width > 0, canvasSize.height > 0 else { return image }
+        let canvasSize = CGSize(width: canvasSize.width,
+            height: ScreenTranslate.contentHeight(items: items, canvasHeight: image.size.height))
         let sourceSize = image.size
         let scale = sourceSize.width > 0 ? CGFloat(cgImage.width) / sourceSize.width : 1
         let outputWidth = max(1, Int((canvasSize.width * scale).rounded()))
@@ -28,34 +28,19 @@ enum ScreenPinRenderer {
         context.setFillColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1))
         context.fill(CGRect(x: 0, y: 0, width: outputWidth, height: outputHeight))
         context.interpolationQuality = .none
-        let sourcePixelHeight = CGFloat(cgImage.height)
-        let sourcePixelWidth = CGFloat(cgImage.width)
-        let extra = CGFloat(outputHeight) - sourcePixelHeight
-        let sourceRect = CGRect(x: 0, y: extra, width: sourcePixelWidth, height: sourcePixelHeight)
-        context.draw(cgImage, in: sourceRect)
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: outputWidth, height: outputHeight))
         context.interpolationQuality = .default
         context.textMatrix = .identity
         let canvasHeight = CGFloat(outputHeight)
-        let prepared = finishItems(items, image: cgImage, canvasSize: canvasSize)
+        let prepared = finishItems(items, image: cgImage, canvasSize: image.size)
         let blurred = backdrop(cgImage, radius: blurRadius(prepared, scale: scale))
-        for item in prepared where !item.text.isEmpty {
-            frost(
-                coverRect(item, scale: scale, outputHeight: canvasHeight),
-                in: context,
-                blurred: blurred,
-                sourceRect: sourceRect,
-                veil: Self.veil,
-                scale: scale
-            )
-        }
         for item in prepared where !item.text.isEmpty {
             drawPlate(
                 item,
                 in: context,
                 scale: scale,
                 outputHeight: canvasHeight,
-                blurred: blurred,
-                sourceRect: sourceRect
+                blurred: blurred
             )
         }
         guard let output = context.makeImage() else { return image }
@@ -74,12 +59,10 @@ enum ScreenPinRenderer {
         paragraph.lineBreakMode = .byWordWrapping
         paragraph.lineSpacing = 0
         paragraph.paragraphSpacing = 0
-        if linePitch > fontSize * 1.4 {
-            paragraph.minimumLineHeight = linePitch
-            paragraph.maximumLineHeight = linePitch
-        } else if linePitch > 0 {
-            paragraph.maximumLineHeight = linePitch
-        }
+        let font = ScreenTranslate.readingFont(size: max(5, fontSize), heading: heading)
+        let pitch = max(linePitch, ceil(font.ascender - font.descender + font.leading))
+        paragraph.minimumLineHeight = pitch
+        paragraph.maximumLineHeight = pitch
         return [
             .font: ScreenTranslate.readingFont(size: max(5, fontSize), heading: heading),
             .foregroundColor: color,
@@ -115,8 +98,9 @@ enum ScreenPinRenderer {
         canvasSize: CGSize
     ) -> [ScreenLaidOutBlock] {
         guard canvasSize.width > 0, canvasSize.height > 0, !items.isEmpty else { return items }
-        let width = image.width
-        let height = image.height
+        let sampleScale = min(1, 1024 / CGFloat(max(image.width, image.height)))
+        let width = max(1, Int(CGFloat(image.width) * sampleScale))
+        let height = max(1, Int(CGFloat(image.height) * sampleScale))
         let count = width * height * 4
         let bytes = UnsafeMutablePointer<UInt8>.allocate(capacity: count)
         defer { bytes.deallocate() }
@@ -134,7 +118,7 @@ enum ScreenPinRenderer {
         func pixelBox(_ rect: CGRect) -> CGRect {
             CGRect(
                 x: rect.minX / canvasSize.width * CGFloat(width),
-                y: (1 - rect.maxY / canvasSize.height) * CGFloat(height),
+                y: rect.minY / canvasSize.height * CGFloat(height),
                 width: rect.width / canvasSize.width * CGFloat(width),
                 height: rect.height / canvasSize.height * CGFloat(height)
             )
@@ -153,6 +137,51 @@ enum ScreenPinRenderer {
             next.foreground = luma(paper) > 0.58
                 ? NSColor(srgbRed: 0.08, green: 0.08, blue: 0.09, alpha: 1)
                 : NSColor(srgbRed: 0.94, green: 0.94, blue: 0.95, alpha: 1)
+            let sourceBottom = min(height - 1, max(0, Int(ceil(box.maxY))))
+            let left = min(width - 1, max(0, Int(ceil(box.minX))))
+            let right = min(width - 1, max(left, Int(floor(box.maxX))))
+            // Never infer empty space from OCR alone: an image/button may not
+            // contain recognized text. A uniform paper scan stops at its pixels.
+            let edgeSamples = [pixel(left - 2, Int(box.midY)), pixel(right + 2, Int(box.midY)),
+                pixel(Int(box.midX), Int(box.minY) - 2), pixel(Int(box.midX), sourceBottom + 2)]
+                .sorted { luma($0) < luma($1) }
+            let paperPixel = edgeSamples[edgeSamples.count / 2]
+            func isInk(_ x: Int, _ y: Int) -> Bool {
+                let c = pixel(x, y)
+                return abs(c.0 - paperPixel.0) + abs(c.1 - paperPixel.1) + abs(c.2 - paperPixel.2) > 0.06
+            }
+            let sourceTop = max(0, Int(floor(box.minY)))
+            var extendedRight = right
+            let rightLimit = min(width - 1, right + max(0, Int(box.height * 6)))
+            if rightLimit > right {
+                for x in (right + 1)...rightLimit {
+                    if (sourceTop...sourceBottom).contains(where: { isInk(x, $0) }) { break }
+                    extendedRight = x
+                }
+            }
+            let safeRight = max(right, extendedRight - 2)
+            var top = sourceTop
+            let topLimit = max(0, sourceTop - max(0, Int(box.height)))
+            if sourceTop > topLimit {
+                for y in stride(from: sourceTop - 1, through: topLimit, by: -1) {
+                    if (left...safeRight).contains(where: { isInk($0, y) }) { break }
+                    top = y
+                }
+            }
+            var bottom = sourceBottom
+            let bottomLimit = min(height - 1, sourceBottom + max(0, Int(box.height * 3)))
+            if bottomLimit > sourceBottom {
+                for y in (sourceBottom + 1)...bottomLimit {
+                    if (left...safeRight).contains(where: { isInk($0, y) }) { break }
+                    bottom = y
+                }
+            }
+            let up = max(0, CGFloat(sourceTop - top - 1) / CGFloat(height) * canvasSize.height)
+            let down = max(0, CGFloat(bottom - sourceBottom - 1) / CGFloat(height) * canvasSize.height)
+            let extraWidth = max(0, CGFloat(safeRight - right) / CGFloat(width) * canvasSize.width)
+            let available = CGRect(x: sample.minX, y: sample.minY - up,
+                width: sample.width + extraWidth, height: sample.height + up + down)
+            next = ScreenTranslate.fitViewport(next, available: available)
             next.centered = sampleCentered(
                 pixel: pixel,
                 box: box,
@@ -190,64 +219,15 @@ enum ScreenPinRenderer {
         )
     }
 
-    private static func coverRect(
-        _ item: ScreenLaidOutBlock,
-        scale: CGFloat,
-        outputHeight: CGFloat
-    ) -> CGRect {
-        let source = item.sourceRect.width > 1 ? item.sourceRect : item.rect
-        let padX = max(3 * scale, source.height * 0.16 * scale)
-        let padY = max(1.5 * scale, source.height * 0.18 * scale)
-        return pixelRect(source, scale: scale, outputHeight: outputHeight).insetBy(dx: -padX, dy: -padY)
-    }
-
-    private static let veil = NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.42)
-
-    private static func frost(
-        _ rect: CGRect,
-        in context: CGContext,
-        blurred: CGImage?,
-        sourceRect: CGRect,
-        veil: NSColor,
-        scale: CGFloat
-    ) {
-        guard rect.width > 2, rect.height > 2 else { return }
-        let radius = min(5 * scale, rect.height / 2.4)
-        context.saveGState()
-        context.addPath(CGPath(
-            roundedRect: rect,
-            cornerWidth: radius,
-            cornerHeight: radius,
-            transform: nil
-        ))
-        context.clip()
-        if let blurred {
-            context.interpolationQuality = .high
-            context.draw(blurred, in: sourceRect)
-        }
-        context.setFillColor(veil.cgColor)
-        context.fill(rect)
-        context.restoreGState()
-    }
-
     private static func drawPlate(
         _ item: ScreenLaidOutBlock,
         in context: CGContext,
         scale: CGFloat,
         outputHeight: CGFloat,
-        blurred: CGImage?,
-        sourceRect: CGRect
+        blurred: CGImage?
     ) {
         let plate = pixelRect(item.rect, scale: scale, outputHeight: outputHeight)
         guard plate.width > 2, plate.height > 2 else { return }
-        frost(
-            plate,
-            in: context,
-            blurred: blurred,
-            sourceRect: sourceRect,
-            veil: Self.veil,
-            scale: scale
-        )
         context.saveGState()
         let radius = min(5 * scale, plate.height / 2.4)
         context.addPath(CGPath(
@@ -257,28 +237,33 @@ enum ScreenPinRenderer {
             transform: nil
         ))
         context.clip()
-        let fontSize = item.fontSize * scale
-        let insetX = min(max(2 * scale, fontSize * 0.08), max(1, plate.width * 0.06))
-        var textBox = plate.insetBy(dx: insetX, dy: 0)
-        if plate.height >= fontSize + 4 * scale {
-            let insetY = min(max(1 * scale, fontSize * 0.06), plate.height * 0.10)
-            textBox = plate.insetBy(dx: insetX, dy: insetY)
+        let source = item.sourceRect.width > 1 ? item.sourceRect : item.rect
+        let crop = CGRect(x: source.minX * scale, y: source.minY * scale,
+            width: source.width * scale, height: source.height * scale).integral
+        let light = luma((item.background.redComponent, item.background.greenComponent, item.background.blueComponent)) > 0.58
+        if let pixels = blurred?.cropping(to: crop) {
+            context.draw(pixels, in: plate)
+            context.setFillColor((light ? NSColor.white.withAlphaComponent(0.42) : NSColor.black.withAlphaComponent(0.34)).cgColor)
+        } else {
+            context.setFillColor(item.background.cgColor)
         }
-        let innerH = max(1, textBox.height)
-        let fittedFont = min(
-            fontSize,
-            ScreenTranslate.fontSize(lineHeight: innerH / scale, heading: item.isHeading) * scale
-        )
-        let fittedPitch = min(innerH, max(fittedFont, item.linePitch * scale))
+        context.fill(plate)
+        let fontSize = item.fontSize * scale
+        let inset = ScreenTranslate.textInsets(fontSize: item.fontSize)
+        let documentHeight = max(item.rect.height, item.textContentHeight) * scale
+        let textBox = CGRect(x: plate.minX + inset.width * scale,
+            y: plate.maxY - documentHeight + item.textScrollOffset * scale + inset.height * scale,
+            width: max(1, plate.width - inset.width * scale * 2),
+            height: max(1, documentHeight - inset.height * scale * 2))
         drawText(
             item.text,
             in: textBox,
             context: context,
-            fontSize: fittedFont,
+            fontSize: fontSize,
             heading: item.isHeading,
             color: item.foreground.usingColorSpace(.sRGB) ?? item.foreground,
             centered: item.centered,
-            linePitch: fittedPitch
+            linePitch: item.linePitch * scale
         )
         context.restoreGState()
     }
@@ -306,7 +291,7 @@ enum ScreenPinRenderer {
         NSGraphicsContext.current = nsContext
         (text as NSString).draw(
             with: box,
-            options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
             attributes: attrs
         )
         NSGraphicsContext.restoreGraphicsState()

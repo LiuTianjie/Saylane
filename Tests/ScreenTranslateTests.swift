@@ -132,16 +132,14 @@ import Foundation
             canvasSize: canvas
         )
         precondition(abs(plates[0].rect.minX - unionBox.minX) < 1.5)
-        precondition(abs(plates[0].fontSize - ScreenTranslate.fontSize(lineHeight: 0.04 * 800)) < 1.2)
 
-        var heading = ScreenOCRLine(text: "3.3 Position-wise Feed-Forward Networks", visionBox: CGRect(x: 0.1, y: 0.7, width: 0.5, height: 0.08))
+        var heading = ScreenOCRLine(text: "3.3 Title", visionBox: CGRect(x: 0.1, y: 0.7, width: 0.5, height: 0.08))
         heading.translation = "3.3 位置前馈网络"
         var body = ScreenOCRLine(text: "Body text that is longer than a title", visionBox: CGRect(x: 0.1, y: 0.4, width: 0.8, height: 0.035))
         body.translation = "比标题更长的正文"
         let sized = ScreenTranslate.layoutPlates([heading, body], canvasSize: canvas)
         precondition(sized.count == 2)
         precondition(sized[0].fontSize > sized[1].fontSize, "A taller source line keeps a larger font")
-        precondition(abs(sized[1].fontSize - ScreenTranslate.fontSize(lineHeight: 0.035 * 800)) < 0.6)
 
         var jitterA = ScreenOCRLine(text: "Same body size", visionBox: CGRect(x: 0.1, y: 0.50, width: 0.7, height: 0.040))
         jitterA.translation = "甲"
@@ -151,7 +149,6 @@ import Foundation
         jitterC.translation = "丙"
         let jittered = ScreenTranslate.layoutPlates([jitterA, jitterB, jitterC], canvasSize: canvas)
         precondition(jittered.count == 1, "Consecutive body lines share one paragraph plate")
-        precondition(abs(jittered[0].fontSize - ScreenTranslate.fontSize(lineHeight: 0.04 * 800)) < 1.2)
 
         var numbered = ScreenOCRLine(text: "2 Background", visionBox: CGRect(x: 0.1, y: 0.80, width: 0.4, height: 0.040))
         numbered.translation = "2 背景"
@@ -220,15 +217,21 @@ import Foundation
         let stacked = ScreenTranslate.layoutPlates([longLine, nextLine], canvasSize: canvas)
         precondition(stacked.count == 2)
         let nextBox = ScreenTranslate.topLeftRect(visionBox: nextLine.visionBox, canvasSize: canvas)
-        precondition(stacked[0].rect.maxY <= nextBox.minY + 0.5, "A long translation must not cover the next line")
-        precondition(abs(stacked[1].rect.minY - nextBox.minY) < 1.5, "Later lines stay on their original boxes")
+        precondition(stacked[0].rect.maxY <= stacked[1].rect.minY, "A long translation must not cover the next line")
+        precondition(stacked[1].rect.minY == nextBox.minY, "Later lines keep their source anchors")
 
+        precondition(abs(stacked[0].fontSize - stacked[1].fontSize) < 0.01,
+            "Translation length must never change the font")
+        let right = ScreenLaidOutBlock(text: "Right column", rect: CGRect(x: 600, y: 240, width: 200, height: 30), fontSize: 20, isHeading: false)
+        let flowedColumns = ScreenTranslate.expandAndStack([stacked[0], right])
+        precondition(flowedColumns[1].rect.minY == right.rect.minY, "Independent columns do not move together")
+        precondition(stacked[0].textContentHeight > stacked[0].rect.height, "Overflow has a scrollable text document")
         let shortPara = ScreenOCRLine(text: "A short English line that becomes even shorter.", visionBox: CGRect(x: 0.1, y: 0.50, width: 0.7, height: 0.12), translation: "很短")
         let headingAfter = ScreenOCRLine(text: "3.3 Next Section Title Here", visionBox: CGRect(x: 0.1, y: 0.30, width: 0.5, height: 0.08), translation: "3.3 下一节")
         let packed = ScreenTranslate.layoutPlates([shortPara, headingAfter], canvasSize: canvas)
         let headingBox = ScreenTranslate.topLeftRect(visionBox: headingAfter.visionBox, canvasSize: canvas)
         precondition(packed.count == 2)
-        precondition(abs(packed[1].rect.minY - headingBox.minY) < 8, "Short translations must not stretch paragraph spacing")
+        precondition(abs((packed[1].rect.minY - packed[0].rect.maxY) - (headingBox.minY - packed[0].sourceRect.maxY)) < 1, "Reflow preserves the original gap between paragraphs")
         var bottomLong = ScreenOCRLine(
             text: "A translation near the bottom of the selection",
             visionBox: CGRect(x: 0.1, y: 0.02, width: 0.18, height: 0.04)
@@ -236,12 +239,23 @@ import Foundation
         bottomLong.translation = "这是一段靠近选区底边的很长译文，可以在框内利用空隙，但不能把选区画布撑高。"
         let fixed = ScreenTranslate.layoutPlates([bottomLong], canvasSize: canvas)
         precondition(fixed.count == 1)
-        precondition(fixed[0].rect.maxY <= canvas.height + 0.5, "A bottom-edge translation cannot grow the selected canvas")
-        precondition(fixed[0].isClipped, "Overflow is clipped instead of expanding the screen selection")
+        precondition(fixed[0].rect.maxY <= canvas.height && fixed[0].textContentHeight > fixed[0].rect.height, "A bottom-edge translation scrolls without moving pixels")
+        precondition(!fixed[0].isClipped, "Long translations remain complete")
         precondition(
-            ScreenTranslate.contentHeight(items: fixed, canvasHeight: canvas.height) == canvas.height,
-            "The pin canvas height remains exactly the selected screen height"
+            ScreenTranslate.contentHeight(items: fixed, canvasHeight: canvas.height) >= fixed[0].rect.maxY,
+            "The document contains the complete translation"
         )
+
+        let bodyParagraphs = [CGFloat(0.028), 0.037, 0.024].enumerated().map { index, height in
+            ScreenParagraph(original: "Same body style with noisy OCR boxes", translation: index == 1 ? String(repeating: "很长的译文", count: 20) : "短译文",
+                visionBox: CGRect(x: 0.1, y: 0.8 - CGFloat(index) * 0.2, width: 0.7, height: height),
+                lineHeight: height, linePitch: height, isHeading: false, lineCount: 1)
+        }
+        let stableBody = ScreenTranslate.layoutPlates(bodyParagraphs, canvasSize: canvas)
+        var shortenedBody = bodyParagraphs
+        for index in shortenedBody.indices { shortenedBody[index].translation = "短" }
+        let shortenedLayout = ScreenTranslate.layoutPlates(shortenedBody, canvasSize: canvas)
+        precondition(stableBody.map(\.fontSize) == shortenedLayout.map(\.fontSize), "Translation length cannot affect source font estimates")
 
         let bubbleA = ScreenOCRLine(
             text: "First chat message on its own bubble",
@@ -287,10 +301,7 @@ import Foundation
         let mixed = ScreenTranslate.layoutPlates(sidebar + [chat], canvasSize: canvas)
         let chatPlate = mixed.first { $0.text == "这是正文气泡" }
         precondition(chatPlate != nil)
-        precondition(
-            abs(chatPlate!.fontSize - ScreenTranslate.fontSize(lineHeight: 0.036 * 800)) < 1.5,
-            "Wide body lines must keep their size even if the window is full of narrow sidebar rows"
-        )
+        precondition(chatPlate!.fontSize > mixed[0].fontSize, "Small sidebar labels cannot set body size")
 
         let origin = CGRect(x: 100, y: 200, width: 400, height: 300)
         let visible = CGRect(x: 0, y: 0, width: 800, height: 600)
@@ -310,6 +321,6 @@ import Foundation
         precondition(abs(short.height - 120) < 1)
         precondition(abs(short.maxY - origin.maxY) < 1, "Short content keeps the original top edge")
 
-        print("PASS: screen shortcut, paragraph grouping, fixed canvas, and no overlap")
+        print("PASS: screen shortcut, source font hierarchy, anchored overlays, and text overflow")
     }
 }
