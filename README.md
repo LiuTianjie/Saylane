@@ -2,7 +2,7 @@
 
 macOS 输入法：打字走拼音，按住快捷键说话则在当前输入框写入译文（默认中文 → 英文）。装在 `/Library/Input Methods/`，和系统其它输入法一样切换使用。
 
-已发布版本 `0.2.56`。语音识别和翻译默认走 Apple 端侧框架；可选的终稿润色才走外部 API。
+已发布版本 `0.2.67`。语音识别和翻译默认走 Apple 端侧框架；可选的终稿润色才走外部 API。
 
 ## 要求
 
@@ -53,9 +53,11 @@ Shift/Caps Lock 在组字中切英文时上屏原始字母，不再先接受中�
 千问运行在独立进程中；切回 Apple 会退出并释放模型内存，4/6-bit 互切先释放旧模型。下载文件仍保留在磁盘。
 技术细节、固定来源及验证边界见 [docs/QWEN_ASR.md](docs/QWEN_ASR.md)。v0.2.47 提供以上可选模型；千问当前为松开后识别，不支持边说边组字。
 
+0.2.64 本地试用版新增 SenseVoiceSmall Q8、Fun-ASR-Nano Q4、Qwen 个人热词和“仅识别，暂不翻译或润色”开关。SenseVoice 会在按住说话时刷新预览文字，松开后再出最终结果。设置 → 本地模型中切换。能力边界见 [docs/ASR_COMPARISON.md](docs/ASR_COMPARISON.md)。
+
 ## 安装
 
-从 [GitHub Release 下载 v0.2.56 安装包](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.56)，或访问 [产品网页](https://liutianjie.github.io/Saylane/)。Release 同时提供 SHA-256 校验文件。
+从 [GitHub Release 下载 v0.2.67 安装包](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.67)，或访问 [产品网页](https://liutianjie.github.io/Saylane/)。Release 同时提供 SHA-256 校验文件。
 
 注意：包内应用已签名，当前 PKG 安装器未签名、未完成 Apple 公证。
 

@@ -21,7 +21,7 @@ enum OverlayPhase: Equatable {
 
 /// Emitted only after the corresponding text has been committed.
 enum CompletionFeedback: Equatable {
-    case ordinary, polished, unchanged, polishFailed, polishTimedOut
+    case ordinary, polished, unchanged, polishFailed, polishTimedOut, polishRejected
 
     var message: String {
         switch self {
@@ -30,7 +30,11 @@ enum CompletionFeedback: Equatable {
         case .unchanged: return "AI 已检查，无需修改"
         case .polishFailed: return "AI 润色失败 · 已保留普通结果"
         case .polishTimedOut: return "AI 润色超时 · 已保留普通结果"
+        case .polishRejected: return "AI 改动过大 · 已保留本地结果"
         }
     }
-    var isWarning: Bool { self == .polishFailed || self == .polishTimedOut }
+    var isWarning: Bool { self == .polishFailed || self == .polishTimedOut || self == .polishRejected }
 }
+
+/// Thrown by a polish provider whose answer rewrote too much of the utterance to be a proofread.
+struct PolishRejected: Error {}

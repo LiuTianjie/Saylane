@@ -25,6 +25,9 @@ fi
 STAGED_APP="$ROOT/Library/Input Methods/Saylane.app"
 scripts/assert-no-model-weights.sh "$STAGED_APP"
 # Embedded native code must have the same stable identity before the outer seal.
+for HELPER in "$STAGED_APP"/Contents/Resources/Runtime/llama-funasr-*; do
+  /usr/bin/codesign --force --options runtime --timestamp --sign "$IDENTITY" "$HELPER"
+done
 /usr/bin/codesign --force --options runtime --timestamp --sign "$IDENTITY" \
   "$STAGED_APP/Contents/Frameworks/librime.1.dylib"
 /usr/bin/codesign --force --options runtime --timestamp --sign "$IDENTITY" \

@@ -57,10 +57,17 @@ private final class FakeModel: LoadedSpeechModel {
         cancelled.cancel()
         _ = await cancelled.result
         try await survivor.value
+        try await runtime.prepare(.qwen4bit)
+        let stale = Task { try await runtime.transcribe([], language: "Chinese", variant: .qwen4bit) }
+        try await Task.sleep(for: .milliseconds(10))
+        let latest = try await runtime.transcribe([], language: "Chinese", variant: .qwen4bit)
+        let staleResult = await stale.result
+        precondition(latest == "recognized")
+        if case .success = staleResult { fatalError("replaced preview survived") }
         let active = Task { try await runtime.transcribe([], language: "Chinese", variant: .qwen4bit) }
         try await Task.sleep(for: .milliseconds(5))
         await runtime.unload(); _ = await active.result
         precondition(meter.values().0 == 0 && meter.values().1 == 1)
-        print("Local speech lifetime: coalescing, cancellation, 20 rapid switches, inference drain and zero retained models passed")
+        print("Local speech lifetime: coalescing, cancellation, 20 rapid switches, inference drain, preview replace and zero retained models passed")
     }
 }

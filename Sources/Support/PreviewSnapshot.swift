@@ -7,7 +7,7 @@ enum PreviewSnapshot {
     static func takeSnapshot(model: AppModel, path: String) {
         let view = SettingsView()
             .environment(model)
-            .frame(width: 820, height: 600)
+            .frame(width: 780, height: 640)
         
         let renderer = ImageRenderer(content: view)
         renderer.scale = 2.0

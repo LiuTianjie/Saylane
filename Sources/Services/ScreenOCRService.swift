@@ -5,7 +5,7 @@ enum ScreenOCRService {
     static func recognize(_ image: NSImage, languages: [String]) async throws -> [ScreenOCRLine] {
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return [] }
         let initial = try await scan(cgImage, languages: languages)
-        guard max(cgImage.width, cgImage.height) > 2200, !initial.isEmpty else {
+        guard max(cgImage.width, cgImage.height) > 2200 || ScreenTranslate.isDocument(initial), !initial.isEmpty else {
             return ScreenTranslate.mergeFragments(initial)
         }
         // Vision downsamples a full 5K desktop enough to lose small glyphs.
@@ -103,7 +103,8 @@ enum ScreenOCRService {
                         }
                         let letters = text.unicodeScalars.filter { CharacterSet.letters.contains($0) }.count
                         guard text.count > 2, letters > 1 else { return nil }
-                        return ScreenOCRLine(text: text, visionBox: box, confidence: candidate.confidence)
+                        return ScreenOCRLine(text: text, visionBox: box, confidence: candidate.confidence,
+                            startsListItem: raw.range(of: #"^\s*[•●◦▪‣·]\s+"#, options: .regularExpression) != nil)
                     }
                     continuation.resume(returning: lines)
                 }

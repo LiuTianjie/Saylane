@@ -2,10 +2,16 @@ import Foundation
 
 protocol LoadedSpeechModel: AnyObject, Sendable {
     func diagnostics() async -> String
+    func transcribe(_ audio: [Float], language: String, context: String?) async throws -> String
     func transcribe(_ audio: [Float], language: String) async throws -> String
 }
 
-extension LoadedSpeechModel { func diagnostics() async -> String { "" } }
+extension LoadedSpeechModel {
+    func diagnostics() async -> String { "" }
+    func transcribe(_ audio: [Float], language: String, context: String?) async throws -> String {
+        try await transcribe(audio, language: language)
+    }
+}
 
 /// A single owner of a single model. Lifecycle tasks return Void, never a model:
 /// completed Task results must not keep weights alive after a model switch.
@@ -20,6 +26,7 @@ actor LocalSpeechRuntime {
     private var loading: (id: UUID, variant: SpeechModel, task: Task<Void, Error>)?
     private var tail: Task<Void, Error>?
     private var inference: Task<String, Error>?
+    private var inferenceID = UUID()
     private var attemptedLoad = false
 
     init(factory: @escaping Factory, flushMemory: @escaping @Sendable () -> Void,
@@ -84,13 +91,19 @@ actor LocalSpeechRuntime {
         _ = await task.result
     }
 
-    func transcribe(_ audio: [Float], language: String, variant: SpeechModel) async throws -> String {
+    func transcribe(_ audio: [Float], language: String, variant: SpeechModel, context: String? = nil) async throws -> String {
         try Task.checkCancellation()
-        guard selected == variant, model != nil, inference == nil else { throw ASRModelError.missing }
+        guard selected == variant, model != nil else { throw ASRModelError.missing }
         let token = generation
+        inference?.cancel()
+        let previous = inference
+        let request = UUID()
+        inferenceID = request
         let task = Task.detached(priority: .userInitiated) {
+            _ = await previous?.result
+            try Task.checkCancellation()
             do {
-                let text = try await self.runInference(audio, language: language)
+                let text = try await self.runInference(audio, language: language, context: context)
                 await self.trimResources()
                 return text
             } catch {
@@ -99,18 +112,19 @@ actor LocalSpeechRuntime {
             }
         }
         inference = task
-        defer { if generation == token { inference = nil } }
-        let text: String
+        defer { if inferenceID == request { inference = nil } }
         do {
-            text = try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
+            let text = try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
+            try Task.checkCancellation()
+            guard generation == token else { throw CancellationError() }
+            return text
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
-            // A cancelled/timed-out worker is disposable, never advertise it as ready.
-            if generation == token { await unload() }
+            // A failed in-process worker is disposable. Replacing a live preview must not unload.
+            if generation == token, inferenceID == request { await unload() }
             throw error
         }
-        try Task.checkCancellation()
-        guard generation == token else { throw CancellationError() }
-        return text
     }
 
     func diagnostics() async -> String { await model?.diagnostics() ?? "unloaded" }
@@ -134,10 +148,10 @@ actor LocalSpeechRuntime {
         model = resource
     }
 
-    private func runInference(_ audio: [Float], language: String) async throws -> String {
+    private func runInference(_ audio: [Float], language: String, context: String?) async throws -> String {
         try Task.checkCancellation()
         guard let model else { throw ASRModelError.missing }
-        return try await model.transcribe(audio, language: language)
+        return try await model.transcribe(audio, language: language, context: context)
     }
 
     private func trimResources() { trimMemory() }

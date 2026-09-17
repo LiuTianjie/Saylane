@@ -14,6 +14,10 @@ final class SpeechEngine: SpeechRecognizing {
     private var analyzerFormat: AVAudioFormat?
     private var finalized = ""
     private var generation = 0
+    private let contextualStrings: [String]
+
+    /// `contextualStrings` are the user's names and terms; they bias recognition only.
+    init(contextualStrings: [String] = []) { self.contextualStrings = contextualStrings }
 
     static func resolvedLocale(for locale: Locale) async -> Locale? {
         guard SpeechTranscriber.isAvailable else { return nil }
@@ -61,6 +65,14 @@ final class SpeechEngine: SpeechRecognizing {
 
         guard await Self.isInstalled(for: locale) else { throw SpeechEngineError.setupFailed }
         try Task.checkCancellation()
+        if !contextualStrings.isEmpty {
+            let context = AnalysisContext()
+            context.contextualStrings[.general] = contextualStrings
+            do { try await analyzer.setContext(context) } catch {
+                // Bias is best effort; recognition proceeds and vocabulary repair still runs.
+                NSLog("Saylane: contextual strings not applied: \(error.localizedDescription)")
+            }
+        }
 
         guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
             throw SpeechEngineError.invalidFormat

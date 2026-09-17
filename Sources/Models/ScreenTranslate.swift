@@ -116,11 +116,39 @@ struct ScreenCaptureShortcut: Equatable, Hashable {
     }
 }
 
+/// Bounded to the active screenshot session; never persisted to disk.
+struct ScreenTranslationCache {
+    private struct Key: Hashable { let direction: String; let text: String }
+    private var values: [Key: String] = [:]
+    private var bytes = 0
+
+    func missing(_ texts: [String], direction: String) -> [String] {
+        var seen = Set<String>()
+        return texts.filter { seen.insert($0).inserted && values[Key(direction: direction, text: $0)] == nil }
+    }
+
+    func value(_ text: String, direction: String) -> String? {
+        values[Key(direction: direction, text: text)]
+    }
+
+    mutating func store(_ text: String, translation: String, direction: String) {
+        let cost = text.utf8.count + translation.utf8.count
+        guard cost <= 256_000, !translation.isEmpty else { return }
+        let key = Key(direction: direction, text: text)
+        guard values[key] == nil else { return }
+        if values.count >= 512 || bytes + cost > 256_000 { values.removeAll(); bytes = 0 }
+        values[key] = translation
+        bytes += cost
+    }
+}
+
 struct ScreenOCRLine: Equatable {
     var text: String
     var visionBox: CGRect
     var translation: String = ""
     var confidence: Float = 1
+    var startsListItem: Bool = false
+    var boldScore: Double? = nil
 }
 
 struct ScreenParagraph: Equatable {
@@ -150,9 +178,57 @@ struct ScreenLaidOutBlock: Equatable {
     var textContentHeight: CGFloat = 0
     var textScrollOffset: CGFloat = 0
     var isClipped: Bool = false
+    var isFinalLayout: Bool = false
+    var preservesColumnWidth: Bool = false
 }
 
 enum ScreenTranslate {
+    /// A small UI vocabulary is only applicable when several navigation labels
+    /// agree in the same column. A lone heading such as "Post" is untouched.
+    static func navigationTranslation(for index: Int, paragraphs: [ScreenParagraph], canvasSize: CGSize,
+        source: AppLanguage, target: AppLanguage) -> String? {
+        guard source == .en, target == .zhHans, paragraphs.indices.contains(index) else { return nil }
+        let own = paragraphs[index]
+        guard own.lineCount == 1 else { return nil }
+        let labels = ["Home": "首页", "Explore": "探索", "Notifications": "通知",
+            "Profile": "个人资料", "More": "更多", "Post": "发布", "Chat": "聊天",
+            "History": "历史记录", "Settings": "设置", "Creator Studio": "创作者工作室",
+            "Premium": "高级会员", "Follow": "关注"]
+        guard let translation = labels[own.original] else { return nil }
+        let anchors: Set<String> = ["Home", "Explore", "Notifications", "Profile", "Settings", "History"]
+        let peers = Set(paragraphs.filter {
+            $0.lineCount == 1 && anchors.contains($0.original)
+                && abs($0.visionBox.minX - own.visionBox.minX) * canvasSize.width
+                    <= max(36, own.lineHeight * canvasSize.height * 4)
+        }.map(\.original))
+        return peers.count >= 3 ? translation : nil
+    }
+
+    /// Local originals provide context without incorporating previously polished
+    /// text or letting one very large region dominate every request.
+    static func translationContext(for index: Int, paragraphs: [ScreenParagraph]) -> String {
+        guard paragraphs.indices.contains(index) else { return "" }
+        let anchor = paragraphs[index].visionBox
+        let neighbors = paragraphs.indices.filter { $0 != index }.sorted { lhs, rhs in
+            func distance(_ i: Int) -> CGFloat {
+                let box = paragraphs[i].visionBox
+                let horizontalGap = max(0, max(anchor.minX - box.maxX, box.minX - anchor.maxX))
+                return horizontalGap * 3 + abs(anchor.midY - box.midY)
+            }
+            let a = distance(lhs), b = distance(rhs)
+            return a == b ? lhs < rhs : a < b
+        }
+        var parts: [String] = []
+        var bytes = 0
+        for i in neighbors.prefix(12) {
+            let text = String(paragraphs[i].original.prefix(400))
+            guard bytes + text.utf8.count + 2 <= 4_000 else { continue }
+            parts.append(text)
+            bytes += text.utf8.count + 2
+        }
+        return parts.joined(separator: "\n\n")
+    }
+
     static let minimumSelection: CGFloat = 12
     static let dragThreshold: CGFloat = 5
     static let windowCornerRadius: CGFloat = 10
@@ -251,6 +327,15 @@ enum ScreenTranslate {
         return fromHeight
     }
 
+    /// Dense, single-column prose. Deliberately excludes short chat bubbles
+    /// and multi-column feeds; no filename or content-specific classification.
+    static func isDocument(_ lines: [ScreenOCRLine]) -> Bool {
+        let body = lines.filter { $0.text.count >= 60 && $0.visionBox.width > 0.5 }
+        guard body.count >= 20 else { return false }
+        let left = body.map(\.visionBox.minX).sorted()[body.count / 2]
+        return body.filter { abs($0.visionBox.minX - left) < 0.025 }.count >= 20
+    }
+
     static func paragraphFonts(_ paragraphs: [ScreenParagraph], canvasSize: CGSize) -> [CGFloat] {
         let estimates = paragraphs.map { paragraph -> CGFloat in
             let samples = paragraph.sourceLines.isEmpty
@@ -261,8 +346,13 @@ enum ScreenTranslate {
             }.sorted()
             return sizes[sizes.count / 2]
         }
+        let document = isDocument(paragraphs.flatMap(\.sourceLines))
+        let bodySizes = paragraphs.indices.filter { paragraphs[$0].lineCount > 1 }.map { estimates[$0] }.sorted()
         return paragraphs.indices.map { index in
             let own = paragraphs[index]
+            if document, own.lineCount > 1, !bodySizes.isEmpty {
+                return max(5, min(96, bodySizes[bodySizes.count / 2]))
+            }
             let alignedPeers = paragraphs.indices.filter { other in
                 abs(paragraphs[other].visionBox.minX - own.visionBox.minX) * canvasSize.width < max(own.lineHeight * canvasSize.height * 2, 8)
             }
@@ -339,6 +429,7 @@ enum ScreenTranslate {
                 var last = merged[merged.count - 1]
                 let gap = line.visionBox.minX - last.visionBox.maxX
                 if gap <= maxGap {
+                    last.startsListItem = last.startsListItem || line.startsListItem
                     last.text += " " + line.text
                     last.visionBox = last.visionBox.union(line.visionBox)
                     last.confidence = min(last.confidence, line.confidence)
@@ -463,24 +554,41 @@ enum ScreenTranslate {
         return best
     }
 
-    static func textHeight(text: String, fontSize: CGFloat, width: CGFloat, heading: Bool, linePitch: CGFloat = 0) -> CGFloat {
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineBreakMode = .byWordWrapping
-        paragraph.lineSpacing = 0
-        paragraph.paragraphSpacing = 0
+    struct InkLine {
+        let line: CTLine
+        let baseline: CGFloat
+        let ink: CGRect
+    }
+
+    /// Use actual glyph bounds, including the fallback CJK font. OCR measures
+    /// ink; AppKit paragraph leading must not consume a small overlay's height.
+    static func inkLines(text: String, fontSize: CGFloat, width: CGFloat, heading: Bool,
+        linePitch: CGFloat = 0, color: NSColor = .black) -> [InkLine] {
+        guard !text.isEmpty else { return [] }
         let font = readingFont(size: max(5, fontSize), heading: heading)
-        let pitch = max(linePitch, ceil(font.ascender - font.descender + font.leading))
-        paragraph.minimumLineHeight = pitch
-        paragraph.maximumLineHeight = pitch
-        let bounds = (text as NSString).boundingRect(
-            with: CGSize(width: max(1, width), height: CGFloat.greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [
-                .font: readingFont(size: max(5, fontSize), heading: heading),
-                .paragraphStyle: paragraph
-            ]
-        )
-        return ceil(bounds.height)
+        let string = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: color])
+        let typesetter = CTTypesetterCreateWithAttributedString(string)
+        var result: [InkLine] = []
+        var offset = 0
+        while offset < string.length {
+            let count = max(1, CTTypesetterSuggestLineBreak(typesetter, offset, Double(max(1, width))))
+            let line = CTTypesetterCreateLine(typesetter, CFRange(location: offset, length: min(count, string.length - offset)))
+            var ink = CTLineGetImageBounds(line, nil)
+            if ink.isNull || ink.isEmpty { ink = CGRect(x: 0, y: 0, width: 0, height: fontSize) }
+            let baseline: CGFloat
+            if let previous = result.last {
+                baseline = previous.baseline + max(linePitch, ceil(-previous.ink.minY + ink.maxY + 2))
+            } else { baseline = ceil(ink.maxY) }
+            result.append(InkLine(line: line, baseline: baseline, ink: ink))
+            offset += count
+        }
+        return result
+    }
+
+    static func textHeight(text: String, fontSize: CGFloat, width: CGFloat, heading: Bool, linePitch: CGFloat = 0) -> CGFloat {
+        guard let last = inkLines(text: text, fontSize: fontSize, width: width, heading: heading,
+            linePitch: linePitch).last else { return 0 }
+        return ceil(last.baseline - last.ink.minY)
     }
 
     static func overlapsX(_ a: CGRect, _ b: CGRect) -> Bool {
@@ -515,12 +623,86 @@ enum ScreenTranslate {
         item.textContentHeight = ceil(textHeight(text: item.text, fontSize: item.fontSize,
             width: max(1, item.rect.width - inset.width * 2), heading: item.isHeading,
             linePitch: item.linePitch) + inset.height * 2)
-        let up = min(source.minY - available.minY, max(0, item.fontSize * 1.3 - source.height) / 2)
+        let firstLineHeight = min(item.textContentHeight, ceil(item.fontSize * 1.3))
+        let up = min(source.minY - available.minY, max(0, firstLineHeight - source.height) / 2)
         item.rect.origin.y = source.minY - max(0, up)
-        item.rect.size.height = max(source.height, min(item.textContentHeight, available.maxY - item.rect.minY))
+        item.rect.size.height = max(source.maxY - item.rect.minY,
+            min(item.textContentHeight, available.maxY - item.rect.minY))
         item.availableRect = available
         item.availableHeight = available.height
         return item
+    }
+
+    /// Share blank gutters between neighboring source regions. Independent
+    /// expansion must never let two translated paragraphs claim the same gap.
+    static func boundedViewport(source: CGRect, proposed: CGRect, neighbors: [CGRect]) -> CGRect {
+        var left = proposed.minX, right = proposed.maxX
+        var top = proposed.minY, bottom = proposed.maxY
+        for other in neighbors where other != source && !other.isEmpty {
+            if other.minY < proposed.maxY && other.maxY > proposed.minY {
+                if other.minX >= source.maxX { right = min(right, (source.maxX + other.minX) / 2) }
+                if other.maxX <= source.minX { left = max(left, (source.minX + other.maxX) / 2) }
+            }
+            if other.minX < proposed.maxX && other.maxX > proposed.minX {
+                if other.minY >= source.maxY { bottom = min(bottom, (source.maxY + other.minY) / 2) }
+                if other.maxY <= source.minY { top = max(top, (source.minY + other.maxY) / 2) }
+            }
+        }
+        return CGRect(x: min(source.minX, left), y: min(source.minY, top),
+            width: max(source.maxX, right) - min(source.minX, left),
+            height: max(source.maxY, bottom) - min(source.minY, top))
+    }
+
+    /// Final paint-time invariant: no two visible translation rectangles
+    /// intersect. Reserve every source region before allocating expansion.
+    /// A block with no readable free space is available in the full-text reader.
+    static func nonOverlapping(_ items: [ScreenLaidOutBlock]) -> [ScreenLaidOutBlock] {
+        var result = items
+        var occupied: [CGRect] = []
+        let order = items.indices.sorted {
+            let a = items[$0].sourceRect, b = items[$1].sourceRect
+            if a.minY != b.minY { return a.minY < b.minY }
+            if a.minX != b.minX { return a.minX < b.minX }
+            return $0 < $1
+        }
+        func subtract(_ rect: CGRect, _ obstacle: CGRect) -> [CGRect] {
+            let hit = rect.intersection(obstacle)
+            guard !hit.isNull, hit.width > 0, hit.height > 0 else { return [rect] }
+            return [
+                CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: hit.minY - rect.minY),
+                CGRect(x: rect.minX, y: hit.maxY, width: rect.width, height: rect.maxY - hit.maxY),
+                CGRect(x: rect.minX, y: hit.minY, width: hit.minX - rect.minX, height: hit.height),
+                CGRect(x: hit.maxX, y: hit.minY, width: rect.maxX - hit.maxX, height: hit.height)
+            ].filter { $0.width > 0 && $0.height > 0 }
+        }
+        for i in order {
+            guard !items[i].text.isEmpty, !items[i].rect.isEmpty else { continue }
+            let source = items[i].sourceRect
+            var free = [items[i].rect]
+            let obstacles = occupied + items.indices.filter { $0 != i }.map { items[$0].sourceRect }
+            for obstacle in obstacles where !obstacle.isEmpty {
+                free = free.flatMap { subtract($0, obstacle) }
+            }
+            let center = CGPoint(x: source.midX, y: source.midY)
+            let candidates = free.filter {
+                $0.insetBy(dx: -0.00001, dy: -0.00001).contains(source)
+                    && $0.width >= items[i].fontSize && $0.height >= items[i].fontSize * 0.65
+            }
+            let chosen = candidates.max { a, b in
+                if a.contains(center) != b.contains(center) { return !a.contains(center) }
+                return a.width * a.height < b.width * b.height
+            } ?? .zero
+            result[i].rect = chosen
+            result[i].isFinalLayout = true
+            if !chosen.isEmpty {
+                let inset = textInsets(fontSize: items[i].fontSize)
+                result[i].textContentHeight = ceil(textHeight(text: items[i].text, fontSize: items[i].fontSize,
+                    width: max(1, chosen.width - inset.width * 2), heading: items[i].isHeading,
+                    linePitch: items[i].linePitch) + inset.height * 2)
+                occupied.append(chosen)
+            }
+        }
+        return result
     }
 
     static func textInsets(fontSize: CGFloat) -> CGSize {
@@ -559,11 +741,15 @@ enum ScreenTranslate {
         box.height > 0 && box.width / box.height < 3.5
     }
 
-    static func isStandaloneLine(_ line: ScreenOCRLine, bodyHeight: CGFloat) -> Bool {
+    static func isStandaloneLine(_ line: ScreenOCRLine, bodyHeight: CGFloat,
+        canvasSize: CGSize = CGSize(width: 1, height: 1)) -> Bool {
+        // Numeric prefixes may define a block boundary; groupParagraphs
+        // separately checks whether heading weight is justified.
+        if line.startsListItem { return false }
         if isNumberedHeading(line.text) { return true }
         if line.text.count > 48 { return false }
         if line.visionBox.height <= bodyHeight * 1.45 { return false }
-        if isWrappedBlock(line.visionBox) { return false }
+        if line.visionBox.width * canvasSize.width / max(0.0001, line.visionBox.height * canvasSize.height) < 3.5 { return false }
         return true
     }
 
@@ -598,24 +784,37 @@ enum ScreenTranslate {
 
     static func canJoinParagraph(
         previous: ScreenOCRLine,
-        next: ScreenOCRLine
+        next: ScreenOCRLine,
+        canvasSize: CGSize = CGSize(width: 1, height: 1)
     ) -> Bool {
-        let gap = previous.visionBox.minY - next.visionBox.maxY
-        let line = min(previous.visionBox.height, next.visionBox.height)
+        if next.startsListItem { return false }
+        // Account metadata and adjacent body text can share an indent and a
+        // short gap, but they are not one paragraph.
+        if [previous.text, next.text].contains(where: {
+            $0.count < 100 && $0.range(of: #"@[\p{L}\p{N}_]+"#, options: .regularExpression) != nil
+        }) { return false }
+        // Compare physical distances, not x/y fractions with different scales.
+        // Otherwise adding empty margins changes paragraph membership.
+        func physical(_ box: CGRect) -> CGRect {
+            CGRect(x: box.minX * canvasSize.width, y: box.minY * canvasSize.height,
+                width: box.width * canvasSize.width, height: box.height * canvasSize.height)
+        }
+        let a = physical(previous.visionBox), b = physical(next.visionBox)
+        let gap = a.minY - b.maxY
+        let line = min(a.height, b.height)
         if line <= 0 { return false }
         if gap < -line * 0.25 { return false }
         // A gap as tall as a line is a new block (next bubble, next paragraph),
         // not a wrapped continuation. Thresholds are in line heights so a
         // tight crop and a full-window capture of the same text agree.
         if gap > line { return false }
-        let indent = next.visionBox.minX - previous.visionBox.minX
+        let indent = b.minX - a.minX
         if indent < -line * 2 { return false }
         if indent > line * 4 { return false }
-        let overlap = min(previous.visionBox.maxX, next.visionBox.maxX)
-            - max(previous.visionBox.minX, next.visionBox.minX)
-        let minWidth = min(previous.visionBox.width, next.visionBox.width)
+        let overlap = min(a.maxX, b.maxX) - max(a.minX, b.minX)
+        let minWidth = min(a.width, b.width)
         if minWidth > line * 0.5, overlap < minWidth * 0.55 { return false }
-        if previous.visionBox.width < line * 8, next.visionBox.width < line * 8,
+        if a.width < line * 8, b.width < line * 8,
            previous.text.count < 36, next.text.count < 36 {
             return false
         }
@@ -624,8 +823,13 @@ enum ScreenTranslate {
 
     /// Consecutive body lines with the same indent become one paragraph.
     /// Headings, formulas, and code stay out of the group.
-    static func groupParagraphs(from lines: [ScreenOCRLine]) -> [ScreenParagraph] {
+    static func groupParagraphs(from lines: [ScreenOCRLine], canvasSize: CGSize = CGSize(width: 1, height: 1)) -> [ScreenParagraph] {
         guard !lines.isEmpty else { return [] }
+        let document = isDocument(lines)
+        let bodyLines = lines.filter { $0.text.count >= 60 && $0.visionBox.width > 0.5 }
+        let pitches = zip(bodyLines, bodyLines.dropFirst()).map { $0.visionBox.midY - $1.visionBox.midY }
+            .filter { $0 > 0 }.sorted()
+        let documentPitch = pitches.isEmpty ? CGFloat(0) : pitches[pitches.count / 2]
         let heights = lines.map(\.visionBox.height).sorted()
         let median = heights[heights.count / 2]
         let replaceable = lines.filter { shouldReplace($0, medianHeight: median) }
@@ -647,9 +851,11 @@ enum ScreenTranslate {
                 continue
             }
             let previous = current[current.count - 1]
-            if isStandaloneLine(line, bodyHeight: bodyHeight)
-                || isStandaloneLine(previous, bodyHeight: bodyHeight)
-                || !canJoinParagraph(previous: previous, next: line) {
+            let paragraphBreak = document && documentPitch > 0
+                && previous.visionBox.midY - line.visionBox.midY > documentPitch * 1.27
+            if paragraphBreak || isStandaloneLine(line, bodyHeight: bodyHeight, canvasSize: canvasSize)
+                || isStandaloneLine(previous, bodyHeight: bodyHeight, canvasSize: canvasSize)
+                || !canJoinParagraph(previous: previous, next: line, canvasSize: canvasSize) {
                 flush()
                 current = [line]
             } else {
@@ -666,7 +872,8 @@ enum ScreenTranslate {
                 visionBox: box,
                 lineHeight: group.map(\.visionBox.height).reduce(0, +) / CGFloat(group.count),
                 linePitch: box.height / CGFloat(max(1, group.count)),
-                isHeading: group.count == 1 && isStandaloneLine(group[0], bodyHeight: bodyHeight),
+                isHeading: group.count == 1 && isStandaloneLine(group[0], bodyHeight: bodyHeight, canvasSize: canvasSize)
+                    && (!isNumberedHeading(group[0].text) || group[0].visionBox.height > bodyHeight * 1.2),
                 lineCount: group.count,
                 sourceLines: group
             )
@@ -701,6 +908,7 @@ enum ScreenTranslate {
 
     static func layoutPlates(_ paragraphs: [ScreenParagraph], canvasSize: CGSize) -> [ScreenLaidOutBlock] {
         guard canvasSize.width > 1, canvasSize.height > 1 else { return [] }
+        let document = isDocument(paragraphs.flatMap(\.sourceLines))
         let fonts = paragraphFonts(paragraphs, canvasSize: canvasSize)
         let items: [ScreenLaidOutBlock] = paragraphs.enumerated().compactMap { index, paragraph in
             let text = paragraph.translation.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -709,20 +917,24 @@ enum ScreenTranslate {
             guard rect.width > 2, rect.height > 1.5 else { return nil }
             let font = fonts[index]
             let pitch = ceil(font * 1.3)
+            let scores = paragraph.sourceLines.compactMap(\.boldScore).sorted()
+            let score = scores.isEmpty ? nil : scores[scores.count / 2]
+            let bold = score.map { $0 >= 0.9 ? true : $0 <= 0.1 ? false : paragraph.isHeading } ?? paragraph.isHeading
             return ScreenLaidOutBlock(
                 text: text,
                 rect: rect,
                 sourceRect: rect,
                 fontSize: font,
                 linePitch: pitch,
-                isHeading: paragraph.isHeading
+                isHeading: bold,
+                preservesColumnWidth: document
             )
         }
         return expandAndStack(items)
     }
 
     static func layoutPlates(_ lines: [ScreenOCRLine], canvasSize: CGSize) -> [ScreenLaidOutBlock] {
-        layoutPlates(groupParagraphs(from: lines), canvasSize: canvasSize)
+        layoutPlates(groupParagraphs(from: lines, canvasSize: canvasSize), canvasSize: canvasSize)
     }
 
     static func assignTranslations(to lines: [ScreenOCRLine], translated: String) -> [ScreenOCRLine]? {

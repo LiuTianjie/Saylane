@@ -44,31 +44,28 @@ struct Keycap: View {
     }
 }
 
-struct SettingsCard<Content: View>: View {
-    var title: String
-    var subtitle: String? = nil
-    @ViewBuilder var content: Content
-
+/// System Settings–style sidebar glyph: a small rounded tile with a white symbol.
+struct SettingsGlyph: View {
+    let symbol: String
+    let color: Color
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.system(size: 13, weight: .semibold))
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            content
+        Image(systemName: symbol)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 20, height: 20)
+            .background(color, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+    }
+}
+
+/// A small inline status word used inside grouped forms; the only colour is the state dot.
+struct StatusText: View {
+    let text: String
+    let ready: Bool
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle().fill(ready ? Theme.ready : Color.orange).frame(width: 6, height: 6)
+            Text(text).foregroundStyle(.secondary)
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-                .strokeBorder(Theme.hairline, lineWidth: 1)
-        )
+        .font(.system(size: 12))
     }
 }
