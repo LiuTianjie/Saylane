@@ -2,10 +2,28 @@ import AppKit
 import Carbon.HIToolbox
 import InputMethodKit
 
+/// Chromium clients (WeChat 4 chat, Chrome, Electron) skip IMK if we claim mouse/keyUp,
+/// and they need an explicit Latin layout or they never attach the controller.
+private let latinKeyboardLayout = "com.apple.keylayout.ABC"
+
+private func onMain<T>(_ work: @MainActor () -> T) -> T {
+    if Thread.isMainThread {
+        return MainActor.assumeIsolated(work)
+    }
+    return DispatchQueue.main.sync {
+        MainActor.assumeIsolated(work)
+    }
+}
+
+private func bindLatinKeyboard(_ sender: Any?, controller: IMKInputController) {
+    let client = (sender as? IMKTextInput) ?? controller.client()
+    client?.overrideKeyboard(withKeyboardNamed: latinKeyboardLayout)
+}
+
 @objc(SaylaneInputController)
 final class SaylaneInputController: IMKInputController {
     override func menu() -> NSMenu! {
-        MainActor.assumeIsolated {
+        onMain {
             let model = AppModel.shared
             let menu = NSMenu(title: "Saylane")
             menu.autoenablesItems = false
@@ -29,30 +47,35 @@ final class SaylaneInputController: IMKInputController {
     }
 
     override func showPreferences(_ sender: Any!) {
-        MainActor.assumeIsolated { AppModel.shared.openSettings() }
+        onMain { AppModel.shared.openSettings() }
     }
 
     @objc private func switchOutputLanguage(_ sender: Any!) {
-        MainActor.assumeIsolated { AppModel.shared.swapTranslationDirection() }
+        onMain { AppModel.shared.swapTranslationDirection() }
     }
 
     @objc private func togglePinyinMode(_ sender: Any!) {
-        MainActor.assumeIsolated { AppModel.shared.togglePinyinEnglishMode() }
+        onMain { AppModel.shared.togglePinyinEnglishMode() }
     }
 
     @objc private func captureScreen(_ sender: Any!) {
-        MainActor.assumeIsolated { AppModel.shared.handleScreenCaptureHotkey() }
+        onMain { AppModel.shared.handleScreenCaptureHotkey() }
     }
 
     override func recognizedEvents(_ sender: Any!) -> Int {
-        Int(NSEvent.EventTypeMask([.keyDown, .keyUp, .flagsChanged, .leftMouseDown, .rightMouseDown]).rawValue)
+        Int(NSEvent.EventTypeMask([.keyDown, .flagsChanged]).rawValue)
     }
     override func activateServer(_ sender: Any!) {
         super.activateServer(sender)
-        MainActor.assumeIsolated { InputDiagnostics.record("ime-activated"); IMEManager.shared.attach(self) }
+        bindLatinKeyboard(sender, controller: self)
+        onMain {
+            let id = (sender as? IMKTextInput)?.bundleIdentifier() ?? self.client()?.bundleIdentifier() ?? ""
+            InputDiagnostics.record("ime-activated", "bundle=\(id)")
+            IMEManager.shared.attach(self)
+        }
     }
     override func deactivateServer(_ sender: Any!) {
-        MainActor.assumeIsolated {
+        onMain {
             InputDiagnostics.record("ime-deactivated")
             AppModel.shared.commitPinyin()
             IMEManager.shared.detach(self)
@@ -60,7 +83,7 @@ final class SaylaneInputController: IMKInputController {
         super.deactivateServer(sender)
     }
     override func commitComposition(_ sender: Any!) {
-        MainActor.assumeIsolated {
+        onMain {
             if AppModel.shared.isListening {
                 // A client-side click must not submit a partially translated phrase.
                 IMEManager.shared.targetChanged(self)
@@ -71,7 +94,8 @@ final class SaylaneInputController: IMKInputController {
     }
     override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
         guard let event else { return false }
-        return MainActor.assumeIsolated {
+        bindLatinKeyboard(sender, controller: self)
+        return onMain {
             IMEManager.shared.attach(self)
             if event.type == .flagsChanged {
                 InputDiagnostics.record("modifier-received", "key=\(event.keyCode) flags=\(event.modifierFlags.rawValue)")
