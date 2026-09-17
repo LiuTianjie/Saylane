@@ -24,6 +24,9 @@ for path in ('scripts/pkg/preinstall', 'scripts/uninstall.sh'):
     assert 'Refusing' in text
 assert 'Contents/MacOS/Saylane' in read('scripts/pkg/postinstall')
 assert 'Sources/Saylane.entitlements' in read('scripts/package.sh')
+settings = read('Sources/Services/SettingsController.swift')
+assert 'setActivationPolicy(.regular)' not in settings
+assert 'setActivationPolicy(.accessory)' in settings
 
 class Page(HTMLParser):
     def __init__(self):
@@ -52,5 +55,5 @@ page.feed(html)
 assert page.telemetry == 1
 assert '<h1>Saylane</h1>' in html
 assert html.count('class="brand-name">Saylane</span>') == 2
-assert 'https://github.com/LiuTianjie/Saylane/releases/download/v0.2.67/Saylane-0.2.67.pkg' in html
+assert 'https://github.com/LiuTianjie/Saylane/releases/download/v0.2.68/Saylane-0.2.68.pkg' in html
 print('PASS: Saylane branding, stable identity/storage, upgrade paths, published links and single telemetry script')
