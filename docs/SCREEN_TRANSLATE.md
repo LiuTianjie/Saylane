@@ -229,7 +229,7 @@ dist/local-install/install.sh（管理员）
 pkill Saylane；open "/Library/Input Methods/Saylane.app" --args --setup
 ```
 
-当前已发布版本 `0.2.67`。
+当前已发布版本 `0.2.68`。
 
 ---
 

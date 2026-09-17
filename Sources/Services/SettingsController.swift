@@ -7,8 +7,10 @@ final class SettingsController {
     private var closeObserver: NSObjectProtocol?
 
     func show(model: AppModel) {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        // IMK hosts must stay accessory. `.regular` makes Launch Services report
+        // ApplicationType=Foreground; other apps then never call activateServer,
+        // so pinyin and voice both die while the menu bar still checks Saylane.
+        NSApp.setActivationPolicy(.accessory)
 
         let hosting = NSHostingController(rootView: SettingsView().environment(model))
         if let window {
@@ -23,6 +25,8 @@ final class SettingsController {
             window.titlebarAppearsTransparent = false
             window.toolbarStyle = .unified
             window.isReleasedWhenClosed = false
+            window.hidesOnDeactivate = false
+            window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
             window.center()
             self.window = window
             closeObserver = NotificationCenter.default.addObserver(
@@ -39,5 +43,6 @@ final class SettingsController {
         window?.makeKeyAndOrderFront(nil)
         window?.orderFrontRegardless()
         NSApp.activate(ignoringOtherApps: true)
+        NSApp.setActivationPolicy(.accessory)
     }
 }
