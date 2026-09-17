@@ -305,6 +305,10 @@ PID read-back showed switcher46684 and cursor46787 retained pre-install start ti
 - 设置窗口改为固定深色控制台风格（`Theme.Console` 调色板，`SettingsCard/SettingsRow/StatusChip/InfoTip/Eyebrow/ConsoleFieldStyle` 组件）：长说明收进 (i) 弹层，标题栏加 MIC/IME/MODEL/WAKE 状态灯，侧栏带编号与 READY/KBD/ASR 遥测，「AI 修正」页顶部用 ASR → RULES → VOCAB → LLM → COMMIT 流水线展示各级开关状态。候选条与 HUD 仍跟随系统外观。
 - Debug 工具：`--snapshot out.png all` 渲染五页；`--preview-models --preview-tab N` 打开真实窗口，`--preview-shot dir` 逐页写出 `settings-N.png`。
 
+## 0.2.69 — 微信等 Chromium 输入框能挂上输入法（2026-09-17）
+
+微信 4 聊天框走 WeChatAppEx（Chromium），不是 AppKit 文本框。输入法如果声明接收 keyUp/鼠标，或未把键盘布局切到 ABC，Chromium 不会调用 `activateServer`，表现为菜单栏勾着 Saylane 却没有「中文 → EN」菜单、拼音和语音都失效。现与鼠须管对齐：只认 keyDown/flagsChanged，激活时 `overrideKeyboard` 到 ABC，IMK 回调离主线程时再切回主线程。
+
 ## 0.2.68 — 设置窗口不再把输入法变成前台应用（2026-09-17）
 
 安装后 `--setup` 会打开「开始使用」窗口，并曾把宿主切成 `NSApplicationActivationPolicy.regular`。Launch Services 随后把 Saylane 报成 Foreground 应用：菜单栏仍勾着 Saylane，但很多目标软件不再调用 `activateServer`，拼音和语音一起失效。设置窗口现在始终保持 accessory，关闭后也回到后台输入法。
