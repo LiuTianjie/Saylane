@@ -13,11 +13,11 @@ import Observation
     init() { refresh() }
 
     func refresh() {
-        installed = Set(SpeechModel.allCases.filter { $0.isQwen && ((try? $0.manifest().isInstalled()) == true) })
+        installed = Set(SpeechModel.allCases.filter { $0.isLocal && ((try? $0.manifest().isInstalled()) == true) })
     }
 
     func download(_ variant: SpeechModel) async throws {
-        guard variant.isQwen, !isDownloading else { return }
+        guard variant.isLocal, !isDownloading else { return }
         let manifest = try variant.manifest()
         let token = UUID()
         downloadID = token
@@ -49,7 +49,7 @@ import Observation
     }
 
     func remove(_ variant: SpeechModel) throws {
-        guard variant.isQwen, !isDownloading else { return }
+        guard variant.isLocal, !isDownloading else { return }
         let manifest = try variant.manifest()
         // Removes this variant's weights and incomplete downloads only; never the entire app directory.
         let directory = manifest.directory().deletingLastPathComponent()

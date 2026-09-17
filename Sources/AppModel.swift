@@ -66,6 +66,22 @@ final class AppModel {
     var finalPolishModel: String {
         didSet { UserDefaults.standard.set(finalPolishModel, forKey: "finalPolishModel") }
     }
+    var recognitionOnly = UserDefaults.standard.bool(forKey: "recognitionOnly") {
+        didSet {
+            UserDefaults.standard.set(recognitionOnly, forKey: "recognitionOnly")
+            settingsChanged()
+        }
+    }
+    var speechHotwordsEnabled = UserDefaults.standard.bool(forKey: "speechHotwordsEnabled") {
+        didSet { UserDefaults.standard.set(speechHotwordsEnabled, forKey: "speechHotwordsEnabled") }
+    }
+    /// On-device repair of fillers, stutters and spoken corrections; on by default.
+    var dictationCleanupEnabled = UserDefaults.standard.object(forKey: "dictationCleanupEnabled") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(dictationCleanupEnabled, forKey: "dictationCleanupEnabled") }
+    }
+    var speechHotwords = UserDefaults.standard.string(forKey: "speechHotwords") ?? "" {
+        didSet { UserDefaults.standard.set(speechHotwords, forKey: "speechHotwords") }
+    }
     var screenPolishEnabled: Bool {
         didSet { UserDefaults.standard.set(screenPolishEnabled, forKey: "screenPolishEnabled") }
     }
@@ -603,15 +619,36 @@ final class AppModel {
         // or Keychain reads occur for ordinary recognition or interim translations.
         let endpoint = finalPolishEndpoint, model = finalPolishModel
         let sourceCode = sourceLanguage.rawValue, targetCode = targetLanguage.rawValue
+        let terms = vocabularyTerms
+        // "仅识别" only skips translation; the model proofread has its own switch.
         let polish: ((String, String) async throws -> String)? = finalPolishEnabled ? { original, draft in
             let config = try FinalPolishConfiguration(endpoint: endpoint, model: model)
             let key = try PolishKeychain.read(endpoint: config.endpoint)
-            return try await FinalPolishService.polish(configuration: config, apiKey: key,
-                original: original, draft: draft, sourceLanguage: sourceCode, targetLanguage: targetCode)
+            let result = try await FinalPolishService.polish(configuration: config, apiKey: key,
+                original: original, draft: draft, sourceLanguage: sourceCode, targetLanguage: targetCode, vocabulary: terms)
+            // Same-language proofreading may only touch a little; anything more is a rewrite.
+            if sourceCode == targetCode, !FinalPolishService.isPlausibleProofread(original: draft, polished: result) { throw PolishRejected() }
+            return result
         } : nil
         coordinator.start(locale: sourceLanguage.speechLocale, speech: makeSpeechEngine(), capture: AudioCaptureService(),
-                          target: target, passthrough: sourceLanguage == targetLanguage, polish: polish) { [translationEngine] text in
+                          target: target, passthrough: recognitionOnly || sourceLanguage == targetLanguage,
+                          refine: makeRefine(), polish: polish) { [translationEngine] text in
             try await translationEngine.translate(text)
+        }
+    }
+
+    private var vocabularyTerms: [String] { speechHotwordsEnabled ? SpeechHotwords.terms(speechHotwords) : [] }
+
+    /// Deterministic, on-device text repair shared by live previews and the final result.
+    /// Cleanup runs first so vocabulary matches see spoken corrections already applied.
+    private func makeRefine() -> ((String) -> String)? {
+        let cleanup = dictationCleanupEnabled
+        let vocabulary = speechHotwordsEnabled ? DictationVocabulary(raw: speechHotwords) : nil
+        guard cleanup || vocabulary?.isEmpty == false else { return nil }
+        return { text in
+            var result = cleanup ? DictationCleanup.clean(text) : text
+            if let vocabulary { result = vocabulary.apply(to: result) }
+            return result
         }
     }
 
@@ -680,7 +717,7 @@ final class AppModel {
             if self.speechModel == .apple { await QwenRuntime.shared.unload() }
             guard revision == self.settingsRevision, !Task.isCancelled else { return }
             do {
-                if self.sourceLanguage == self.targetLanguage { self.translationEngine.enablePassthrough() }
+                if self.recognitionOnly || self.sourceLanguage == self.targetLanguage { self.translationEngine.enablePassthrough() }
                 else { try await self.translationEngine.prepareInstalled(source: self.sourceLanguage.translationLanguage, target: self.targetLanguage.translationLanguage) }
                 guard revision == self.settingsRevision, !Task.isCancelled else { return }
             } catch {
@@ -692,7 +729,10 @@ final class AppModel {
     }
 
     private func makeSpeechEngine() -> any SpeechRecognizing {
-        speechModel == .apple ? SpeechEngine() : QwenSpeechEngine(variant: speechModel)
+        // Apple biases recognition with contextual strings, Qwen with its prompt; the FunASR
+        // CLIs accept no hotwords, so those engines rely on post-recognition vocabulary repair.
+        if speechModel == .apple { return SpeechEngine(contextualStrings: vocabularyTerms) }
+        return QwenSpeechEngine(variant: speechModel, context: speechModel.isQwen && speechHotwordsEnabled ? SpeechHotwords.context(speechHotwords) : nil)
     }
 
     func selectSpeechModel(_ selected: SpeechModel) {
@@ -754,11 +794,12 @@ final class AppModel {
             if asrModels.installed.contains(selected) {
                 speechModelDetail = "正在校验并加载 \(selected.title)…"
                 do {
+                    guard selected.supports(locale: source.speechLocale) else { throw ASRModelError.unsupportedLanguage }
                     _ = try QwenLanguage.name(for: source.speechLocale)
                     try await QwenRuntime.shared.prepare(selected)
                     guard revision == settingsRevision, !Task.isCancelled else { return }
                     speechModelReady = true
-                    speechModelDetail = "\(selected.title) 已就绪 · 松开后出字"
+                    speechModelDetail = "\(selected.title) 已就绪 · \(selected.emitsLivePartial ? "边说边出字" : "松开后出字")"
                 } catch {
                     guard revision == settingsRevision, !Task.isCancelled else { return }
                     speechModelDetail = "模型未就绪，请重试或重新下载修复"
@@ -770,8 +811,8 @@ final class AppModel {
             }
         }
         guard revision == settingsRevision, !Task.isCancelled else { return }
-        translationModelReady = sourceLanguage == targetLanguage || translationEngine.isReady
-        translationModelDetail = sourceLanguage == targetLanguage ? "同语言听写，不调用翻译" : translationModelReady
+        translationModelReady = recognitionOnly || sourceLanguage == targetLanguage || translationEngine.isReady
+        translationModelDetail = recognitionOnly ? "仅识别：不翻译" : sourceLanguage == targetLanguage ? "同语言听写，不调用翻译" : translationModelReady
             ? "翻译模型已就绪" : "翻译模型未准备好，请点击下载"
         refreshInputSourceStatus()
     }
@@ -788,7 +829,7 @@ final class AppModel {
             } else if !asrModels.installed.contains(speechModel) {
                 try await asrModels.download(speechModel)
             }
-            if sourceLanguage != targetLanguage && !translationEngine.isReady {
+            if !recognitionOnly && sourceLanguage != targetLanguage && !translationEngine.isReady {
                 // Attached to the visible Settings view so Apple's download approval is visible.
                 translationConfiguration = TranslationSession.Configuration(source: sourceLanguage.translationLanguage, target: targetLanguage.translationLanguage)
             }
@@ -805,7 +846,7 @@ final class AppModel {
         } catch { if revision == settingsRevision { report(error.localizedDescription) } }
     }
 
-    func handleScreenCaptureHotkey() {
+    func handleScreenCaptureHotkey(preserveKeyboardFocus: Bool = false) {
         if isRecordingScreenShortcut { return }
         if screenTranslate.isSelecting {
             screenTranslate.cancel()
@@ -846,7 +887,7 @@ final class AppModel {
         if screenPolishEnabled {
             let endpoint = finalPolishEndpoint
             let model = finalPolishModel
-            screenTranslate.polish = { original, draft, source, target in
+            screenTranslate.polish = { original, draft, source, target, context in
                 let config = try FinalPolishConfiguration(endpoint: endpoint, model: model)
                 let key = try PolishKeychain.read(endpoint: config.endpoint)
                 return try await FinalPolishService.polish(
@@ -855,13 +896,14 @@ final class AppModel {
                     original: original,
                     draft: draft,
                     sourceLanguage: source,
-                    targetLanguage: target
+                    targetLanguage: target,
+                    screenContext: context
                 )
             }
         } else {
             screenTranslate.polish = nil
         }
-        screenTranslate.beginSelection(a: pairSource, b: pairTarget, last: last)
+        screenTranslate.beginSelection(a: pairSource, b: pairTarget, last: last, preserveKeyboardFocus: preserveKeyboardFocus)
     }
 
     private func handleScreenHold(_ action: ScreenHoldHandler.Action) {
@@ -875,7 +917,7 @@ final class AppModel {
                 self.handleScreenHold(next)
             }
         case .begin:
-            handleScreenCaptureHotkey()
+            handleScreenCaptureHotkey(preserveKeyboardFocus: true)
         case .cancel:
             screenHoldTask?.cancel()
             screenHoldTask = nil

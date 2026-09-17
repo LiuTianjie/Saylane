@@ -3,6 +3,106 @@ import Foundation
 
 @main struct ScreenTranslateTests {
     static func main() {
+        // Dense prose: preserve natural paragraph gaps despite OCR ink-height
+        // jitter, and share a body font instead of amplifying per-line errors.
+        let prose = (0..<24).map { index in
+            ScreenOCRLine(text: "A sufficiently long body sentence about sequence models and their representations.",
+                visionBox: CGRect(x: 0.17, y: 0.9 - CGFloat(index) * 0.018 - CGFloat(index / 6) * 0.010,
+                    width: 0.65, height: index < 6 ? 0.016 : 0.013))
+        }
+        precondition(ScreenTranslate.isDocument(prose))
+        precondition(!ScreenTranslate.isDocument(Array(prose.prefix(12))), "Chat-sized groups keep their existing path")
+        var narrow = prose
+        for i in narrow.indices { narrow[i].visionBox.size.width = 0.25 }
+        precondition(!ScreenTranslate.isDocument(narrow), "Multi-column feeds keep their existing path")
+        var documentParagraphs = ScreenTranslate.groupParagraphs(from: prose, canvasSize: CGSize(width: 800, height: 1000))
+        precondition(documentParagraphs.count == 4, "Paragraph spacing separates four natural paragraphs")
+        let bodyFonts = ScreenTranslate.paragraphFonts(documentParagraphs, canvasSize: CGSize(width: 800, height: 1000))
+        precondition(bodyFonts.max()! - bodyFonts.min()! < 0.01, "Same document body style has one font size")
+        for i in documentParagraphs.indices { documentParagraphs[i].translation = "这是论文正文段落。" }
+        let documentPlates = ScreenTranslate.layoutPlates(documentParagraphs, canvasSize: CGSize(width: 800, height: 1000))
+        precondition(documentPlates.allSatisfy(\.preservesColumnWidth), "Document blocks retain the source column width")
+        let quantity = ScreenOCRLine(text: "6 months of ChatGPT Pro, which includes Codex",
+            visionBox: CGRect(x: 0.1, y: 0.8, width: 0.6, height: 0.02))
+        precondition(!ScreenTranslate.groupParagraphs(from: [quantity])[0].isHeading,
+            "A quantity at body size must not acquire heading weight")
+        var bullet = quantity
+        bullet.startsListItem = true
+        var secondBullet = ScreenOCRLine(text: "Conditional access to Codex Security",
+            visionBox: CGRect(x: 0.1, y: 0.765, width: 0.5, height: 0.02))
+        secondBullet.startsListItem = true
+        precondition(!ScreenTranslate.canJoinParagraph(previous: bullet, next: secondBullet),
+            "Adjacent bullet items remain separate even with a small gap")
+        let continuation = ScreenOCRLine(text: "for eligible maintainers", visionBox: CGRect(x: 0.1, y: 0.74, width: 0.4, height: 0.02))
+        precondition(ScreenTranslate.canJoinParagraph(previous: secondBullet, next: continuation),
+            "A wrapped continuation stays with its bullet item")
+        var cache = ScreenTranslationCache()
+        precondition(cache.missing(["Post", "Post", "Home"], direction: "en-zh") == ["Post", "Home"])
+        cache.store("Post", translation: "发布", direction: "en-zh")
+        precondition(cache.missing(["Post"], direction: "en-zh").isEmpty)
+        precondition(cache.value("Post", direction: "zh-en") == nil)
+        for i in 0..<600 { cache.store("item-\(i)", translation: "结果", direction: "en-zh") }
+        precondition(cache.value("Post", direction: "en-zh") == nil, "Session cache is bounded")
+        // Same physical lines on canvases with very different aspect ratios.
+        func physicalLine(_ text: String, _ rect: CGRect, _ size: CGSize) -> ScreenOCRLine {
+            ScreenOCRLine(text: text, visionBox: CGRect(x: rect.minX / size.width, y: rect.minY / size.height,
+                width: rect.width / size.width, height: rect.height / size.height))
+        }
+        for size in [CGSize(width: 300, height: 1000), CGSize(width: 2000, height: 500)] {
+            let first = physicalLine("A body sentence that wraps", CGRect(x: 10, y: 100, width: 230, height: 16), size)
+            let next = physicalLine("onto the next line", CGRect(x: 10, y: 80, width: 180, height: 16), size)
+            precondition(ScreenTranslate.canJoinParagraph(previous: first, next: next, canvasSize: size))
+            let otherColumn = physicalLine("another column", CGRect(x: 280, y: 80, width: 200, height: 16), size)
+            precondition(!ScreenTranslate.canJoinParagraph(previous: first, next: otherColumn, canvasSize: size))
+        }
+        let gutterUpper = CGRect(x: 20, y: 20, width: 200, height: 20)
+        let gutterLower = CGRect(x: 20, y: 60, width: 200, height: 20)
+        let aRegion = ScreenTranslate.boundedViewport(source: gutterUpper,
+            proposed: CGRect(x: 20, y: 10, width: 240, height: 60), neighbors: [gutterUpper, gutterLower])
+        let bRegion = ScreenTranslate.boundedViewport(source: gutterLower,
+            proposed: CGRect(x: 20, y: 30, width: 240, height: 60), neighbors: [gutterUpper, gutterLower])
+        precondition(aRegion.maxY <= bRegion.minY, "Two paragraphs cannot own the same empty gutter")
+        var collisionBlocks: [ScreenLaidOutBlock] = []
+        for i in 0..<60 {
+            let rect = CGRect(x: CGFloat((i % 6) * 35), y: CGFloat((i / 6) * 22), width: 32, height: 18)
+            collisionBlocks.append(ScreenLaidOutBlock(text: "完整译文保留", rect: rect.insetBy(dx: -15, dy: -12),
+                sourceRect: rect, fontSize: 12, isHeading: false))
+        }
+        // Include malformed overlapping/duplicate OCR source rectangles.
+        collisionBlocks.append(collisionBlocks[0])
+        let collisionFree = ScreenTranslate.nonOverlapping(collisionBlocks)
+        for i in collisionFree.indices {
+            for j in collisionFree.indices where j > i {
+                let hit = collisionFree[i].rect.intersection(collisionFree[j].rect)
+                precondition(hit.isNull || hit.width <= 0 || hit.height <= 0, "Final overlays must NEVER overlap")
+            }
+            precondition(collisionFree[i].text == collisionBlocks[i].text, "Suppressed overlays retain their full text")
+        }
+        precondition(ScreenTranslate.nonOverlapping(collisionFree) == collisionFree, "Copy must preserve resolved layout")
+        let contextParagraphs = (0..<20).map { i in
+            ScreenParagraph(original: "source-\(i)", translation: "draft-\(i)",
+                visionBox: CGRect(x: 0.1, y: CGFloat(i) * 0.04, width: 0.2, height: 0.02),
+                lineHeight: 0.02, linePitch: 0.025, isHeading: false, lineCount: 1)
+        }
+        var navigation = Array(contextParagraphs.prefix(4))
+        for (i, label) in ["Home", "Explore", "Profile", "Post"].enumerated() { navigation[i].original = label }
+        precondition(ScreenTranslate.navigationTranslation(for: 3, paragraphs: navigation,
+            canvasSize: CGSize(width: 1000, height: 800), source: .en, target: .zhHans) == "发布")
+        precondition(ScreenTranslate.navigationTranslation(for: 0, paragraphs: [navigation[3]],
+            canvasSize: CGSize(width: 1000, height: 800), source: .en, target: .zhHans) == nil,
+            "A lone Post in prose must not receive a navigation override")
+        navigation[3].visionBox.origin.x = 0.8
+        precondition(ScreenTranslate.navigationTranslation(for: 3, paragraphs: navigation,
+            canvasSize: CGSize(width: 1000, height: 800), source: .en, target: .zhHans) == nil,
+            "Navigation labels in another column are not evidence for this text")
+        let context = ScreenTranslate.translationContext(for: 0, paragraphs: contextParagraphs)
+        precondition(context.hasPrefix("source-1\n\nsource-2"))
+        precondition(!context.contains("source-0") && !context.contains("draft-"))
+        precondition(context.components(separatedBy: "\n\n").count == 12)
+        var largeContext = contextParagraphs
+        for i in largeContext.indices { largeContext[i].original = String(repeating: "界", count: 2_000) }
+        precondition(ScreenTranslate.translationContext(for: 0, paragraphs: largeContext).utf8.count <= 4_000)
+        precondition(ScreenTranslate.translationContext(for: -1, paragraphs: contextParagraphs).isEmpty)
         let optionT = ScreenCaptureShortcut.optionT
         precondition(optionT.displayName == "⌥T")
         precondition(optionT.matches(keyCode: UInt16(kVK_ANSI_T), flags: ScreenModifier.option))

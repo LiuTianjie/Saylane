@@ -4,6 +4,7 @@ import Darwin
 struct QwenWorkerRequest: Codable {
     let audio: [Float]
     let language: String
+    var context: String? = nil
 }
 struct QwenWorkerResponse: Codable {
     let text: String?
@@ -100,9 +101,12 @@ actor QwenWorkerModel: LoadedSpeechModel {
         memory = response.memory
     }
     func transcribe(_ audio: [Float], language: String) async throws -> String {
+        try await transcribe(audio, language: language, context: nil)
+    }
+    func transcribe(_ audio: [Float], language: String, context: String?) async throws -> String {
         try Task.checkCancellation()
         let response = try await withTaskCancellationHandler {
-            try connection.exchange(QwenWorkerRequest(audio: audio, language: language))
+            try connection.exchange(QwenWorkerRequest(audio: audio, language: language, context: context))
         } onCancel: { connection.interrupt() }
         try Task.checkCancellation()
         memory = response.memory

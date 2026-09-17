@@ -15,7 +15,7 @@ import Foundation
         let commandMask = PushToTalkHotkey.leftCommand.deviceMask
         let delay = ScreenHoldHandler.holdDelay
 
-        precondition(delay >= 0.4, "Hold must be slow enough to avoid Control chords")
+        precondition(delay == 0.3, "Screenshot hold should respond in 300 ms")
         precondition(handler.handle(type: .flagsChanged, keyCode: left, flags: leftMask, now: 1.0) == .armHold)
         precondition(handler.holdDeadline(now: 1.0 + delay - 0.05) == .none)
         precondition(handler.holdDeadline(now: 1.0 + delay) == .begin)
@@ -78,6 +78,51 @@ import Foundation
         handler.setPinVisible(false)
         precondition(handler.handle(type: .flagsChanged, keyCode: left, flags: leftMask, now: 10.0) == .armHold)
         precondition(handler.handle(type: .flagsChanged, keyCode: left, flags: 0, now: 10.10) == .none, "A short Control tap does nothing when nothing is pinned")
+
+        // Chords in either order, including after the hold deadline. Releasing
+        // the other key cannot rearm the same physical Control press.
+        for code in [UInt16(kVK_ANSI_C), UInt16(kVK_Space), UInt16(kVK_LeftArrow), UInt16(kVK_F2)] {
+            handler.reset()
+            handler.setPinVisible(true)
+            _ = handler.handle(type: .keyDown, keyCode: code, flags: 0, now: 11)
+            precondition(handler.handle(type: .flagsChanged, keyCode: left, flags: leftMask, now: 11.1) == .none)
+            _ = handler.handle(type: .keyUp, keyCode: code, flags: leftMask, now: 11.2)
+            precondition(handler.holdDeadline(now: 12) == .none)
+            precondition(handler.handle(type: .flagsChanged, keyCode: left, flags: 0, now: 12) == .none)
+
+            precondition(handler.handle(type: .flagsChanged, keyCode: left, flags: leftMask, now: 13) == .armHold)
+            precondition(handler.holdDeadline(now: 13.4) == .begin)
+            precondition(handler.handle(type: .keyDown, keyCode: code, flags: leftMask, now: 13.5) == .cancel)
+            _ = handler.handle(type: .keyUp, keyCode: code, flags: leftMask, now: 13.6)
+            precondition(handler.handle(type: .flagsChanged, keyCode: left, flags: leftMask, now: 13.7) == .none)
+            precondition(handler.holdDeadline(now: 14) == .none)
+            precondition(handler.handle(type: .flagsChanged, keyCode: left, flags: 0, now: 14) == .none)
+            precondition(handler.handle(type: .flagsChanged, keyCode: left, flags: leftMask, now: 15) == .armHold)
+            precondition(handler.holdDeadline(now: 15.4) == .begin)
+        }
+
+        let modifiers: [(UInt16, UInt64)] = [
+            (UInt16(kVK_Shift), shiftFlag), (command, UInt64(NSEvent.ModifierFlags.command.rawValue)),
+            (UInt16(kVK_Option), optionFlag), (UInt16(kVK_Function), UInt64(NSEvent.ModifierFlags.function.rawValue)),
+            (right, PushToTalkHotkey.rightControl.deviceMask)
+        ]
+        for (code, mask) in modifiers {
+            for afterDeadline in [false, true] {
+                handler.reset()
+                _ = handler.handle(type: .flagsChanged, keyCode: left, flags: leftMask, now: 16)
+                if afterDeadline { precondition(handler.holdDeadline(now: 16.4) == .begin) }
+                precondition(handler.handle(type: .flagsChanged, keyCode: code, flags: leftMask | mask, now: 16.5) == (afterDeadline ? .cancel : .none))
+                _ = handler.handle(type: .flagsChanged, keyCode: code, flags: leftMask, now: 16.6)
+                precondition(handler.holdDeadline(now: 17) == .none)
+                precondition(handler.handle(type: .flagsChanged, keyCode: left, flags: 0, now: 17) == .none)
+            }
+            handler.reset()
+            precondition(handler.handle(type: .flagsChanged, keyCode: left, flags: leftMask | mask, now: 18) == .none)
+            _ = handler.handle(type: .flagsChanged, keyCode: code, flags: leftMask, now: 18.1)
+            precondition(handler.holdDeadline(now: 19) == .none)
+            _ = handler.handle(type: .flagsChanged, keyCode: left, flags: mask, now: 19)
+            precondition(handler.handle(type: .flagsChanged, keyCode: left, flags: leftMask, now: 20) == .armHold)
+        }
 
         var tap = RightCommandDoubleTap()
         let rightMask = PushToTalkHotkey.rightCommand.deviceMask

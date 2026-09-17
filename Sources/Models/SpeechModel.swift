@@ -2,6 +2,8 @@ import Foundation
 
 enum SpeechModel: String, CaseIterable, Identifiable, Sendable {
     case apple
+    case senseVoice = "sensevoice-small-q8"
+    case funASRNano = "fun-asr-nano-q4"
     case qwen4bit = "qwen3-asr-0.6b-4bit"
     case qwen6bit = "qwen3-asr-0.6b-6bit"
 
@@ -9,6 +11,8 @@ enum SpeechModel: String, CaseIterable, Identifiable, Sendable {
     var title: String {
         switch self {
         case .apple: return "Apple 系统识别"
+        case .senseVoice: return "SenseVoiceSmall · Q8（试用）"
+        case .funASRNano: return "Fun-ASR-Nano · Q4（试用）"
         case .qwen4bit: return "Qwen3-ASR 0.6B · 4-bit"
         case .qwen6bit: return "Qwen3-ASR 0.6B · 6-bit"
         }
@@ -16,14 +20,34 @@ enum SpeechModel: String, CaseIterable, Identifiable, Sendable {
     var detail: String {
         switch self {
         case .apple: return "系统管理 · 实时组字"
+        case .senseVoice: return "约 254 MB · 中英粤日韩 · 边说边出字"
+        case .funASRNano: return "约 954 MB · 中英日 · 松开后出字"
         case .qwen4bit: return "约 724 MB · 较小体积 · 松开后出字"
         case .qwen6bit: return "约 873 MB · 较低量化损失 · 松开后出字"
         }
     }
-    var isQwen: Bool { self != .apple }
+    var isQwen: Bool { self == .qwen4bit || self == .qwen6bit }
+    var isLocal: Bool { self != .apple }
+    var isNative: Bool { self == .senseVoice || self == .funASRNano }
+    var emitsLivePartial: Bool { self == .senseVoice }
+    var repository: String {
+        switch self {
+        case .apple: return ""
+        case .senseVoice: return "FunAudioLLM/SenseVoiceSmall-GGUF"
+        case .funASRNano: return "FunAudioLLM/Fun-ASR-Nano-GGUF"
+        case .qwen4bit: return "mlx-community/Qwen3-ASR-0.6B-4bit"
+        case .qwen6bit: return "mlx-community/Qwen3-ASR-0.6B-6bit"
+        }
+    }
+    func supports(locale: Locale) -> Bool {
+        let code = locale.language.languageCode?.identifier ?? ""
+        if self == .senseVoice { return ["zh", "en", "yue", "ja", "ko"].contains(code) }
+        if self == .funASRNano { return ["zh", "en", "ja"].contains(code) }
+        return true
+    }
 
     func manifest(in bundle: Bundle = .main) throws -> ASRModelManifest {
-        guard isQwen,
+        guard isLocal,
               let url = bundle.url(forResource: rawValue, withExtension: "json", subdirectory: "ASR")
                 ?? bundle.url(forResource: rawValue, withExtension: "json") else {
             throw ASRModelError.manifest
@@ -51,11 +75,13 @@ struct ASRModelManifest: Codable, Sendable {
     var totalBytes: Int64 { files.reduce(0) { $0 + $1.size } }
 
     func validate() throws {
-        guard let model = SpeechModel(rawValue: id), model.isQwen,
-              repository == "mlx-community/Qwen3-ASR-0.6B-\(model == .qwen4bit ? 4 : 6)bit",
+        guard let model = SpeechModel(rawValue: id), model.isLocal,
+              repository == model.repository,
               revision.range(of: "^[0-9a-f]{40}$", options: .regularExpression) != nil,
               !files.isEmpty, Set(files.map(\.name)).count == files.count,
-              files.contains(where: { $0.name == "model.safetensors" }),
+              (model.isNative
+                ? Set(files.map(\.name)) == (model == .senseVoice ? ["sensevoice-small-q8.gguf"] : ["funasr-encoder-f16.gguf", "qwen3-0.6b-q4km.gguf"])
+                : files.contains(where: { $0.name == "model.safetensors" })),
               files.allSatisfy({ file in
                   !file.name.isEmpty && file.name != "." && file.name != ".."
                     && !file.name.contains("/") && !file.name.contains("\\")
@@ -95,12 +121,12 @@ enum ASRModelError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .manifest: return "语音模型清单缺失或无效，请重新安装应用。"
-        case .missing: return "请先在设置中下载并准备所选千问模型。"
-        case .diskSpace: return "磁盘空间不足，请至少腾出 2 GB 后重试。"
+        case .missing: return "请先在设置中下载并准备所选本地模型。"
+        case .diskSpace: return "磁盘空间不足，请腾出足够空间后重试。"
         case .invalidDownload(let name): return "模型文件下载失败（\(name)），请检查网络后重试。"
         case .checksum(let name): return "模型文件校验失败（\(name)），请重新下载修复。"
-        case .tooLong: return "千问当前每次最多识别 30 秒，请分成短句输入。本次未提交。"
-        case .unsupportedLanguage: return "当前千问适配器尚不支持所选语言。"
+        case .tooLong: return "本地模型当前每次最多识别 30 秒，请分成短句输入。本次未提交。"
+        case .unsupportedLanguage: return "当前识别模型尚不支持所选语言。"
         }
     }
 }
@@ -121,5 +147,39 @@ enum QwenLanguage {
         let traditional = locale.language.script?.identifier == "Hant"
             || ["TW", "HK", "MO"].contains(locale.language.region?.identifier ?? "")
         return text.applyingTransform(StringTransform(traditional ? "Hans-Hant" : "Hant-Hans"), reverse: false) ?? text
+    }
+}
+
+/// Keep personal vocabulary bounded; no application or document text is collected.
+enum SpeechHotwords {
+    /// One line of the user's vocabulary: "Saylane|赛兰|塞蓝" spells the term the way it should
+    /// be written, then the ways recognizers tend to hear it.
+    struct Entry: Equatable, Sendable {
+        let canonical: String
+        let aliases: [String]
+    }
+
+    static func entries(_ raw: String) -> [Entry] {
+        var seen = Set<String>()
+        var result: [Entry] = []
+        for line in raw.components(separatedBy: CharacterSet(charactersIn: "\n,，;；")) {
+            let parts = line.components(separatedBy: CharacterSet(charactersIn: "|｜"))
+                .map { String($0.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80)) }
+                .filter { !$0.isEmpty }
+            guard let canonical = parts.first, seen.insert(canonical).inserted else { continue }
+            var aliases: [String] = []
+            for alias in parts.dropFirst() where alias != canonical && !aliases.contains(alias) { aliases.append(alias) }
+            result.append(Entry(canonical: canonical, aliases: aliases))
+            if result.count == 50 { break }
+        }
+        return result
+    }
+
+    /// Recognizer bias uses only the canonical spellings.
+    static func terms(_ raw: String) -> [String] { entries(raw).map(\.canonical) }
+
+    static func context(_ raw: String) -> String? {
+        let result = String(terms(raw).joined(separator: "、").prefix(1000))
+        return result.isEmpty ? nil : result
     }
 }

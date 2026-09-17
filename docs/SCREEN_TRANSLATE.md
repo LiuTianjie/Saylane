@@ -1,5 +1,7 @@
 # Saylane 截屏翻译：效果契约与实现交接
 
+> 2026-09-16：后续轻量版面与性能工作以 [最新实施方案](SCREEN_TRANSLATE_NEXT.md) 为准。用户已认可 0.2.60 原位覆盖，并允许容器内段落排版及局部滚动；下文旧版“仅逐行、无滚动”和版本信息不代表当前状态。
+
 更新：2026-09-13。本文是**目标效果**的实现契约，不代表当前源码已经做到。  
 现有 `Sources/Services/ScreenTranslate*.swift` 是半成品，经历过多轮错误方向（整页重排、灰罩、框在转），**不要把当前实现当设计**。下一轮按本文重做或大幅改，而不是在旧 overlay 上继续打补丁。
 
@@ -227,7 +229,7 @@ dist/local-install/install.sh（管理员）
 pkill Saylane；open "/Library/Input Methods/Saylane.app" --args --setup
 ```
 
-版本仍停在 `0.2.56`，除非用户让发版。
+当前已发布版本 `0.2.67`。
 
 ---
 

@@ -1,8 +1,31 @@
 import AppKit
 import CoreImage
+import CoreText
 
 enum ScreenPinRenderer {
     private static let ciContext = CIContext(options: [.cacheIntermediates: false])
+
+    /// Context has a top-left origin. Native view and export use identical
+    /// glyph baselines so neither can clip away the bottom half of CJK text.
+    static func drawInk(_ item: ScreenLaidOutBlock, in context: CGContext, visibleRange: ClosedRange<CGFloat>? = nil) {
+        let inset = ScreenTranslate.textInsets(fontSize: item.fontSize)
+        let width = max(1, item.rect.width - inset.width * 2)
+        let lines = ScreenTranslate.inkLines(text: item.text, fontSize: item.fontSize, width: width,
+            heading: item.isHeading, linePitch: item.linePitch, color: item.foreground)
+        for line in lines {
+            let top = inset.height + line.baseline - line.ink.maxY
+            let bottom = inset.height + line.baseline - line.ink.minY
+            if let visibleRange, (top < visibleRange.lowerBound - 0.01 || bottom > visibleRange.upperBound + 0.01) { continue }
+            let offset = item.centered ? CGFloat(CTLineGetPenOffsetForFlush(line.line, 0.5, Double(width))) : 0
+            context.saveGState()
+            context.translateBy(x: inset.width + offset, y: inset.height + line.baseline)
+            context.scaleBy(x: 1, y: -1)
+            context.textMatrix = .identity
+            context.textPosition = .zero
+            CTLineDraw(line.line, context)
+            context.restoreGState()
+        }
+    }
 
     /// Copy the source-anchored overlay at the original pixel scale.
     static func composite(
@@ -123,7 +146,33 @@ enum ScreenPinRenderer {
                 height: rect.height / canvasSize.height * CGFloat(height)
             )
         }
-        return items.map { item in
+        // A downsampled edge can smear a glyph into an otherwise empty gutter.
+        // Verify only the tiny missing strip at native resolution before giving
+        // the first line its full ink height; never infer that space is empty.
+        func uniformNativeStrip(_ rect: CGRect, paper: (CGFloat, CGFloat, CGFloat)) -> Bool {
+            let sx = CGFloat(image.width) / canvasSize.width, sy = CGFloat(image.height) / canvasSize.height
+            let crop = CGRect(x: rect.minX * sx, y: rect.minY * sy, width: rect.width * sx, height: rect.height * sy).integral
+            guard crop.width > 0, crop.height > 0, crop.minX >= 0, crop.minY >= 0,
+                crop.maxX <= CGFloat(image.width), crop.maxY <= CGFloat(image.height),
+                let piece = image.cropping(to: crop) else { return false }
+            let w = piece.width, h = piece.height
+            var data = [UInt8](repeating: 0, count: w * h * 4)
+            return data.withUnsafeMutableBytes { raw in
+                guard let ctx = CGContext(data: raw.baseAddress, width: w, height: h, bitsPerComponent: 8,
+                    bytesPerRow: w * 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+                ctx.draw(piece, in: CGRect(x: 0, y: 0, width: w, height: h))
+                let bytes = raw.bindMemory(to: UInt8.self)
+                for i in stride(from: 0, to: bytes.count, by: 4) {
+                    let delta = abs(CGFloat(bytes[i]) / 255 - paper.0)
+                        + abs(CGFloat(bytes[i + 1]) / 255 - paper.1) + abs(CGFloat(bytes[i + 2]) / 255 - paper.2)
+                    if delta > 0.18 { return false }
+                }
+                return true
+            }
+        }
+        let styled = items.map { item in
+            if item.isFinalLayout { return item }
             var next = item
             let sample = item.sourceRect.width > 1 ? item.sourceRect : item.rect
             let box = pixelBox(sample)
@@ -180,8 +229,25 @@ enum ScreenPinRenderer {
             let down = max(0, CGFloat(bottom - sourceBottom - 1) / CGFloat(height) * canvasSize.height)
             let extraWidth = max(0, CGFloat(safeRight - right) / CGFloat(width) * canvasSize.width)
             let available = CGRect(x: sample.minX, y: sample.minY - up,
-                width: sample.width + extraWidth, height: sample.height + up + down)
-            next = ScreenTranslate.fitViewport(next, available: available)
+                width: sample.width + (next.preservesColumnWidth ? 0 : extraWidth), height: sample.height + up + down)
+            let bounded = ScreenTranslate.boundedViewport(source: sample, proposed: available,
+                neighbors: items.map { $0.sourceRect.width > 1 ? $0.sourceRect : $0.rect })
+            next = ScreenTranslate.fitViewport(next, available: bounded)
+            let inset = ScreenTranslate.textInsets(fontSize: next.fontSize)
+            if let first = ScreenTranslate.inkLines(text: next.text, fontSize: next.fontSize,
+                width: max(1, next.rect.width - inset.width * 2), heading: next.isHeading, linePitch: next.linePitch).first {
+                let required = ceil(first.baseline - first.ink.minY + inset.height * 2)
+                let missing = required - next.rect.height
+                if missing > 0, missing < sample.height * 0.75 {
+                    let strip = CGRect(x: next.rect.minX, y: next.rect.maxY, width: next.rect.width, height: missing)
+                    if uniformNativeStrip(strip, paper: paperPixel) {
+                        let expanded = bounded.union(strip)
+                        let safe = ScreenTranslate.boundedViewport(source: sample, proposed: expanded,
+                            neighbors: items.map(\.sourceRect))
+                        next = ScreenTranslate.fitViewport(next, available: safe)
+                    }
+                }
+            }
             next.centered = sampleCentered(
                 pixel: pixel,
                 box: box,
@@ -191,6 +257,7 @@ enum ScreenPinRenderer {
             )
             return next
         }
+        return ScreenTranslate.nonOverlapping(styled)
     }
 
     private static func blurRadius(_ items: [ScreenLaidOutBlock], scale: CGFloat) -> CGFloat {
@@ -248,23 +315,9 @@ enum ScreenPinRenderer {
             context.setFillColor(item.background.cgColor)
         }
         context.fill(plate)
-        let fontSize = item.fontSize * scale
-        let inset = ScreenTranslate.textInsets(fontSize: item.fontSize)
-        let documentHeight = max(item.rect.height, item.textContentHeight) * scale
-        let textBox = CGRect(x: plate.minX + inset.width * scale,
-            y: plate.maxY - documentHeight + item.textScrollOffset * scale + inset.height * scale,
-            width: max(1, plate.width - inset.width * scale * 2),
-            height: max(1, documentHeight - inset.height * scale * 2))
-        drawText(
-            item.text,
-            in: textBox,
-            context: context,
-            fontSize: fontSize,
-            heading: item.isHeading,
-            color: item.foreground.usingColorSpace(.sRGB) ?? item.foreground,
-            centered: item.centered,
-            linePitch: item.linePitch * scale
-        )
+        context.translateBy(x: plate.minX, y: plate.maxY + item.textScrollOffset * scale)
+        context.scaleBy(x: scale, y: -scale)
+        drawInk(item, in: context, visibleRange: item.textScrollOffset...(item.textScrollOffset + item.rect.height))
         context.restoreGState()
     }
 

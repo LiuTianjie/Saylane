@@ -18,9 +18,10 @@ final class SettingsController {
             let window = NSWindow(contentViewController: hosting)
             window.title = "Saylane"
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-            window.setContentSize(NSSize(width: 860, height: 700))
-            window.minSize = NSSize(width: 760, height: 610)
-            window.titlebarAppearsTransparent = true
+            window.setContentSize(NSSize(width: 780, height: 640))
+            window.minSize = NSSize(width: 720, height: 520)
+            window.titlebarAppearsTransparent = false
+            window.toolbarStyle = .unified
             window.isReleasedWhenClosed = false
             window.center()
             self.window = window

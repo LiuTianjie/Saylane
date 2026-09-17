@@ -57,6 +57,9 @@ final class SessionCoordinator {
         let capture: any AudioCapturing
         let target: any CompositionTarget
         let translate: (String) async throws -> String
+        /// Synchronous, deterministic text repair applied to every hypothesis and the final
+        /// utterance before translation or polish (fillers, spoken corrections, vocabulary).
+        let refine: ((String) -> String)?
         let polish: ((String, String) async throws -> String)?
         let polishTimeout: Double
         let passthrough: Bool
@@ -69,22 +72,22 @@ final class SessionCoordinator {
         var deadline: Task<Void, Never>?
         var pendingPreview: String?
         init(speech: any SpeechRecognizing, capture: any AudioCapturing,
-             target: any CompositionTarget, passthrough: Bool,
+             target: any CompositionTarget, passthrough: Bool, refine: ((String) -> String)?,
              polish: ((String, String) async throws -> String)?, polishTimeout: Double,
              translate: @escaping (String) async throws -> String) {
             self.speech = speech; self.capture = capture; self.target = target
-            self.passthrough = passthrough; self.translate = translate
+            self.passthrough = passthrough; self.translate = translate; self.refine = refine
             self.polish = polish; self.polishTimeout = polishTimeout
         }
     }
 
     func start(locale: Locale, speech: any SpeechRecognizing, capture: any AudioCapturing,
-               target: any CompositionTarget, passthrough: Bool,
+               target: any CompositionTarget, passthrough: Bool, refine: ((String) -> String)? = nil,
                polish: ((String, String) async throws -> String)? = nil, polishTimeout: Double = 8,
                translate: @escaping (String) async throws -> String) {
         guard run == nil, target.isValid else { return }
-        let context = Run(speech: speech, capture: capture, target: target,
-                          passthrough: passthrough, polish: polish, polishTimeout: polishTimeout, translate: translate)
+        let context = Run(speech: speech, capture: capture, target: target, passthrough: passthrough,
+                          refine: refine, polish: polish, polishTimeout: polishTimeout, translate: translate)
         run = context
         transition(.preparing)
         speech.onPartial = { [weak self, weak context] text in
@@ -148,8 +151,9 @@ final class SessionCoordinator {
 
     private func isCurrent(_ context: Run) -> Bool { run === context }
 
-    private func preview(_ text: String, for context: Run) {
+    private func preview(_ raw: String, for context: Run) {
         guard context.target.isValid else { cancel(error: SessionFailure.targetLost.localizedDescription); return }
+        let text = context.refine?(raw) ?? raw
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, text != context.lastPartial else { return }
         context.lastPartial = text
         if context.passthrough {
@@ -198,8 +202,11 @@ final class SessionCoordinator {
                 // Drain every queued frame before ending the recognizer's input stream.
                 try await context.pump?.value
                 try Task.checkCancellation()
-                let source = try await context.speech.finish().trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !source.isEmpty else { throw SessionFailure.emptyResult }
+                let recognized = try await context.speech.finish().trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !recognized.isEmpty else { throw SessionFailure.emptyResult }
+                // An utterance that was nothing but fillers still commits what was heard.
+                let refined = (context.refine?(recognized) ?? recognized).trimmingCharacters(in: .whitespacesAndNewlines)
+                let source = refined.isEmpty ? recognized : refined
                 // Serialize final translation after the previous in-flight preview.
                 await context.preview?.value
                 try Task.checkCancellation()
@@ -226,6 +233,9 @@ final class SessionCoordinator {
                         guard self.isCurrent(context), !Task.isCancelled else { return }
                         guard !polished.isEmpty else { throw SessionFailure.emptyResult }
                         self.commit(polished, context: context, feedback: polished == output ? .unchanged : .polished)
+                    } catch is PolishRejected {
+                        guard self.isCurrent(context), !Task.isCancelled else { return }
+                        self.commit(output, context: context, warning: "AI 改动过大，已保留本地结果。", feedback: .polishRejected)
                     } catch {
                         guard self.isCurrent(context), !Task.isCancelled else { return }
                         // Do not log a provider response: it may contain dictated text.

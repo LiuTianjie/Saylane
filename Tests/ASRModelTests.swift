@@ -13,7 +13,19 @@ import Foundation
             precondition(manifest.directory().path.hasPrefix(ASRModelManifest.root.path))
             precondition(!manifest.directory().path.contains(".app/"))
         }
-        precondition(SpeechModel.allCases.count == 3 && SpeechModel.allCases[0] == .apple)
+        precondition(SpeechModel.allCases.count == 5 && SpeechModel.allCases[0] == .apple)
+        for model in [SpeechModel.senseVoice, .funASRNano] {
+            let data = try Data(contentsOf: URL(fileURLWithPath: "Sources/Resources/ASR/\(model.rawValue).json"))
+            let manifest = try JSONDecoder().decode(ASRModelManifest.self, from: data)
+            try manifest.validate()
+            precondition(model.isLocal && model.isNative && !model.isQwen)
+            precondition(model.emitsLivePartial == (model == .senseVoice))
+            precondition(model.supports(locale: Locale(identifier: "zh-CN")))
+            precondition(!model.supports(locale: Locale(identifier: "fr-FR")))
+        }
+        precondition(SpeechHotwords.context(" Codex, Saylane，Codex\n提分侠 ") == "Codex、Saylane、提分侠")
+        precondition(SpeechHotwords.context(" , \n") == nil)
+        precondition(SpeechHotwords.context(String(repeating: "长", count: 2000))?.count == 80)
         for language in AppLanguage.allCases { _ = try QwenLanguage.name(for: language.speechLocale) }
         precondition(QwenLanguage.normalize("学习软件", locale: Locale(identifier: "zh-TW")) == "學習軟件")
         precondition(QwenLanguage.normalize("學習軟件", locale: Locale(identifier: "zh-CN")) == "学习软件")

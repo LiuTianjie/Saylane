@@ -96,6 +96,31 @@ import Foundation
         precondition(exportedPixels.luma(190, 130) < 0.1,
             "The image below a long translation stays intact at its original position")
         precondition(exportedPixels.width == 400 && exportedPixels.height == 160, "Copy keeps Retina scale")
+        let dark = makeImage(width: 640, height: 360) { ctx, width, height in
+            ctx.setFillColor(CGColor(srgbRed: 0.08, green: 0.08, blue: 0.08, alpha: 1))
+            ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            ctx.setFillColor(CGColor(srgbRed: 0.1, green: 0.4, blue: 0.8, alpha: 1))
+            ctx.fill(CGRect(x: 480, y: 30, width: 120, height: 80))
+        }
+        let darkBlocks = ScreenTranslate.expandAndStack([20, 46, 72].map { y in
+            ScreenLaidOutBlock(text: String(repeating: "深色背景的完整长译文", count: 12),
+                rect: CGRect(x: 20, y: y, width: 180, height: 20), fontSize: 16, isHeading: false)
+        })
+        let darkPrepared = ScreenPinRenderer.prepareItems(darkBlocks,
+            image: dark.cgImage(forProposedRect: nil, context: nil, hints: nil)!, canvasSize: dark.size)
+        precondition(darkPrepared.allSatisfy { $0.foreground.redComponent > 0.8 })
+        for i in darkPrepared.indices {
+            for j in darkPrepared.indices where j > i {
+                let hit = darkPrepared[i].rect.intersection(darkPrepared[j].rect)
+                precondition(hit.isNull || hit.width <= 0 || hit.height <= 0)
+            }
+        }
+        let darkOutput = Pixels(image: ScreenPinRenderer.composite(image: dark, items: darkPrepared,
+            canvasSize: dark.size, overlayEnabled: true))
+        let darkSource = Pixels(image: dark)
+        let before = darkSource.rgb(520, 50), after = darkOutput.rgb(520, 50)
+        precondition(abs(before.0 - after.0) + abs(before.1 - after.1) + abs(before.2 - after.2) < 0.01,
+            "Dark-mode media remains unchanged")
         print("PASS: original pixels, stable text, unchanged source pixels and Retina export")
     }
 

@@ -1,0 +1,6 @@
+{
+  "url": "https://github.com/modelscope/FunASR/releases/download/runtime-llamacpp-v0.2.6/funasr-llamacpp-macos-arm64.tar.gz",
+  "sha256": "bda59474202b887190f59d25b7b42c714469efae71276072c12fa0a38de68792",
+  "tag": "runtime-llamacpp-v0.2.6",
+  "llamaRevision": "803b7fcae893e9caaee3921779628fef83ac0965"
+}

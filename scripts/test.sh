@@ -15,6 +15,10 @@ swiftc Sources/Models/SessionState.swift Sources/Services/AudioLevel.swift Sourc
 build/tests/session
 swiftc Sources/Services/FinalPolishService.swift Tests/FinalPolishTests.swift -o build/tests/polish
 build/tests/polish
+swiftc Sources/Services/DictationCleanup.swift Tests/DictationCleanupTests.swift -o build/tests/dictation-cleanup
+build/tests/dictation-cleanup
+swiftc Sources/Models/SpeechModel.swift Sources/Services/DictationVocabulary.swift Tests/DictationVocabularyTests.swift -o build/tests/dictation-vocabulary
+build/tests/dictation-vocabulary
 bash -n scripts/pkg/preinstall scripts/pkg/postinstall
 swiftc -parse-as-library Tests/InputIconTests.swift -o build/tests/input-icon
 build/tests/input-icon
@@ -38,6 +42,7 @@ swiftc Sources/Models/AppLanguage.swift Sources/Models/SpeechModel.swift Sources
 build/tests/asr-lifetime
 swiftc Sources/Models/AppLanguage.swift Sources/Models/SpeechModel.swift Sources/Services/LocalSpeechRuntime.swift Sources/Services/QwenWorkerModel.swift Tests/QwenWorkerIOTests.swift -o build/tests/asr-worker-io
 build/tests/asr-worker-io
+bash scripts/test-native-asr.sh
 
 scripts/test-rime.sh
 

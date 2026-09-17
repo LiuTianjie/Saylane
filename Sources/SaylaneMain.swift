@@ -33,14 +33,34 @@ enum SaylaneMain {
                 let app = NSApplication.shared
                 app.setActivationPolicy(.regular)
                 let model = AppModel.shared
-                model.settingsTab = 2
-                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 760),
+                let arguments = CommandLine.arguments
+                // "--preview-tab N" picks the page; "--preview-shot dir" writes every page as settings-N.png and exits.
+                model.settingsTab = arguments.firstIndex(of: "--preview-tab").flatMap { Int(arguments[safe: $0 + 1] ?? "") } ?? 2
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 860, height: 980),
                                       styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-                window.title = "Saylane · 模型预览（开发）"
+                window.title = "Saylane"
+                window.titlebarAppearsTransparent = false
+                window.toolbarStyle = .unified
                 window.contentView = NSHostingView(rootView: SettingsView().environment(model))
                 window.center()
                 window.makeKeyAndOrderFront(nil)
                 app.activate(ignoringOtherApps: true)
+                if let index = arguments.firstIndex(of: "--preview-shot"), let directory = arguments[safe: index + 1] {
+                    // Vibrancy does not render into a cached bitmap, so hand the window number to
+                    // `screencapture -l` for a faithful composite of each page.
+                    Task { @MainActor in
+                        for tab in [0] + Array(0...4) {
+                            model.settingsTab = tab
+                            try? await Task.sleep(for: .milliseconds(1200))
+                            let process = Process()
+                            process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+                            process.arguments = ["-x", "-o", "-l", String(window.windowNumber), "\(directory)/settings-\(tab).png"]
+                            try? process.run()
+                            process.waitUntilExit()
+                        }
+                        app.terminate(nil)
+                    }
+                }
                 withExtendedLifetime(window) { app.run() }
             }
             return
@@ -57,3 +77,9 @@ enum SaylaneMain {
         withExtendedLifetime(delegate) { application.run() }
     }
 }
+
+#if DEBUG
+private extension Array {
+    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
+}
+#endif

@@ -30,7 +30,7 @@
 - Apple SpeechTranscriber：现有后端；受系统、硬件和语言支持限制。模型资产由系统管理。先修通这个后端作为基线。
 - sherpa-onnx + 中英 streaming Zipformer：优先评估的可下载流式后端。运行时支持 macOS、Swift，提供中英流式模型；适合持续 partial 的交互。运行时与具体模型权重分别核验许可证。
 - whisper.cpp + multilingual base/small：多语言兼容后端。项目支持 Intel/Arm Mac，提供实时分窗示例，但不能把反复解码窗口冒充原生增量流式。small 官方表格约 466 MiB 磁盘、852 MB 内存，只是模型估算，不是整个应用峰值；中文不能选 .en 模型。
-- SenseVoice：作为短句最终稿候选；不得把非流式模型默认当成低延迟流式后端。
+- SenseVoice：短句可用。0.2.64 用前缀重识别刷新 marked text，仍不是常驻流式后端；不得把它宣传成逐字原生流式。
 
 目标兼容范围拟定为 macOS 14+ / Intel + Apple Silicon，但尚未实现/验证。需要拆掉当前全局 macOS 26 API 依赖、做后端 availability 隔离、构建 universal binary、实测低配机器，不能只改 deployment target。
 
@@ -277,3 +277,34 @@ Read-back showed only TextInputMenuAgent restarted; CursorUIViewService and Text
 
 Wired scripts/generate-waveform-icon.swift into Sources/Resources/VoiceWaveformTemplate-v6.tiff; updated every parent/mode menu/palette/alternate icon reference. Kept transparent 16pt silhouette, no bubble border. Full tests (including white template rendering), Release build and signed package passed. Installer succeeded; installed resource SHA256 exactly matches source, and TIS parent/mode URLs resolve v6. Requested TERM of the current user's three input UI services to refresh caches. No changes to voice/translation processing. Actual light/dark system-menu and caret appearance still require live visual verification; native renderer preview is not that proof.
 PID read-back showed switcher46684 and cursor46787 retained pre-install start times after TERM; ended these exact current-user UI processes with KILL, as they ignored TERM. Menu agent restarted as47371.
+
+## 0.2.65 — 听写修正与个人词库（Typeless 式准确率 / 纠错，2026-09-17）
+
+目标是接近 Typeless 的"说什么就写对什么"，而不是让 AI 重新组织内容。全部默认在本机同步完成，不依赖网络，对实时预览和最终结果一致生效。
+
+- `Sources/Services/DictationCleanup.swift`：确定性文本修正，对每次 partial 和 final 都运行。
+  - 标点归一：中文语境把 `,?!;:.` 转全角、去掉汉字间空格、合并重复标点、去掉首尾悬空逗号；英文补齐逗号后空格并修句首大写。不碰 `3.5`、`gmail.com`。
+  - 口头填充：句首/子句首的「嗯、呃、唔」直接删；「那个，」「啊，」「就是说，」只在作为独立引导语时删（「那个东西」「额度」不受影响）。英文删 `um/uh/er/hmm/ah` 及其两侧因停顿产生的逗号；`I mean` 不当填充词处理，留给纠错。
+  - 口吃重复：中文三连字、代词/虚词二连字、带逗号的同字重复（「我，我想」）、常见双字词重复（「我们我们」）；保留「看看」「谢谢」「研究研究」等合法重叠。英文合并连续重复单词，`had had`、`that that` 等二连保留。
+  - 自我纠正：「不对，X」「不对不对，是 X」「说错了，X」「不对我是说 X」以及 `no, I mean X` / `scratch that, X`，用 X 改写前一子句。对齐策略依次为：前缀锚点（去北京→去上海）、后缀锚点（三点开会 ← 四点）、等长尾替换（北京→上海）。「不是 A，是 B」只在 A 确实出现在前文时才替换。标记词必须处于子句边界且后跟逗号或「我是说」类短语，因此「不对称」「这个答案不对，我们再看看」「你听我说」不会被改。句首没有可改对象时不动。
+- `Sources/Services/DictationVocabulary.swift` + `SpeechHotwords.entries`：个人词库对所有引擎生效。
+  - 词条格式 `写法|常见误听1|误听2`（如 `Saylane|赛兰|塞蓝`）。首项为标准写法，同时作为 Apple `AnalysisContext.contextualStrings` 和 Qwen prompt 的识别偏置；FunASR 两个 CLI 没有热词参数，只靠识别后修正。
+  - 中文按逐字拼音匹配（`CFStringTransform`，zh/z、ch/c、sh/s、n/l、ing/in、eng/en、ang/an 模糊），标准写法比对带声调（「微信」不会吞掉「为新」），误听别名不看声调。单字词不按音匹配。
+  - 英文按去空格小写键比对，≥5 字母容忍 1 处、≥9 字母容忍 2 处编辑距离，允许被拆成两个词（`say lane`）；带后缀的词（`cursors`）和多词候选不做模糊匹配。
+- `SessionCoordinator.start(refine:)`：新增同步 `refine` 钩子，先于翻译和 AI 润色对 partial/final 生效；修正后为空则仍提交原识别结果。
+- `FinalPolishService`：同语言时切换为 `dictationInstruction` 校对提示（只改同音错字、口误、标点，不改措辞），请求体新增 `vocabulary` 字段；翻译提示也补充了口头纠正与词库要求。默认仍关闭，作为规则修正之上的可选增强。
+- 设置：原「AI 润色」页改为「AI 修正」，集中所有识别后修正：本地修正（「自动修正口误」默认开，键 `dictationCleanupEnabled`；「个人词库」沿用 `speechHotwordsEnabled/speechHotwords`）、大模型校对开关（语音 `finalPolishEnabled`、截屏 `screenPolishEnabled`）和共用的模型连接。「本地模型」页的 Qwen 热词和「截屏翻译」页的润色开关都并入此页。
+- 测试：`Tests/DictationCleanupTests.swift`、`Tests/DictationVocabularyTests.swift` 已加入 `scripts/test.sh`；`SessionCoordinatorTests` 新增 refine 用例；`FinalPolishTests` 覆盖校对提示与 vocabulary 字段。
+- 已知边界：无锚点且长度不同的替换（「明天下午三点，不对，四点半」）只能按等长尾替换，结果可能不理想；这类情况开启 AI 校对可兜底。所有规则均未做真人语料 WER 评估。
+
+## 0.2.66 — 校对不再被「仅识别」跳过、改写保护、设置控制台（2026-09-17）
+
+- 用户诊断：偏好里 `recognitionOnly = 1` 导致 `finalPolishEnabled = 1` 也从不请求模型（日志只有 `completion ordinary`，无 `polishing`）。现在「仅识别，不翻译」只跳过翻译；大模型校对只听自己的开关。
+- SenseVoice 的"边说边出字"是对累计音频的反复整段重解码，各次结果互不约束，松手后的完整解码也可能与最后一次预览不同；这是引擎特性，Apple 真流式不会整句翻转。已在对话中向用户说明，文档记录于此。
+- 改写保护：同语言校对返回后，用去标点/空白的字符编辑距离和长度比检查（长度比 0.5–1.6，距离占比 ≤ 0.45）；不通过则抛 `PolishRejected`，提交本地结果并提示「AI 改动过大 · 已保留本地结果」（`CompletionFeedback.polishRejected`）。翻译模式不做此检查。
+- 设置窗口改为固定深色控制台风格（`Theme.Console` 调色板，`SettingsCard/SettingsRow/StatusChip/InfoTip/Eyebrow/ConsoleFieldStyle` 组件）：长说明收进 (i) 弹层，标题栏加 MIC/IME/MODEL/WAKE 状态灯，侧栏带编号与 READY/KBD/ASR 遥测，「AI 修正」页顶部用 ASR → RULES → VOCAB → LLM → COMMIT 流水线展示各级开关状态。候选条与 HUD 仍跟随系统外观。
+- Debug 工具：`--snapshot out.png all` 渲染五页；`--preview-models --preview-tab N` 打开真实窗口，`--preview-shot dir` 逐页写出 `settings-N.png`。
+
+## 0.2.67 — 设置界面回到系统设置（2026-09-17）
+
+0.2.66 的深色控制台（等宽英文码、状态灯、网格、流水线胶囊）观感过重。设置窗口改为 `NavigationSplitView` + 分组 `Form`，跟随系统外观，长说明放在页脚和 tooltip，不再单独做一套视觉语言。功能与 0.2.66 相同：仅识别不再跳过校对、改写保护、AI 修正集中配置。

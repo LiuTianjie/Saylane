@@ -214,7 +214,7 @@ import Foundation
             await settle(150)
             precondition(target.committed.isEmpty && c.state == .idle); passed += 1
         }
-        for outcome in [CompletionFeedback.ordinary, .polished, .unchanged, .polishFailed, .polishTimedOut] {
+        for outcome in [CompletionFeedback.ordinary, .polished, .unchanged, .polishFailed, .polishTimedOut, .polishRejected] {
             let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
             var feedback: [CompletionFeedback] = []
             var states: [SessionState] = []
@@ -226,6 +226,7 @@ import Foundation
             let polish: ((String, String) async throws -> String)? = outcome == .ordinary ? nil : { _, draft in
                 if outcome == .polishTimedOut { try await Task.sleep(for: .seconds(1)) }
                 if outcome == .polishFailed { throw SessionFailure.emptyResult }
+                if outcome == .polishRejected { throw PolishRejected() }
                 return outcome == .unchanged ? draft : "AI changed"
             }
             c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: true,
@@ -233,6 +234,26 @@ import Foundation
             await settle(); c.release(); await settle(120)
             precondition(feedback == [outcome])
             precondition(states.contains(.polishing) == (outcome != .ordinary))
+            passed += 1
+        }
+        do { // Refine runs on every hypothesis and on the final text before translation/polish.
+            let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
+            speech.finalText = "嗯，最终结果。"
+            var polished: [String] = []
+            c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: true,
+                    refine: { $0.replacingOccurrences(of: "嗯，", with: "") },
+                    polish: { original, draft in polished.append(original); return draft }) { $0 }
+            speech.onPartial = { [previous = speech.onPartial] text in previous?("嗯，" + text) }
+            await settle(); audio.emit(2); await settle(); c.release(); await settle(60)
+            precondition(target.marked.first == "中间结果" && target.committed == ["最终结果。"] && polished == ["最终结果。"])
+            passed += 1
+        }
+        do { // A refine that empties the text still commits what was recognized.
+            let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
+            speech.finalText = "嗯"
+            c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: true, refine: { _ in "" }) { $0 }
+            await settle(); audio.emit(2); c.release(); await settle(60)
+            precondition(target.marked.isEmpty && target.committed == ["嗯"])
             passed += 1
         }
         print("PASS: \(passed) session scenarios, including 20 consecutive drain/commit cycles")

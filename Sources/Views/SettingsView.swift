@@ -1,41 +1,59 @@
 import SwiftUI
 import Translation
 
+/// Settings follow the System Settings idiom: a plain sidebar, grouped forms, one accent
+/// colour and one short footer per group. Details live in tooltips, not in the layout.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @FocusState private var testFocused: Bool
+    @AppStorage("screenFontWeightExperiment") private var fontWeightExperiment = true
     @State private var deletingSpeechModel: SpeechModel?
+
+    private struct Tab: Identifiable, Hashable {
+        let id: Int
+        let title: String
+        let symbol: String
+        let color: Color
+    }
+    private static let tabs: [Tab] = [
+        Tab(id: 1, title: "语音输入", symbol: "mic.fill", color: .blue),
+        Tab(id: 4, title: "截屏翻译", symbol: "text.viewfinder", color: .indigo),
+        Tab(id: 3, title: "AI 修正", symbol: "wand.and.stars", color: .purple),
+        Tab(id: 2, title: "本地模型", symbol: "cpu", color: .gray),
+        Tab(id: 0, title: "开始使用", symbol: "checkmark.circle.fill", color: .green),
+    ]
+    private var currentTab: Tab { Self.tabs.first { $0.id == model.settingsTab } ?? Self.tabs[0] }
 
     var body: some View {
         @Bindable var model = model
-        HStack(spacing: 0) {
-            sidebar
-            VStack(spacing: 0) {
-                header
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        if let error = model.lastError {
-                            errorBanner(error)
-                        }
-                        switch model.settingsTab {
-                        case 1: preferences
-                        case 2: models
-                        case 3: FinalPolishSettingsView()
-                        case 4: screen
-                        default: onboarding
-                        }
-                    }
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 36)
+        NavigationSplitView {
+            List(selection: Binding(get: { model.settingsTab }, set: { model.settingsTab = $0 ?? 1 })) {
+                ForEach(Self.tabs) { tab in
+                    Label { Text(tab.title) } icon: { SettingsGlyph(symbol: tab.symbol, color: tab.color) }
+                        .tag(tab.id)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.settingsBackground)
+            .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 176, ideal: 188, max: 220)
+            .safeAreaInset(edge: .bottom) { sidebarFooter }
+        } detail: {
+            Form {
+                if let error = model.lastError { errorBanner(error) }
+                switch model.settingsTab {
+                case 1: voice
+                case 2: models
+                case 3: FinalPolishSettingsView()
+                case 4: screen
+                default: setup
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle(currentTab.title)
+            .frame(maxWidth: 640)
         }
-        .frame(minWidth: 820, minHeight: 600)
-        .tint(Theme.accent)
-        .toggleStyle(.switch)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .navigationSplitViewStyle(.balanced)
+        .frame(minWidth: 720, minHeight: 520)
+        .tint(.accentColor)
         .translationTask(model.translationConfiguration) { session in
             await model.handleTranslationSession(session)
         }
@@ -62,501 +80,264 @@ struct SettingsView: View {
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(pageTitle)
-                .font(.system(size: 28, weight: .semibold, design: .rounded))
-                .tracking(-0.4)
-            Text(pageSubtitle)
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
+    private var sidebarFooter: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            StatusText(text: model.ready ? "已就绪" : "待完成设置", ready: model.ready)
+            Text("Saylane \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
+                .font(.system(size: 11)).foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 32)
-        .padding(.top, 28)
-        .padding(.bottom, 16)
-    }
-
-    private var pageTitle: String {
-        switch model.settingsTab {
-        case 1: return "语音输入"
-        case 2: return "本地模型"
-        case 3: return "AI 润色"
-        case 4: return "截屏翻译"
-        default: return "开始使用"
-        }
-    }
-
-    private var pageSubtitle: String {
-        switch model.settingsTab {
-        case 1: return "打字用拼音，说话用快捷键。两件事互不抢。"
-        case 2: return "语音和翻译都在这台电脑上跑。"
-        case 3: return "说完再润色一次，可选。截屏翻译在「截屏翻译」里单独开关。"
-        case 4: return "按住左 ⌃ 划一块，译文贴在原文上。"
-        default: return "授权、启用、试一句。做完就能用。"
-        }
-    }
-
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                Image(nsImage: NSImage(named: NSImage.applicationIconName) ?? NSImage())
-                    .resizable()
-                    .frame(width: 28, height: 28)
-                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                Text("Saylane")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-            }
-            .padding(.horizontal, 18)
-            .padding(.top, 22)
-            .padding(.bottom, 22)
-
-            VStack(spacing: 2) {
-                navigationItem("语音输入", icon: "mic.fill", tab: 1)
-                navigationItem("截屏翻译", icon: "text.viewfinder", tab: 4)
-                navigationItem("AI 润色", icon: "wand.and.stars", tab: 3)
-                navigationItem("本地模型", icon: "cpu", tab: 2)
-                navigationItem("开始使用", icon: "flag.fill", tab: 0)
-            }
-            .padding(.horizontal, 10)
-
-            Spacer(minLength: 20)
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(model.ready ? Theme.ready : Color.orange)
-                        .frame(width: 7, height: 7)
-                    Text(model.ready ? "已就绪" : "待完成")
-                        .font(.system(size: 11, weight: .medium))
-                }
-                Text(model.pinyinEnglishMode ? "英文键盘" : "拼音选词")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")")
-                    .font(.system(size: 10, design: .rounded))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(18)
-        }
-        .frame(width: 188)
-        .frame(maxHeight: .infinity)
-        .background(Theme.sidebarBackground)
-    }
-
-    private func navigationItem(_ title: String, icon: String, tab: Int) -> some View {
-        let selected = model.settingsTab == tab
-        return Button { model.settingsTab = tab } label: {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 18)
-                    .foregroundStyle(selected ? Theme.accent : .secondary)
-                Text(title)
-                    .font(.system(size: 13, weight: selected ? .semibold : .regular))
-                Spacer()
-            }
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(selected ? Theme.accent.opacity(0.12) : .clear, in: Capsule(style: .continuous))
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selected ? .isSelected : [])
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     private func errorBanner(_ error: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-            Text(error).font(.system(size: 12)).textSelection(.enabled)
-            Spacer()
-            Button { model.lastError = nil } label: { Image(systemName: "xmark") }
-                .buttonStyle(.plain).accessibilityLabel("关闭提示")
+        Section {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                Text(error).font(.system(size: 12)).textSelection(.enabled)
+                Spacer()
+                Button { model.lastError = nil } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
+                    .buttonStyle(.plain).accessibilityLabel("关闭提示")
+            }
         }
-        .padding(14)
-        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    // MARK: - Preferences (Voice Input Tab)
-    private var preferences: some View {
+    // MARK: - 语音输入
+
+    @ViewBuilder private var voice: some View {
         @Bindable var model = model
         let modes = TranslationDirection.voiceModes(a: model.pairSource, b: model.pairTarget)
-        
-        return VStack(alignment: .leading, spacing: 20) {
-            // 优化原先红框部分：去掉原先两个巨大空荡荡的方块和突兀等号，采用干净清爽的语言选择卡片
-            VStack(spacing: 12) {
-                // 语言组合栏
-                HStack(spacing: 0) {
-                    // 我说
-                    Menu {
-                        ForEach(AppLanguage.allCases) { lang in
-                            Button(lang.displayName) { model.pairSource = lang }
-                        }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text("说")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.secondary)
-                            Text(model.pairSource.displayName)
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(.primary)
-                            Image(systemName: "chevron.up.chevron.down")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.tertiary)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(Theme.fill, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-
-                    // 互换按钮
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            let temp = model.pairSource
-                            model.pairSource = model.pairTarget
-                            model.pairTarget = temp
-                        }
-                    } label: {
-                        Image(systemName: "arrow.left.arrow.right")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.secondary)
-                            .padding(8)
-                            .background(Theme.fill, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .help("点击对调双语语种")
-                    .padding(.horizontal, 10)
-
-                    // 写成
-                    Menu {
-                        ForEach(AppLanguage.allCases) { lang in
-                            Button(lang.displayName) { model.pairTarget = lang }
-                        }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text("写")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.secondary)
-                            Text(model.pairTarget.displayName)
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(.primary)
-                            Image(systemName: "chevron.up.chevron.down")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.tertiary)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(Theme.fill, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-
-                    Spacer()
-                }
-
-                // 快捷模式切换栏（保留原本的模式选择，样式微调为更柔和的 macOS 原生分段胶囊）
-                HStack(spacing: 3) {
-                    ForEach(modes) { mode in
-                        let on = model.currentDirection == mode
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.18)) { model.setVoiceMode(mode) }
-                        } label: {
-                            Text(mode.compactTitle)
-                                .font(.system(size: 12, weight: on ? .semibold : .medium))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 7)
-                                .background {
-                                    if on {
-                                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                            .fill(Color.primary)
-                                            .shadow(color: .black.opacity(0.06), radius: 2, y: 1)
-                                    }
-                                }
-                                .foregroundStyle(on ? Color(nsColor: .windowBackgroundColor) : Color.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(3)
-                .background(Theme.fillStrong, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        let busy = model.isListening || model.isPreparingModels
+        Section {
+            Picker("我说", selection: $model.pairSource) {
+                ForEach(AppLanguage.allCases) { Text($0.displayName).tag($0) }
             }
-            .padding(16)
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-                    .strokeBorder(Theme.hairline, lineWidth: 1)
-            )
-            .disabled(model.isListening || model.isPreparingModels)
-
-            // 原原本本的“说话”卡片，优化微调内部排版间距
-            SettingsSection(title: "说话") {
-                HStack(spacing: 12) {
-                    HStack(spacing: 0) {
-                        segment("按住", on: !model.tapToTalk) { model.tapToTalk = false }
-                        segment("点按", on: model.tapToTalk) { model.tapToTalk = true }
-                    }
-                    .padding(3)
-                    .background(Theme.fill, in: Capsule(style: .continuous))
-                    .disabled(model.isListening)
-
-                    Spacer(minLength: 8)
-
-                    Picker("快捷键", selection: $model.pushToTalk) {
-                        ForEach(PushToTalkHotkey.allCases) { Text($0.displayName).tag($0) }
-                    }
-                    .labelsHidden()
-                    .frame(width: 176)
-                    .disabled(model.isListening)
-                }
-                Text(model.tapToTalk ? (model.pushToTalk == .rightCommand && model.languageSwitchEnabled
-                    ? "单击后稍候开始，双击切换语言；录音中再按任意键提交。"
-                    : "点一下开始，再按任意键提交。") : "按住说话，松开提交。")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-
-                Divider().opacity(0.35)
-
-                toggleRow("双击右 ⌘ 换方向", "在两个语言的听写和互译之间轮转", $model.languageSwitchEnabled)
-                    .disabled(model.isListening || model.isPreparingModels)
-                
-                Divider().opacity(0.35)
-                
-                toggleRow("底部声波", "说话时出现，成功后扫光收起", $model.overlayEnabled)
+            Picker("写成", selection: $model.pairTarget) {
+                ForEach(AppLanguage.allCases) { Text($0.displayName).tag($0) }
             }
-
-            // 原原本本的“键盘”卡片
-            SettingsSection(title: "键盘") {
-                HStack(alignment: .center, spacing: 14) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(model.pinyinEnglishMode ? "英文键盘" : "拼音中文")
-                            .font(.system(size: 14, weight: .medium))
-                        Text("Rime 拼音 · 空格上屏 · 数字改词 · Shift 中英")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button(model.pinyinEnglishMode ? "拼音" : "英文") {
-                        model.togglePinyinEnglishMode()
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(model.isListening)
-                }
-
-                Divider().opacity(0.35)
-
-                if let error = model.pinyin.initializationError {
-                    Text("拼音引擎未就绪：\(error)")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.red)
-                }
-                RimeDictionaryUpdateView(model: model.pinyinDictionaryUpdates)
-
-                Divider().opacity(0.35)
-
-                Text("整句组词与选词学习由 Rime 提供；中文模式可出英文单词。词后联想暂不支持。")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-
-                Divider().opacity(0.35)
-
-                toggleRow("候选条显示拼音", "在候选词左侧展示 ni'hao，默认关闭", Binding(
-                    get: { model.pinyinBarPreeditEnabled },
-                    set: { model.setPinyinBarPreeditEnabled($0) }
-                ))
-                .disabled(model.isListening)
-
-                Divider().opacity(0.35)
-
-                toggleRow("模糊音", "zh/z、an/ang 等，精确音节优先", Binding(
-                    get: { model.pinyinFuzzyEnabled },
-                    set: { model.setPinyinFuzzyEnabled($0) }
-                ))
-                .disabled(model.isListening)
+            Picker("当前", selection: Binding(get: { model.currentDirection }, set: { model.setVoiceMode($0) })) {
+                ForEach(modes) { Text($0.compactTitle).tag($0) }
             }
+            .pickerStyle(.segmented)
+        } header: {
+            Text("语言")
+        } footer: {
+            Text("双击右 ⌘ 在这四种组合之间轮转。")
+        }
+        .disabled(busy)
+
+        Section {
+            Picker("触发", selection: $model.tapToTalk) {
+                Text("按住说话").tag(false)
+                Text("点按开始").tag(true)
+            }
+            Picker("快捷键", selection: $model.pushToTalk) {
+                ForEach(PushToTalkHotkey.allCases) { Text($0.displayName).tag($0) }
+            }
+            Toggle("双击右 ⌘ 切换方向", isOn: $model.languageSwitchEnabled)
+            Toggle("说话时显示底部声波", isOn: $model.overlayEnabled)
+        } header: {
+            Text("说话")
+        } footer: {
+            Text(model.tapToTalk ? "点一下开始录音，再按任意键提交。" : "按住说话，松开提交；和其他键一起按不会触发。")
+        }
+        .disabled(model.isListening)
+
+        Section {
+            LabeledContent("当前模式") {
+                HStack(spacing: 10) {
+                    Text(model.pinyinEnglishMode ? "英文键盘" : "拼音中文").foregroundStyle(.secondary)
+                    Button(model.pinyinEnglishMode ? "切到拼音" : "切到英文") { model.togglePinyinEnglishMode() }
+                        .controlSize(.small)
+                }
+            }
+            Toggle("候选条显示拼音", isOn: Binding(get: { model.pinyinBarPreeditEnabled }, set: { model.setPinyinBarPreeditEnabled($0) }))
+            Toggle("模糊音", isOn: Binding(get: { model.pinyinFuzzyEnabled }, set: { model.setPinyinFuzzyEnabled($0) }))
+                .help("zh/z、an/ang 等，精确音节优先")
+            RimeDictionaryUpdateView(model: model.pinyinDictionaryUpdates)
+            if let error = model.pinyin.initializationError {
+                Text("拼音引擎未就绪：\(error)").font(.system(size: 12)).foregroundStyle(.red)
+            }
+        } header: {
+            Text("拼音")
+        } footer: {
+            Text("Rime 拼音：空格上屏、数字改词、Shift 切中英；中文模式可直接出英文单词。")
+        }
+        .disabled(model.isListening)
+    }
+
+    // MARK: - 截屏翻译
+
+    @ViewBuilder private var screen: some View {
+        @Bindable var model = model
+        Section {
+            LabeledContent("划选") { Text("按住左 ⌃ 约 0.3 秒后拖动").foregroundStyle(.secondary) }
+            LabeledContent("额外快捷键") {
+                Button {
+                    model.beginRecordScreenShortcut()
+                } label: {
+                    Text(model.isRecordingScreenShortcut ? "按下新快捷键…" : model.screenCaptureShortcut.displayName)
+                        .frame(minWidth: 72)
+                }
+                .controlSize(.small)
+                .help("点击后按下新的截屏快捷键；和按住左 ⌃ 同时可用")
+            }
+            LabeledContent("钉住后") { Text("点左 ⌃ 切换原文 / 译文").foregroundStyle(.secondary) }
+        } header: {
+            Text("操作")
+        } footer: {
+            Text("松开鼠标即翻译，松开 ⌃ 取消。划选或钉住时双击右 ⌘ 切换方向，不影响说话。")
+        }
+
+        Section {
+            Toggle("本地字重识别", isOn: $fontWeightExperiment)
+                .help("实验功能：按原图字形判断粗细，可能漏识别小字号粗体；更改后下次划选生效")
+            LabeledContent("大模型润色") {
+                Text(model.screenPolishEnabled ? "已开启" : "未开启").foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("译文")
+        } footer: {
+            Text("大模型润色在「AI 修正」中统一设置。截图不会上传。")
+        }
+
+        Section {
+            LabeledContent("屏幕录制") {
+                if model.permissions.screenCaptureGranted {
+                    StatusText(text: "已允许，只截你划出的区域", ready: true)
+                } else {
+                    Button("允许") { model.requestScreenCapturePermission() }.controlSize(.small)
+                }
+            }
+        } header: {
+            Text("权限")
         }
     }
 
-    // MARK: - Onboarding View
-    private var screen: some View {
+    // MARK: - 开始使用
+
+    @ViewBuilder private var setup: some View {
         @Bindable var model = model
-        return VStack(alignment: .leading, spacing: 20) {
-            SettingsSection(title: "划选") {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("按住左 ⌃ 约半秒画出要翻译的区域，松鼠标即翻译，松开 ⌃ 取消。和别的键一起按时不会触发。钉住后点一下左 ⌃ 可在原文和译文之间切换。")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                    Text("默认译入你的常用语言。划选或钉住时双击右 ⌘ 切换方向，不影响说话。")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                }
-                Divider().opacity(0.35)
-                HStack(alignment: .center, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("额外快捷键").font(.system(size: 14, weight: .medium))
-                        Text("可再设一个组合键，和按住左 ⌃ 同时可用。")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button {
-                        model.beginRecordScreenShortcut()
-                    } label: {
-                        Text(model.isRecordingScreenShortcut ? "按下新快捷键…" : model.screenCaptureShortcut.displayName)
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(model.isRecordingScreenShortcut ? Theme.accent.opacity(0.16) : Theme.fillStrong, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .help("点击后按下新的截屏快捷键")
-                }
-            }
-
-            SettingsSection(title: "译文") {
-                toggleRow("AI 润色", "用「AI 润色」页里的接口和模型，对划选译文再润色一次。失败则保留普通译文。", $model.screenPolishEnabled)
-            }
-
-            SettingsSection(title: "权限") {
-                HStack(alignment: .center, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("屏幕录制").font(.system(size: 14, weight: .medium))
-                        Text(model.permissions.screenCaptureGranted ? "已允许，只截你划出的区域" : "需要允许后才能截屏翻译")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if !model.permissions.screenCaptureGranted {
-                        Button("允许") { model.requestScreenCapturePermission() }
-                            .controlSize(.small)
-                    }
-                }
-            }
-        }
-    }
-
-    private var onboarding: some View {
-        @Bindable var model = model
-        return VStack(alignment: .leading, spacing: 22) {
+        Section {
             if let blocker = model.readiness.blocker {
                 Label(blocker.message, systemImage: "exclamationmark.circle.fill")
-                    .font(.system(size: 13))
                     .foregroundStyle(.orange)
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .font(.system(size: 12.5))
             }
+            checkRow("麦克风", detail: model.permissions.microphone == .granted ? "仅听写时采集" : model.permissions.microphone == .denied ? "在系统里被拒绝了" : "还没授权", ready: model.permissions.microphone == .granted) {
+                Button(model.permissions.isRequestingMicrophone ? "等待授权…" : model.permissions.microphone == .denied ? "前往授权" : "允许") {
+                    Task { await model.requestMicrophonePermission() }
+                }.disabled(model.permissions.isRequestingMicrophone)
+            }
+            checkRow("输入法", detail: model.inputSourceSelected ? "已选中 Saylane" : model.inputSourceEnabled ? "已启用，按快捷键会自动选中" : model.inputSourceInstalled ? "已安装，尚未启用" : "系统还没发现组件", ready: model.inputSourceEnabled) {
+                Button(model.isActivatingInputSource ? "等待启用…" : model.inputSourceEnabled ? "选中" : "启用") { model.enableInputSource() }
+                    .disabled(model.isActivatingInputSource || !model.installationPathValid)
+            }
+            checkRow("模型", detail: model.speechModelReady && model.translationModelReady ? "当前语言已就绪" : "按所选语言下载", ready: model.speechModelReady && model.translationModelReady) {
+                Button("去下载") { model.settingsTab = 2 }
+            }
+            checkRow("全局唤醒", detail: model.globalHotkeyActive ? "其它输入法下也能按快捷键说话" : model.permissions.inputMonitoringGranted ? "权限有了，监听还没接上" : "需要输入监控权限", ready: model.globalHotkeyActive) {
+                Button(model.permissions.inputMonitoringGranted ? "重新接入" : "允许") { model.requestInputMonitoring() }
+            }
+        } header: {
+            Text("准备")
+        } footer: {
+            HStack {
+                if !model.installationPathValid {
+                    Text("这是未安装的构建副本，请用安装包装到系统输入法目录。").foregroundStyle(.orange)
+                }
+                Spacer()
+                Button("打开系统输入法设置") { InputSourceInstall.openSystemInputSourceSettings() }
+                    .buttonStyle(.link).font(.system(size: 12))
+            }
+        }
 
-            HStack(spacing: 12) {
+        Section {
+            TextEditor(text: $model.testText)
+                .focused($testFocused)
+                .font(.system(size: 16, design: .rounded))
+                .frame(height: 96)
+                .scrollContentBackground(.hidden)
+                .accessibilityLabel("听写测试输入框")
+            HStack {
                 Button {
                     if model.ready { testFocused = true }
                     else if model.permissions.microphone == .denied {
                         Task { await model.requestMicrophonePermission() }
                     } else { model.beginSetup() }
                 } label: {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         if model.isSetupRunning { ProgressView().controlSize(.small) }
                         Text(model.isSetupRunning ? "正在完成…" : model.ready ? "试说一句" : model.permissions.microphone == .denied ? "去允许麦克风" : "继续设置")
                     }
-                    .frame(minWidth: 108)
                 }
                 .buttonStyle(.borderedProminent)
-                .controlSize(.large)
                 .disabled(model.isSetupRunning || model.permissions.isRequestingMicrophone)
-                if !model.setupCompleted {
-                    Text("还没成功提交过一次")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                }
+                Spacer()
+                Button("清空") { model.coordinator.cancel(); model.testText = "" }.buttonStyle(.link)
             }
-
-            SettingsSection(title: "准备") {
-                checkRow("1", title: "麦克风", detail: model.permissions.microphone == .granted ? "仅听写时采集" : model.permissions.microphone == .denied ? "系统里被拒绝了" : "还没授权", ready: model.permissions.microphone == .granted) {
-                    Button(model.permissions.isRequestingMicrophone ? "等待授权…" : model.permissions.microphone == .denied ? "前往授权" : "允许") {
-                        Task { await model.requestMicrophonePermission() }
-                    }.disabled(model.permissions.isRequestingMicrophone)
-                }
-                Divider().opacity(0.4)
-                checkRow("2", title: "输入法", detail: model.inputSourceSelected ? "已选中 Saylane" : model.inputSourceEnabled ? "已启用，按快捷键会自动选中" : model.inputSourceInstalled ? "已安装，尚未启用" : "系统还没发现组件", ready: model.inputSourceEnabled) {
-                    Button(model.isActivatingInputSource ? "等待启用…" : model.inputSourceEnabled ? "选中" : "启用") { model.enableInputSource() }
-                        .disabled(model.isActivatingInputSource || !model.installationPathValid)
-                }
-                Divider().opacity(0.4)
-                checkRow("3", title: "模型", detail: model.speechModelReady && model.translationModelReady ? "当前语言已就绪" : "按所选语言下载，录音时不会现下", ready: model.speechModelReady && model.translationModelReady) {
-                    Button("去下载") { model.settingsTab = 2 }
-                }
-                Divider().opacity(0.4)
-                checkRow("4", title: "全局唤醒", detail: model.globalHotkeyActive ? "其它输入法下也能按快捷键说话" : model.permissions.inputMonitoringGranted ? "权限有了，监听还没接上" : "需要输入监控", ready: model.globalHotkeyActive) {
-                    Button(model.permissions.inputMonitoringGranted ? "重新接入" : "允许输入监控") { model.requestInputMonitoring() }
-                }
-                if !model.installationPathValid {
-                    Text("这是未安装的构建副本。请用安装包装到系统输入法目录。")
-                        .font(.system(size: 12)).foregroundStyle(.orange).padding(.top, 6)
-                }
-                Button("打开系统输入法设置") { InputSourceInstall.openSystemInputSourceSettings() }
-                    .font(.system(size: 12))
-                    .padding(.top, 8)
-            }
-
-            SettingsSection(title: "试一下", caption: "点进输入框，按住 \(model.pushToTalk.shortLabel)。当前是 \(model.currentDirection.title)。") {
-                TextEditor(text: $model.testText)
-                    .focused($testFocused)
-                    .font(.system(size: 17, design: .rounded))
-                    .frame(height: 108)
-                    .scrollContentBackground(.hidden)
-                    .padding(12)
-                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(Theme.hairline, lineWidth: 1)
-                    )
-                    .accessibilityLabel("听写测试输入框")
-                HStack {
-                    Text(model.completedSessions > 0 ? "这次已经提交 \(model.completedSessions) 次" : "也可以在备忘录里试")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button("清空") { model.coordinator.cancel(); model.testText = "" }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Theme.accent)
-                }
-            }
+        } header: {
+            Text("试一下")
+        } footer: {
+            Text(model.completedSessions > 0
+                 ? "点进输入框，按住 \(model.pushToTalk.shortLabel) 说一句。已提交 \(model.completedSessions) 次。"
+                 : "点进输入框，按住 \(model.pushToTalk.shortLabel) 说一句；当前是\(model.currentDirection.title)。")
         }
     }
 
-    // MARK: - Models Tab
-    private var models: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            HStack(spacing: 12) {
-                modelTile(title: "语音", ready: model.speechModelReady, detail: model.speechModelDetail)
-                modelTile(title: "翻译", ready: model.translationModelReady, detail: model.translationModelDetail)
-            }
-            VStack(alignment: .leading, spacing: 12) {
-                Text("语音识别模型").font(.system(size: 16, weight: .semibold))
-                ForEach(SpeechModel.allCases) { speechModel in
-                    speechModelRow(speechModel)
+    private func checkRow<Action: View>(_ title: String, detail: String, ready: Bool, @ViewBuilder action: () -> Action) -> some View {
+        LabeledContent {
+            if ready {
+                StatusText(text: detail, ready: true)
+            } else {
+                HStack(spacing: 10) {
+                    Text(detail).foregroundStyle(.secondary).font(.system(size: 12))
+                    action().controlSize(.small)
                 }
             }
-            Text("千问权重不随安装包提供，仅点击下载后保存到本机。两个版本可分别下载和删除，仅加载当前使用的版本。首版为最终稿识别，每次最多 30 秒；翻译与可选 AI 润色保持不变。")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-            Button {
-                Task { await model.downloadModels() }
-            } label: {
-                HStack {
-                    if model.isPreparingModels || model.isChecking { ProgressView().controlSize(.small) }
-                    Text(model.isPreparingModels ? "正在准备…" : model.isChecking ? "正在检查…" : "下载当前语言所需模型")
+        } label: {
+            Text(title)
+        }
+    }
+
+    // MARK: - 本地模型
+
+    @ViewBuilder private var models: some View {
+        @Bindable var model = model
+        Section {
+            LabeledContent("语音") { StatusText(text: model.speechModelDetail, ready: model.speechModelReady) }
+            LabeledContent("翻译") { StatusText(text: model.translationModelDetail, ready: model.translationModelReady) }
+        } header: {
+            Text("状态")
+        }
+
+        Section {
+            ForEach(SpeechModel.allCases) { speechModelRow($0) }
+        } header: {
+            Text("识别模型")
+        } footer: {
+            Text("权重按需下载，可分别删除。SenseVoice 边说边刷新预览，Fun-ASR-Nano 与 Qwen 松开后出字；每次最多 30 秒。")
+        }
+
+        Section {
+            Toggle("仅识别，不翻译", isOn: $model.recognitionOnly)
+                .disabled(model.isListening || model.isChecking || model.isPreparingModels)
+                .help("口误修正、个人词库和大模型校对不受影响")
+            LabeledContent("当前语言所需模型") {
+                Button {
+                    Task { await model.downloadModels() }
+                } label: {
+                    HStack(spacing: 6) {
+                        if model.isPreparingModels || model.isChecking { ProgressView().controlSize(.small) }
+                        Text(model.isPreparingModels ? "正在准备…" : model.isChecking ? "正在检查…" : "下载")
+                    }
                 }
-                .frame(maxWidth: .infinity)
+                .controlSize(.small)
+                .disabled(model.isPreparingModels || model.isChecking || model.isListening || model.asrModels.isDownloading)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(model.isPreparingModels || model.isChecking || model.isListening || model.asrModels.isDownloading)
-            Text("Apple 语音和翻译资产由系统管理。千问采用 mlx-community 转换的 Apache-2.0 权重，下载源为 Hugging Face。")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+        } footer: {
+            Text("Apple 资产由系统管理；本地模型从 Hugging Face 下载固定版本并校验。")
         }
     }
 
@@ -565,142 +346,35 @@ struct SettingsView: View {
         let installed = model.asrModels.installed.contains(selected)
         let downloading = model.asrModels.downloading == selected
         let busy = model.isListening || model.isChecking || model.isPreparingModels || model.asrModels.isDownloading
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                Image(systemName: active ? "checkmark.circle.fill" : "waveform")
-                    .foregroundStyle(active ? Theme.accent : .secondary)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(selected.title).font(.system(size: 14, weight: .semibold))
-                    Text(selected.detail).font(.system(size: 12)).foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 8)
-                if downloading {
-                    Button("取消") { model.asrModels.cancelDownload() }
-                } else if selected == .apple || installed {
-                    if active && model.speechModelReady {
-                        Text("使用中").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.accent)
-                    } else {
-                        Button(active ? "重试加载" : "使用") { model.selectSpeechModel(selected) }.disabled(busy)
-                    }
-                    if installed {
-                        Menu {
-                            Button("重新下载修复") { Task { await model.downloadSpeechModel(selected) } }
-                            Button("删除模型…", role: .destructive) { deletingSpeechModel = selected }
-                        } label: { Image(systemName: "ellipsis") }
-                        .menuStyle(.borderlessButton)
-                        .fixedSize()
-                        .disabled(busy)
-                    }
-                } else {
-                    Button("下载") { Task { await model.downloadSpeechModel(selected) } }.disabled(busy)
-                }
+        return HStack(alignment: .center, spacing: 10) {
+            Image(systemName: active ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(active ? Color.accentColor : Color.secondary.opacity(0.45))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(selected.title)
+                Text(selected.detail).font(.caption).foregroundStyle(.secondary)
             }
+            Spacer(minLength: 8)
             if downloading {
-                ProgressView(value: model.asrModels.progress)
-                Text(model.asrModels.activity).font(.system(size: 11)).foregroundStyle(.secondary)
-            }
-        }
-        .padding(16)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(active ? Theme.accent.opacity(0.5) : Color.secondary.opacity(0.15)))
-    }
-
-    // MARK: - Helper UI Components
-    private func segment(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: on ? .semibold : .medium))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 7)
-                .background(on ? Theme.cardBackground : Color.clear, in: Capsule(style: .continuous))
-                .shadow(color: on ? .black.opacity(0.06) : .clear, radius: 6, y: 1)
-                .foregroundStyle(.primary)
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(on ? .isSelected : [])
-    }
-
-    private func toggleRow(_ title: String, _ detail: String, _ value: Binding<Bool>) -> some View {
-        HStack(alignment: .center, spacing: 16) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.system(size: 14, weight: .medium))
-                Text(detail).font(.system(size: 12)).foregroundStyle(.secondary)
-            }
-            Spacer()
-            Toggle(title, isOn: value).labelsHidden()
-        }
-        .padding(.vertical, 6)
-    }
-
-    private func modelTile(title: String, ready: Bool, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title).font(.system(size: 13, weight: .semibold))
-                Spacer()
-                Circle().fill(ready ? Theme.ready : Color.orange.opacity(0.8)).frame(width: 8, height: 8)
-            }
-            Text(detail)
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Theme.hairline, lineWidth: 1)
-        )
-    }
-
-    private func checkRow<Action: View>(_ number: String, title: String, detail: String, ready: Bool, @ViewBuilder action: () -> Action) -> some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(ready ? Theme.ready.opacity(0.16) : Theme.fill)
-                if ready {
-                    Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.ready)
+                ProgressView(value: model.asrModels.progress).frame(width: 72)
+                Button("取消") { model.asrModels.cancelDownload() }.controlSize(.small)
+            } else if selected == .apple || installed {
+                if active && model.speechModelReady {
+                    Text("使用中").font(.caption).foregroundStyle(.secondary)
                 } else {
-                    Text(number).font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(.secondary)
+                    Button(active ? "重试" : "使用") { model.selectSpeechModel(selected) }.controlSize(.small).disabled(busy)
                 }
-            }
-            .frame(width: 24, height: 24)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.system(size: 13, weight: .medium))
-                Text(detail).font(.system(size: 11)).foregroundStyle(.secondary)
-            }
-            Spacer()
-            if !ready { action().controlSize(.small) }
-        }
-        .padding(.vertical, 6)
-    }
-}
-
-private struct SettingsSection<Content: View>: View {
-    var title: String
-    var caption: String? = nil
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title.uppercased())
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .tracking(0.8)
-                    .foregroundStyle(.secondary)
-                if let caption {
-                    Text(caption).font(.system(size: 12)).foregroundStyle(.secondary)
+                if installed {
+                    Menu {
+                        Button("重新下载修复") { Task { await model.downloadSpeechModel(selected) } }
+                        Button("删除模型…", role: .destructive) { deletingSpeechModel = selected }
+                    } label: { Image(systemName: "ellipsis.circle") }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                    .disabled(busy)
                 }
+            } else {
+                Button("下载") { Task { await model.downloadSpeechModel(selected) } }.controlSize(.small).disabled(busy)
             }
-            VStack(alignment: .leading, spacing: 10) {
-                content
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(Theme.hairline, lineWidth: 1)
-            )
         }
     }
 }

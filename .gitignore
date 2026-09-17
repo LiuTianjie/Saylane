@@ -47,3 +47,5 @@ Vendor/Rime/Data/
 Vendor/Rime/Rime/
 Vendor/Rime/.prepared
 Vendor/Rime/prepare-*/
+
+Vendor/FunASR/Runtime/

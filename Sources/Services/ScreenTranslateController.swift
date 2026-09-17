@@ -12,6 +12,7 @@ final class ScreenPinModel {
     var directionTitle = ""
     var status = ""
     var isWorking = false
+    var fullText = ""
     var translationConfiguration: TranslationSession.Configuration?
 }
 
@@ -27,7 +28,7 @@ final class ScreenTranslateController {
     var onSelectionEnded: (() -> Void)?
     var onPinVisibilityChanged: ((Bool) -> Void)?
     var onScreenActiveChanged: ((Bool) -> Void)?
-    var polish: ((String, String, String, String) async throws -> String)?
+    var polish: ((String, String, String, String, String) async throws -> String)?
 
     private let pinModel = ScreenPinModel()
     private let engine = TranslationEngine()
@@ -41,10 +42,11 @@ final class ScreenTranslateController {
     private var recognizedSource: AppLanguage?
     private var originalImage = NSImage()
     private var generation = 0
+    private var translationCache = ScreenTranslationCache()
     private var pairA: AppLanguage = .zhHans
     private var pairB: AppLanguage = .en
 
-    func beginSelection(a: AppLanguage, b: AppLanguage, last: TranslationDirection?) {
+    func beginSelection(a: AppLanguage, b: AppLanguage, last: TranslationDirection?, preserveKeyboardFocus: Bool = false) {
         cancel()
         pairA = a
         pairB = b
@@ -62,8 +64,12 @@ final class ScreenTranslateController {
             selectionPanels.append(panel)
             panel.orderFrontRegardless()
         }
-        NSApp.activate(ignoringOtherApps: true)
-        selectionPanels.first?.makeKey()
+        // A Control hold may still become a chord. Keep keyboard focus in the
+        // original app so the event tap can cancel selection without stealing it.
+        if !preserveKeyboardFocus {
+            NSApp.activate(ignoringOtherApps: true)
+            selectionPanels.first?.makeKey()
+        }
         installEventMonitor()
     }
 
@@ -80,6 +86,8 @@ final class ScreenTranslateController {
         onScreenActiveChanged?(false)
         lines = []
         paragraphs = []
+        translationCache = ScreenTranslationCache()
+        pinModel.fullText = ""
         removeEventMonitor()
     }
 
@@ -142,7 +150,7 @@ final class ScreenTranslateController {
                 )
                 async let recognized = ScreenOCRService.recognize(image, languages: languages)
                 async let prepared: Void = self.prepareEngine()
-                let lines = try await recognized
+                let lines = try await ScreenFontWeightService.annotate(try await recognized, image: image)
                 guard token == self.generation, !Task.isCancelled else { return }
                 self.lines = lines
                 self.recognizedSource = self.direction.source
@@ -194,7 +202,7 @@ final class ScreenTranslateController {
                 )
                 async let recognized = ScreenOCRService.recognize(originalImage, languages: languages)
                 async let prepared: Void = prepareEngine()
-                let recognizedLines = try await recognized
+                let recognizedLines = try await ScreenFontWeightService.annotate(try await recognized, image: originalImage)
                 guard token == generation, !Task.isCancelled else { return }
                 lines = recognizedLines
                 recognizedSource = direction.source
@@ -210,19 +218,32 @@ final class ScreenTranslateController {
             }
             guard token == generation, !Task.isCancelled else { return }
             setChromeStatus("正在翻译", working: true)
-            var grouped = ScreenTranslate.groupParagraphs(from: lines)
+            var grouped = ScreenTranslate.groupParagraphs(from: lines, canvasSize: originalImage.size)
             guard !grouped.isEmpty else {
                 paragraphs = []
                 refreshDisplayed()
                 setChromeStatus("", working: false)
                 return
             }
-            pinPanel?.prepareBackdrop(items: backdropProbeItems(for: grouped))
+            async let backdrop: Void? = pinPanel?.prepareBackdrop(items: backdropProbeItems(for: grouped))
             paragraphs = grouped
             refreshDisplayed()
-            let translations = try await engine.translateBatch(grouped.map(\.original))
+            let originals = grouped.map(\.original)
+            let missing = translationCache.missing(originals, direction: direction.id)
+            let fresh = missing.isEmpty ? [] : try await engine.translateBatch(missing)
+            await backdrop
             guard token == generation, !Task.isCancelled else { return }
-            for index in grouped.indices { grouped[index].translation = translations[index] }
+            let freshByText = Dictionary(uniqueKeysWithValues: zip(missing, fresh))
+            // Resolve this request before inserting into the bounded cache:
+            // eviction during a large page must not drop its current results.
+            for index in grouped.indices {
+                grouped[index].translation = freshByText[grouped[index].original]
+                    ?? translationCache.value(grouped[index].original, direction: direction.id) ?? grouped[index].original
+            }
+            for (text, translation) in zip(missing, fresh) {
+                translationCache.store(text, translation: translation, direction: direction.id)
+            }
+            applyNavigationLabels(&grouped)
             paragraphs = grouped
             refreshDisplayed()
             guard token == generation, !Task.isCancelled else { return }
@@ -234,11 +255,13 @@ final class ScreenTranslateController {
                 // instead of moving the page after every polished paragraph.
                 for start in stride(from: 0, to: grouped.count, by: 4) {
                     guard token == generation, !Task.isCancelled else { return }
-                    let inputs = (start..<min(start + 4, grouped.count)).map { ($0, grouped[$0]) }
+                    let inputs = (start..<min(start + 4, grouped.count)).map {
+                        ($0, grouped[$0], ScreenTranslate.translationContext(for: $0, paragraphs: grouped))
+                    }
                     let results = await withTaskGroup(of: (Int, String?).self) { group in
-                        for (index, paragraph) in inputs {
+                        for (index, paragraph, context) in inputs {
                             group.addTask { @MainActor in
-                                let result = try? await polish(paragraph.original, paragraph.translation, sourceName, targetName)
+                                let result = try? await polish(paragraph.original, paragraph.translation, sourceName, targetName, context)
                                 return (index, result)
                             }
                         }
@@ -253,6 +276,7 @@ final class ScreenTranslateController {
                         }
                     }
                 }
+                applyNavigationLabels(&grouped)
                 paragraphs = grouped
                 refreshDisplayed()
                 guard token == generation, !Task.isCancelled else { return }
@@ -272,6 +296,15 @@ final class ScreenTranslateController {
             try await engine.attach(session)
         } catch {
             onError?(error.localizedDescription)
+        }
+    }
+
+    private func applyNavigationLabels(_ grouped: inout [ScreenParagraph]) {
+        for index in grouped.indices {
+            if let text = ScreenTranslate.navigationTranslation(for: index, paragraphs: grouped,
+                canvasSize: originalImage.size, source: direction.source, target: direction.target) {
+                grouped[index].translation = text
+            }
         }
     }
 
@@ -343,6 +376,7 @@ final class ScreenTranslateController {
 
     private func refreshDisplayed() {
         pinModel.overlayEnabled = overlayEnabled
+        pinModel.fullText = paragraphs.map(\.translation).filter { !$0.isEmpty }.joined(separator: "\n\n")
         let items = ScreenTranslate.layoutPlates(paragraphs, canvasSize: originalImage.size)
         pinPanel?.updateOverlay(items: items, overlayEnabled: overlayEnabled)
         pinPanel?.setWorking(pinModel.isWorking)
@@ -390,9 +424,12 @@ final class ScreenTranslateController {
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
             guard let self else { return event }
             if event.keyCode == UInt16(kVK_Escape) {
+                if self.pinPanel?.closeTranslationDetail() == true { return nil }
                 self.cancel()
                 return nil
             }
+            // Let selection/copy/scroll keys reach the expanded text reader.
+            if self.pinPanel?.hasTranslationDetail == true { return event }
             if self.isPinVisible, event.charactersIgnoringModifiers == "c",
                event.modifierFlags.contains(.command) {
                 _ = self.copyImage()
@@ -796,7 +833,7 @@ private final class ScreenPinCanvasView: NSView {
         for item in displayedItemsForCopy() {
             scrollOffsets[NSStringFromRect(item.sourceRect)] = item.textScrollOffset
         }
-        let visible = items.filter { !$0.text.isEmpty }.map { item in
+        let visible = items.filter { !$0.text.isEmpty && !$0.rect.isEmpty }.map { item in
             var next = item
             next.textScrollOffset = scrollOffsets[NSStringFromRect(item.sourceRect)] ?? 0
             return next
@@ -840,6 +877,7 @@ private final class ScreenPinBlockView: NSView {
     private var canvasSize: CGSize
     private let textScroll = NSScrollView()
     private let textDocument = ScreenPinTextView()
+    private var detailPopover: NSPopover?
 
     init(
         item: ScreenLaidOutBlock,
@@ -851,6 +889,7 @@ private final class ScreenPinBlockView: NSView {
         self.canvasSize = canvasSize
         super.init(frame: item.rect)
         wantsLayer = true
+        layer?.masksToBounds = true
         textScroll.drawsBackground = false
         textScroll.contentView.drawsBackground = false
         textScroll.borderType = .noBorder
@@ -859,6 +898,7 @@ private final class ScreenPinBlockView: NSView {
         textScroll.hasHorizontalScroller = false
         textScroll.verticalScrollElasticity = .none
         textScroll.documentView = textDocument
+        textDocument.onExpand = { [weak self] in self?.showFullTranslation() }
         addSubview(textScroll)
         configure(item: item, blurredImage: blurredImage, canvasSize: canvasSize)
     }
@@ -868,6 +908,7 @@ private final class ScreenPinBlockView: NSView {
         blurredImage: CGImage?,
         canvasSize: CGSize
     ) {
+        if self.item.text != item.text || self.item.sourceRect != item.sourceRect { detailPopover?.close() }
         self.item = item
         self.blurredImage = blurredImage
         self.canvasSize = canvasSize
@@ -878,11 +919,37 @@ private final class ScreenPinBlockView: NSView {
         textDocument.frame = CGRect(x: 0, y: 0, width: bounds.width,
             height: max(bounds.height, item.textContentHeight))
         textScroll.hasVerticalScroller = textDocument.frame.height > bounds.height + 1
+        textDocument.canExpand = textScroll.hasVerticalScroller
         textScroll.contentView.scroll(to: NSPoint(x: 0, y: min(oldY, max(0, textDocument.frame.height - bounds.height))))
         textScroll.reflectScrolledClipView(textScroll.contentView)
         textDocument.needsDisplay = true
-        toolTip = textScroll.hasVerticalScroller ? "在这段文字内滚动查看完整译文" : nil
+        let overflowHint = textScroll.hasVerticalScroller
+            ? item.text + "\n\n点击展开，或在这段文字内滚动" : nil
+        toolTip = overflowHint
+        textScroll.toolTip = overflowHint
+        textDocument.toolTip = overflowHint
         needsDisplay = true
+    }
+
+    func showFullTranslation() {
+        guard textScroll.hasVerticalScroller, window != nil else { return }
+        detailPopover?.close()
+        let controller = ScreenTranslationDetailController(text: item.text)
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.animates = false
+        popover.contentViewController = controller
+        popover.contentSize = controller.view.frame.size
+        detailPopover = popover
+        popover.show(relativeTo: bounds, of: self, preferredEdge: .maxY)
+    }
+
+    var hasTranslationDetail: Bool { detailPopover?.isShown == true }
+    func closeTranslationDetail() { detailPopover?.close() }
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        if newWindow == nil { detailPopover?.close() }
+        super.viewWillMove(toWindow: newWindow)
     }
 
     var displayedItem: ScreenLaidOutBlock {
@@ -967,25 +1034,61 @@ private final class ScreenPinBlockView: NSView {
 
 private final class ScreenPinTextView: NSView {
     var item: ScreenLaidOutBlock?
+    var onExpand: (() -> Void)?
+    var canExpand = false
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
+    override func resetCursorRects() {
+        if canExpand { addCursorRect(visibleRect, cursor: .pointingHand) }
+    }
+    override func mouseDown(with event: NSEvent) {
+        if canExpand { onExpand?() }
+    }
     override func draw(_ dirtyRect: NSRect) {
         guard let item else { return }
-        let fontSize = item.fontSize
-        let inset = ScreenTranslate.textInsets(fontSize: fontSize)
-        let textRect = bounds.insetBy(dx: inset.width, dy: inset.height)
-        let attributes = ScreenPinRenderer.attributes(
-            fontSize: fontSize,
-            heading: item.isHeading,
-            color: item.foreground,
-            centered: item.centered,
-            linePitch: item.linePitch
-        )
-        (item.text as NSString).draw(
-            with: textRect,
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: attributes
-        )
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+        ScreenPinRenderer.drawInk(item, in: context, visibleRange: visibleRect.minY...visibleRect.maxY)
+    }
+}
+
+private final class ScreenTranslationDetailController: NSViewController {
+    private let text: String
+    init(text: String) { self.text = text; super.init(nibName: nil, bundle: nil) }
+    required init?(coder: NSCoder) { fatalError("init(coder:)") }
+    override func loadView() {
+        let width: CGFloat = 360
+        let height = min(400, max(90, ScreenTranslate.textHeight(text: text, fontSize: 15,
+            width: width - 32, heading: false) + 20))
+        view = NSView(frame: CGRect(x: 0, y: 0, width: width, height: height + 52))
+        let title = NSTextField(labelWithString: "完整译文")
+        title.font = .systemFont(ofSize: 13, weight: .semibold)
+        title.frame = CGRect(x: 16, y: height + 18, width: 190, height: 18)
+        view.addSubview(title)
+        let copy = NSButton(title: "复制文字", target: self, action: #selector(copyText))
+        copy.bezelStyle = .rounded
+        copy.frame = CGRect(x: width - 100, y: height + 12, width: 86, height: 28)
+        view.addSubview(copy)
+        let scroll = NSScrollView(frame: CGRect(x: 12, y: 12, width: width - 24, height: height))
+        scroll.drawsBackground = false
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        let content = NSTextView(frame: CGRect(x: 0, y: 0, width: width - 24, height: height))
+        content.isEditable = false
+        content.isSelectable = true
+        content.drawsBackground = false
+        content.font = .systemFont(ofSize: 15)
+        content.textColor = .labelColor
+        content.string = text
+        content.textContainerInset = CGSize(width: 4, height: 4)
+        content.isVerticallyResizable = true
+        content.autoresizingMask = [.width]
+        content.textContainer?.widthTracksTextView = true
+        scroll.documentView = content
+        view.addSubview(scroll)
+    }
+    @objc private func copyText() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 }
 
@@ -995,6 +1098,17 @@ private final class ScreenPinPanel: NSPanel {
     var onClose: (() -> Void)?
     var onCycle: (() -> Void)?
     var onAttachTranslation: ((TranslationSession) async -> Void)?
+    private var fullTextPopover: NSPopover?
+    private var sourcePixels: CGImage?
+    var hasTranslationDetail: Bool {
+        fullTextPopover?.isShown == true || canvasView.subviews.contains { ($0 as? ScreenPinBlockView)?.hasTranslationDetail == true }
+    }
+    @discardableResult func closeTranslationDetail() -> Bool {
+        let wasOpen = hasTranslationDetail
+        fullTextPopover?.close()
+        for block in canvasView.subviews.compactMap({ $0 as? ScreenPinBlockView }) { block.closeTranslationDetail() }
+        return wasOpen
+    }
     private(set) var canvasSize = CGSize.zero
     private let model: ScreenPinModel
     private let chrome: ScreenPinChromePanel
@@ -1058,6 +1172,7 @@ private final class ScreenPinPanel: NSPanel {
 
         chrome.onToggleOverlay = { [weak self] in self?.onToggleOverlay?() }
         chrome.onCopy = { [weak self] in self?.onCopy?() }
+        chrome.onRead = { [weak self] in self?.showFullText() }
         chrome.onClose = { [weak self] in self?.onClose?() }
         chrome.onCycle = { [weak self] in self?.onCycle?() }
         chrome.onAttachTranslation = { [weak self] session in
@@ -1069,9 +1184,23 @@ private final class ScreenPinPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    func showFullText() {
+        guard !model.fullText.isEmpty, let anchor = chrome.contentView else { return }
+        closeTranslationDetail()
+        let controller = ScreenTranslationDetailController(text: model.fullText)
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.animates = false
+        popover.contentViewController = controller
+        popover.contentSize = controller.view.frame.size
+        fullTextPopover = popover
+        popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
+    }
+
     func present(source: NSImage, at rect: CGRect) {
         pinRect = rect
         sourceImage = source
+        sourcePixels = source.cgImage(forProposedRect: nil, context: nil, hints: nil)
         blurredBackdropImage = nil
         sourceStyles = [:]
         canvasView.setSource(source)
@@ -1121,21 +1250,28 @@ private final class ScreenPinPanel: NSPanel {
         }
     }
 
-    func prepareBackdrop(items: [ScreenLaidOutBlock]) {
-        guard let cgImage = sourceImage.cgImage(forProposedRect: nil, context: nil, hints: nil),
+    func prepareBackdrop(items: [ScreenLaidOutBlock]) async {
+        guard let cgImage = sourcePixels,
               blurredBackdropImage == nil else { return }
-        blurredBackdropImage = ScreenPinRenderer.blurredBackdrop(
-            image: cgImage,
-            items: items,
-            canvasSize: canvasSize
-        )
-        for item in ScreenPinRenderer.prepareItems(items, image: cgImage, canvasSize: canvasSize) {
+        let source = sourceImage
+        let size = canvasSize
+        let task = Task.detached(priority: .userInitiated) { () -> (CGImage?, [ScreenLaidOutBlock]) in
+            guard !Task.isCancelled else { return (nil, []) }
+            let styles = ScreenPinRenderer.prepareItems(items, image: cgImage, canvasSize: size)
+            guard !Task.isCancelled else { return (nil, []) }
+            let blurred = ScreenPinRenderer.blurredBackdrop(image: cgImage, items: items, canvasSize: size)
+            return (blurred, styles)
+        }
+        let result = await withTaskCancellationHandler(operation: { await task.value }, onCancel: { task.cancel() })
+        guard !Task.isCancelled, sourceImage === source else { return }
+        blurredBackdropImage = result.0
+        for item in result.1 {
             sourceStyles[NSStringFromRect(item.sourceRect)] = item
         }
     }
 
     func updateOverlay(items: [ScreenLaidOutBlock], overlayEnabled: Bool) {
-        guard let cgImage = sourceImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+        guard let cgImage = sourcePixels else {
             canvasView.update(items: [], blurredImage: nil, canvasSize: canvasSize)
             return
         }
@@ -1145,7 +1281,7 @@ private final class ScreenPinPanel: NSPanel {
                 sourceStyles[NSStringFromRect(item.sourceRect)] = item
             }
         }
-        let prepared: [ScreenLaidOutBlock] = overlayEnabled ? items.map { item in
+        let prepared: [ScreenLaidOutBlock] = overlayEnabled ? ScreenTranslate.nonOverlapping(items.map { item in
             var next = item
             if let style = sourceStyles[NSStringFromRect(item.sourceRect)] {
                 next.background = style.background
@@ -1154,7 +1290,7 @@ private final class ScreenPinPanel: NSPanel {
                 next = ScreenTranslate.fitViewport(next, available: style.availableRect)
             }
             return next
-        } : []
+        }) : []
         if overlayEnabled, !prepared.isEmpty, blurredBackdropImage == nil {
             blurredBackdropImage = ScreenPinRenderer.blurredBackdrop(
                 image: cgImage,
@@ -1199,6 +1335,7 @@ private final class ScreenPinPanel: NSPanel {
     }
 
     override func orderOut(_ sender: Any?) {
+        closeTranslationDetail()
         chrome.orderOut(sender)
         for panel in freezePanels { panel.orderOut(sender) }
         freezePanels = []
@@ -1209,6 +1346,7 @@ private final class ScreenPinPanel: NSPanel {
 private final class ScreenPinChromePanel: NSPanel {
     var onToggleOverlay: (() -> Void)?
     var onCopy: (() -> Void)?
+    var onRead: (() -> Void)?
     var onClose: (() -> Void)?
     var onCycle: (() -> Void)?
     var onAttachTranslation: ((TranslationSession) async -> Void)?
@@ -1218,7 +1356,7 @@ private final class ScreenPinChromePanel: NSPanel {
     init(model: ScreenPinModel) {
         self.model = model
         hosting = TransparentPinView(rootView: ScreenPinChromeView(
-            model: model, onToggle: {}, onCopy: {}, onClose: {}, onCycle: {}, onAttachTranslation: { _ in }
+            model: model, onToggle: {}, onCopy: {}, onRead: {}, onClose: {}, onCycle: {}, onAttachTranslation: { _ in }
         ))
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 280, height: 36),
@@ -1246,6 +1384,7 @@ private final class ScreenPinChromePanel: NSPanel {
             model: model,
             onToggle: { [weak self] in self?.onToggleOverlay?() },
             onCopy: { [weak self] in self?.onCopy?() },
+            onRead: { [weak self] in self?.onRead?() },
             onClose: { [weak self] in self?.onClose?() },
             onCycle: { [weak self] in self?.onCycle?() },
             onAttachTranslation: { [weak self] session in
@@ -1279,6 +1418,7 @@ private struct ScreenPinChromeView: View {
     @Bindable var model: ScreenPinModel
     var onToggle: () -> Void
     var onCopy: () -> Void
+    var onRead: () -> Void
     var onClose: () -> Void
     var onCycle: () -> Void
     var onAttachTranslation: (TranslationSession) async -> Void
@@ -1310,6 +1450,12 @@ private struct ScreenPinChromeView: View {
             Button("复制", action: onCopy)
                 .font(.system(size: 12, weight: .medium))
                 .buttonStyle(.plain)
+            if !model.fullText.isEmpty {
+                Button("全文", action: onRead)
+                    .font(.system(size: 12, weight: .medium))
+                    .buttonStyle(.plain)
+                    .help("阅读并复制完整译文")
+            }
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .semibold))

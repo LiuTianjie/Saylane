@@ -23,10 +23,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         #if DEBUG
         if let idx = CommandLine.arguments.firstIndex(of: "--snapshot"), idx + 1 < CommandLine.arguments.count {
+            // "--snapshot out.png" renders the voice tab; "--snapshot out.png all" renders every tab as out-N.png.
             let path = CommandLine.arguments[idx + 1]
             let model = AppModel.shared
-            model.settingsTab = 1
-            PreviewSnapshot.takeSnapshot(model: model, path: path)
+            if CommandLine.arguments.count > idx + 2, CommandLine.arguments[idx + 2] == "all" {
+                let base = (path as NSString).deletingPathExtension
+                for tab in 0...4 {
+                    model.settingsTab = tab
+                    PreviewSnapshot.takeSnapshot(model: model, path: "\(base)-\(tab).png")
+                }
+            } else {
+                model.settingsTab = 1
+                PreviewSnapshot.takeSnapshot(model: model, path: path)
+            }
             NSApp.terminate(nil)
             return
         }

@@ -72,7 +72,7 @@ import Darwin
             }
             if let index = arguments.firstIndex(of: "--download-speech-model") {
                 guard arguments.count > index + 1,
-                      let variant = SpeechModel(rawValue: arguments[index + 1]), variant.isQwen else {
+                      let variant = SpeechModel(rawValue: arguments[index + 1]), variant.isLocal else {
                     throw ASRModelError.manifest
                 }
                 let manifest = try variant.manifest()
@@ -110,7 +110,11 @@ import Darwin
                     }
                     variant = parsed
                 } else { variant = .apple }
-                let engine: any SpeechRecognizing = variant == .apple ? SpeechEngine() : QwenSpeechEngine(variant: variant)
+                let context: String?
+                if let hotwordsIndex = arguments.firstIndex(of: "--speech-hotwords"), arguments.count > hotwordsIndex + 1 {
+                    context = variant.isQwen ? SpeechHotwords.context(arguments[hotwordsIndex + 1]) : nil
+                } else { context = nil }
+                let engine: any SpeechRecognizing = variant == .apple ? SpeechEngine() : QwenSpeechEngine(variant: variant, context: context)
                 var partialCount = 0
                 engine.onPartial = { _ in partialCount += 1 }
                 try await engine.begin(locale: Locale(identifier: locale))
@@ -173,7 +177,7 @@ import Darwin
                     pending.removeSubrange(...end)
                     guard request.audio.count <= QwenAudioBuffer.maxSamples,
                           request.audio.allSatisfy(\.isFinite) else { throw ASRModelError.tooLong }
-                    let text = try await InProcessQwenRuntime.shared.transcribe(request.audio, language: request.language, variant: variant)
+                    let text = try await InProcessQwenRuntime.shared.transcribe(request.audio, language: request.language, variant: variant, context: request.context)
                     try respond(text: text)
                 }
             }

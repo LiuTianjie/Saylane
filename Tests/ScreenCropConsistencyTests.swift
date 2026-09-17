@@ -10,7 +10,7 @@ import Vision
         func measure(_ image: CGImage) async throws -> [String: CGFloat] {
             let canvas = NSImage(cgImage: image, size: CGSize(width: image.width / 2, height: image.height / 2))
             let lines = try await ScreenOCRService.recognize(canvas, languages: ["en-US", "en", "zh-Hans"])
-            let paragraphs = ScreenTranslate.groupParagraphs(from: lines)
+            let paragraphs = ScreenTranslate.groupParagraphs(from: lines, canvasSize: canvas.size)
             let fonts = ScreenTranslate.paragraphFonts(paragraphs, canvasSize: canvas.size)
             return Dictionary(zip(paragraphs.map(\.original), fonts), uniquingKeysWith: { first, _ in first })
         }
