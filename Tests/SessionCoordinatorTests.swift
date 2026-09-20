@@ -2,7 +2,8 @@ import AVFoundation
 import Foundation
 
 @MainActor final class FakeSpeech: SpeechRecognizing {
-    var onPartial: ((String) -> Void)?
+    var onPartial: ((SpeechHypothesis) -> Void)?
+    func emit(_ text: String) { onPartial?(SpeechHypothesis(volatileText: text)) }
     var feeds = 0
     var finishCount = 0
     var cancels = 0
@@ -13,7 +14,7 @@ import Foundation
     func begin(locale: Locale) async throws {
         if setupDelay > 0 { try await Task.sleep(for: .milliseconds(setupDelay)) }
     }
-    func feed(_ buffer: AVAudioPCMBuffer) throws { feeds += 1; onPartial?("中间结果") }
+    func feed(_ buffer: AVAudioPCMBuffer) throws { feeds += 1; emit("中间结果") }
     func finish() async throws -> String {
         finishCount += 1
         if finishDelay > 0 { try await Task.sleep(for: .milliseconds(finishDelay)) }
@@ -94,7 +95,7 @@ import Foundation
             let fresh = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
             fresh.finalText = "new"
             c.start(locale: .current, speech: fresh, capture: audio, target: target, passthrough: true) { $0 }
-            oldSpeech.onPartial?("stale")
+            oldSpeech.emit("stale")
             await settle(); audio.emit(1); c.release(); await settle(120)
             precondition(oldTarget.committed.isEmpty && target.committed == ["new"]); passed += 1
         }
@@ -129,10 +130,10 @@ import Foundation
         do { // Live translation must appear before release, then final replaces it once.
             let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
             c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: false) { "EN:" + $0 }
-            await settle(); speech.onPartial?("第一句")
+            await settle(); speech.emit("第一句")
             await settle(30)
             precondition(target.marked == ["EN:第一句"] && target.committed.isEmpty && c.state == .listening)
-            speech.onPartial?("第一句，第二句")
+            speech.emit("第一句，第二句")
             await settle(150)
             precondition(target.marked.last == "EN:第一句，第二句" && target.committed.isEmpty)
             c.release(); await settle(180)
@@ -144,8 +145,8 @@ import Foundation
             c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: false) { text in
                 requests.append(text); try await Task.sleep(for: .milliseconds(40)); return "EN:" + text
             }
-            await settle(); speech.onPartial?("one"); await settle(10)
-            speech.onPartial?("two"); speech.onPartial?("three"); speech.onPartial?("three")
+            await settle(); speech.emit("one"); await settle(10)
+            speech.emit("two"); speech.emit("three"); speech.emit("three")
             await settle(240)
             precondition(requests == ["one", "three"] && target.marked.last == "EN:three")
             c.cancel(); passed += 1
@@ -155,8 +156,8 @@ import Foundation
             c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: false) { "EN:" + $0 }
             await settle()
             for text in ["我想", "我想去上海", "我想去深圳", "我想去深圳开会"] {
-                speech.onPartial?(text)
-                await settle(25)
+                speech.emit(text)
+                await settle(100)
                 precondition(target.marked.last == "EN:" + text && target.committed.isEmpty)
             }
             c.release(); await settle(100)
@@ -165,7 +166,7 @@ import Foundation
         do { // Cancelling visible marked text never commits it.
             let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
             c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: false) { "EN:" + $0 }
-            await settle(); speech.onPartial?("preview"); await settle(20)
+            await settle(); speech.emit("preview"); await settle(20)
             precondition(!target.marked.isEmpty)
             c.cancel(); await settle(160)
             precondition(target.committed.isEmpty && target.cancels == 1); passed += 1
@@ -179,7 +180,7 @@ import Foundation
                     precondition(original == "最终结果。" && draft == "ordinary translation")
                     return "polished translation"
                 }) { _ in "ordinary translation" }
-            await settle(); speech.onPartial?("temporary"); await settle(30)
+            await settle(); speech.emit("temporary"); await settle(30)
             precondition(calls == 0 && target.committed.isEmpty)
             c.release(); await settle(160)
             precondition(calls == 1 && target.committed == ["polished translation"]); passed += 1
@@ -236,16 +237,18 @@ import Foundation
             precondition(states.contains(.polishing) == (outcome != .ordinary))
             passed += 1
         }
-        do { // Refine runs on every hypothesis and on the final text before translation/polish.
+        do { // Semantic repair runs only on the final text before translation/polish.
             let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
             speech.finalText = "嗯，最终结果。"
             var polished: [String] = []
             c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: true,
                     refine: { $0.replacingOccurrences(of: "嗯，", with: "") },
                     polish: { original, draft in polished.append(original); return draft }) { $0 }
-            speech.onPartial = { [previous = speech.onPartial] text in previous?("嗯，" + text) }
+            speech.onPartial = { [previous = speech.onPartial] hypothesis in
+                previous?(SpeechHypothesis(volatileText: "嗯，" + hypothesis.text))
+            }
             await settle(); audio.emit(2); await settle(); c.release(); await settle(60)
-            precondition(target.marked.first == "中间结果" && target.committed == ["最终结果。"] && polished == ["最终结果。"])
+            precondition(target.marked.first == "嗯，中间结果" && target.committed == ["最终结果。"] && polished == ["最终结果。"])
             passed += 1
         }
         do { // A refine that empties the text still commits what was recognized.
@@ -253,7 +256,55 @@ import Foundation
             speech.finalText = "嗯"
             c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: true, refine: { _ in "" }) { $0 }
             await settle(); audio.emit(2); c.release(); await settle(60)
-            precondition(target.marked.isEmpty && target.committed == ["嗯"])
+            precondition(target.committed == ["嗯"])
+            passed += 1
+        }
+        do { // First word is immediate, corrections coalesce, final is never delayed by UI debounce.
+            let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
+            var repairs = 0
+            c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: true,
+                    refine: { repairs += 1; return $0 }) { $0 }
+            await settle()
+            speech.onPartial?(SpeechHypothesis(stableText: "今天，", volatileText: "去北京"))
+            precondition(target.marked == ["今天，去北京"])
+            speech.onPartial?(SpeechHypothesis(stableText: "今天，", volatileText: "去上海"))
+            speech.onPartial?(SpeechHypothesis(stableText: "今天，", volatileText: "去深圳"))
+            precondition(target.marked.count == 1 && repairs == 0)
+            await settle(100)
+            precondition(target.marked == ["今天，去北京", "今天，去深圳"])
+            speech.emit("pending must not overwrite final")
+            c.release(); await settle(120)
+            precondition(target.committed == ["最终结果。"] && repairs == 1)
+            precondition(target.marked.last == "今天，去深圳")
+            passed += 1
+        }
+        do { // Metadata has monotonic stage timings, one terminal record, and no dictated text.
+            let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
+            var reports: [SpeechSessionMetrics] = []
+            c.onMetrics = { reports.append($0) }
+            c.start(locale: .current, speech: speech, capture: audio, target: target,
+                    passthrough: true, model: "test-model") { $0 }
+            await settle(); audio.emit(3); await settle(); c.release(); await settle(100)
+            precondition(reports.count == 1)
+            let report = reports[0]
+            precondition(report.model == "test-model" && report.outcome == "committed")
+            precondition(report.audioMS > 0 && report.hypothesisCount == 3 && report.previewCount > 0)
+            let stages = ["captureStarted", "recognizerReady", "firstAudioFed", "firstHypothesis", "released", "recognitionFinished", "committed", "ended"]
+            let times = stages.map { report.elapsedMS[$0]! }
+            precondition(times == times.sorted())
+            precondition(!report.logValue.contains("中间结果") && !report.logValue.contains("最终结果"))
+            c.cancel(); precondition(reports.count == 1)
+            passed += 1
+        }
+        do { // Cancel discards pending presentations and reports cancellation once.
+            let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
+            var outcomes: [String] = []
+            c.onMetrics = { outcomes.append($0.outcome) }
+            c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: true) { $0 }
+            await settle(); speech.emit("first"); speech.emit("second")
+            c.cancel(); c.cancel(); await settle(120)
+            precondition(target.marked == ["first"] && target.committed.isEmpty)
+            precondition(outcomes == ["cancelled"])
             passed += 1
         }
         print("PASS: \(passed) session scenarios, including 20 consecutive drain/commit cycles")

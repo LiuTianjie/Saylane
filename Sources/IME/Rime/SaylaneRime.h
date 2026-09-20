@@ -15,6 +15,7 @@ typedef struct {
     int cursor;
     int sel_start;
     int sel_end;
+    size_t input_cursor;
 } SLRimeSnapshot;
 int SLRimeInitialize(const char *shared, const char *user);
 const char *SLRimeVersion(void);

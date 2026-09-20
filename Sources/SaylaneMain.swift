@@ -28,20 +28,26 @@ enum SaylaneMain {
         }
         #if DEBUG
         // Preview the real settings without registering a second IMK server or global hotkeys.
-        if CommandLine.arguments.contains("--preview-models") {
+        if CommandLine.arguments.contains("--preview-models")
+            || Bundle.main.object(forInfoDictionaryKey: "SaylaneUIPreview") as? Bool == true {
             MainActor.assumeIsolated {
                 let app = NSApplication.shared
                 app.setActivationPolicy(.regular)
                 let model = AppModel.shared
                 let arguments = CommandLine.arguments
                 // "--preview-tab N" picks the page; "--preview-shot dir" writes every page as settings-N.png and exits.
-                model.settingsTab = arguments.firstIndex(of: "--preview-tab").flatMap { Int(arguments[safe: $0 + 1] ?? "") } ?? 2
-                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 860, height: 980),
+                model.settingsTab = arguments.firstIndex(of: "--preview-tab").flatMap { Int(arguments[safe: $0 + 1] ?? "") } ?? 1
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 880, height: 680),
                                       styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
                 window.title = "Saylane"
-                window.titlebarAppearsTransparent = false
+                window.titlebarAppearsTransparent = true
+                window.titleVisibility = .hidden
+                window.minSize = NSSize(width: 780, height: 640)
                 window.toolbarStyle = .unified
-                window.contentView = NSHostingView(rootView: SettingsView().environment(model))
+                let previewStep = Bundle.main.object(forInfoDictionaryKey: "SaylaneUIPreviewSetupStep") as? Int
+                model.isShowingSetup = previewStep != nil
+                window.contentView = NSHostingView(rootView: SettingsView(initialSetupStep: previewStep ?? 0).environment(model)
+                    .preferredColorScheme(Bundle.main.object(forInfoDictionaryKey: "SaylaneUIPreviewDark") as? Bool == true ? .dark : nil))
                 window.center()
                 window.makeKeyAndOrderFront(nil)
                 app.activate(ignoringOtherApps: true)
@@ -49,7 +55,7 @@ enum SaylaneMain {
                     // Vibrancy does not render into a cached bitmap, so hand the window number to
                     // `screencapture -l` for a faithful composite of each page.
                     Task { @MainActor in
-                        for tab in [0] + Array(0...4) {
+                        for tab in [0] + Array(0...5) {
                             model.settingsTab = tab
                             try? await Task.sleep(for: .milliseconds(1200))
                             let process = Process()

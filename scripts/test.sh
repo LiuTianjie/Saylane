@@ -3,22 +3,27 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p build/tests
 python3 Tests/BrandingTests.py
+python3 Tests/ASRBenchmarkTests.py
 swiftc Sources/Services/BufferConverter.swift Tests/PCMCopyTests.swift -o build/tests/pcm
 build/tests/pcm
+swiftc Sources/Services/AudioLevel.swift Tests/AudioSignalTests.swift -o build/tests/audio-signal
+build/tests/audio-signal
 swiftc Sources/Models/PushToTalkHotkey.swift Sources/Services/PushToTalkHandler.swift Tests/HotkeyTests.swift -o build/tests/hotkey
 build/tests/hotkey
 swiftc Sources/Models/PushToTalkHotkey.swift Sources/Services/PushToTalkHandler.swift Sources/Services/InputShortcutHandler.swift Sources/Services/GlobalHotkeyRouter.swift Tests/GlobalHotkeyTests.swift -o build/tests/global-hotkey
 build/tests/global-hotkey
 swiftc Sources/Models/PushToTalkHotkey.swift Sources/Services/PushToTalkHandler.swift Sources/Services/InputShortcutHandler.swift Tests/InputShortcutTests.swift -o build/tests/gestures
 build/tests/gestures
-swiftc Sources/Models/SessionState.swift Sources/Services/AudioLevel.swift Sources/Services/SessionCoordinator.swift Tests/SessionCoordinatorTests.swift -o build/tests/session
+swiftc Sources/Models/SessionState.swift Sources/Models/SpeechHypothesis.swift Sources/Models/SpeechSessionMetrics.swift Sources/Services/AudioLevel.swift Sources/Services/SessionCoordinator.swift Tests/SessionCoordinatorTests.swift -o build/tests/session
 build/tests/session
 swiftc Sources/Services/FinalPolishService.swift Tests/FinalPolishTests.swift -o build/tests/polish
 build/tests/polish
 swiftc Sources/Services/DictationCleanup.swift Tests/DictationCleanupTests.swift -o build/tests/dictation-cleanup
 build/tests/dictation-cleanup
-swiftc Sources/Models/SpeechModel.swift Sources/Services/DictationVocabulary.swift Tests/DictationVocabularyTests.swift -o build/tests/dictation-vocabulary
+swiftc Sources/Models/SpeechModel.swift Sources/Services/DictationVocabulary.swift Sources/Services/DictationGlossary.swift Tests/DictationVocabularyTests.swift -o build/tests/dictation-vocabulary
 build/tests/dictation-vocabulary
+swiftc Sources/Models/SpeechModel.swift Sources/Services/DictationVocabulary.swift Sources/Services/DictationGlossary.swift Sources/Services/DictationGlossaryRemote.swift Tests/DictationGlossaryRemoteTests.swift -o build/tests/dictation-glossary-remote
+build/tests/dictation-glossary-remote
 bash -n scripts/pkg/preinstall scripts/pkg/postinstall
 swiftc -parse-as-library Tests/InputIconTests.swift -o build/tests/input-icon
 build/tests/input-icon
@@ -26,6 +31,8 @@ swiftc Sources/Models/SessionState.swift Sources/Services/OverlayController.swif
 build/tests/overlay-notice
 swiftc Sources/Models/SetupReadiness.swift Tests/SetupReadinessTests.swift -o build/tests/setup-readiness
 build/tests/setup-readiness
+swiftc Sources/Models/SetupFlow.swift Tests/SetupFlowTests.swift -o build/tests/setup-flow
+build/tests/setup-flow
 swiftc Sources/Models/AppLanguage.swift Tests/TranslationDirectionTests.swift -o build/tests/direction
 build/tests/direction
 swiftc -framework AppKit Sources/Models/AppLanguage.swift Sources/Models/ScreenTranslate.swift Tests/ScreenTranslateTests.swift -o build/tests/screen-translate
@@ -43,6 +50,7 @@ build/tests/asr-lifetime
 swiftc Sources/Models/AppLanguage.swift Sources/Models/SpeechModel.swift Sources/Services/LocalSpeechRuntime.swift Sources/Services/QwenWorkerModel.swift Tests/QwenWorkerIOTests.swift -o build/tests/asr-worker-io
 build/tests/asr-worker-io
 bash scripts/test-native-asr.sh
+bash scripts/test-local-speech.sh
 
 scripts/test-rime.sh
 

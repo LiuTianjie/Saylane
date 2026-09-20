@@ -157,8 +157,8 @@ final class IMEManager {
         Self.applyMarkedText(text, caret: caret ?? (text as NSString).length, highlight: highlight, to: client)
     }
 
-    /// Caret sits at the end of the composition, not as a full-range selection.
-    /// The active syllable uses a thicker underline, as Rime frontends do.
+    /// Preserve the engine's editing caret as a zero-length selection.
+    /// The active segment uses a thicker underline.
     fileprivate static func applyMarkedText(_ text: String, caret: Int, highlight: NSRange, to client: IMKTextInput) {
         if text.isEmpty {
             client.setMarkedText("", selectionRange: NSRange(location: 0, length: 0),

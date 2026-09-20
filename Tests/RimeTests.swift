@@ -212,8 +212,88 @@ import Carbon.HIToolbox
         session.selectCandidate(at: background)
         precondition(session.takeCommit() == "背景")
         type("beijing")
-        precondition(session.candidates.first?.word == "背景", "an explicit choice should pin 背景 for beijing, got \(session.candidates.prefix(5).map(\.word))")
+        precondition(session.candidates.first?.word == "背景", "Native learning should prefer 背景 for beijing, got \(session.candidates.prefix(5).map(\.word))")
         session.cancel()
+        // Editing is owned by Rime, independently from the candidate highlight.
+        type("nihao")
+        let endCaret = session.markedCaret
+        _ = session.handle(key(kVK_LeftArrow), shiftToggleEnabled: true)
+        precondition(session.markedCaret < endCaret && session.highlighted == 0)
+        _ = session.handle(key(kVK_ForwardDelete), shiftToggleEnabled: true)
+        precondition(session.preedit == "niha", "forward delete must remove o after the caret")
+        type("o")
+        precondition(session.preedit == "nihao")
+        _ = session.handle(key(kVK_ForwardDelete), shiftToggleEnabled: true)
+        precondition(session.preedit == "nihao", "forward delete at end must not backspace")
+        _ = session.handle(key(kVK_Home), shiftToggleEnabled: true)
+        precondition(session.markedCaret == 0, "Home must retain a genuine zero caret")
+        _ = session.handle(key(kVK_LeftArrow), shiftToggleEnabled: true)
+        precondition(session.markedCaret == 0, "left at start must not wrap")
+        _ = session.handle(key(kVK_RightArrow), shiftToggleEnabled: true)
+        precondition(session.markedCaret == 1)
+        _ = session.handle(key(kVK_End), shiftToggleEnabled: true)
+        precondition(session.markedCaret == (session.markedText as NSString).length)
+        _ = session.handle(key(kVK_RightArrow), shiftToggleEnabled: true)
+        precondition(session.markedCaret == (session.markedText as NSString).length)
+        session.cancel()
+
+        // UTF-8 native ranges must become UTF-16 client ranges after selecting 你.
+        type("nihao")
+        session.selectCandidate(at: session.candidates.firstIndex(where: { $0.word == "你" })!)
+        precondition(session.markedText == "你hao")
+        precondition(session.markedHighlight == NSRange(location: 1, length: 3),
+                     "active range must underline hao, got \(session.markedHighlight)")
+        precondition(session.markedCaret == 4)
+        type("qx")
+        precondition(session.markedText.hasPrefix("你"))
+        precondition(session.candidates.allSatisfy { $0.engineIndex != nil },
+                     "raw candidate must not clear a previously confirmed Chinese prefix")
+        session.commitRaw()
+        precondition(session.takeCommit() == "你haoqx")
+
+        type("nihaonihao")
+        session.selectCandidate(at: session.candidates.firstIndex(where: { $0.word == "👋" })!)
+        precondition(session.markedText.hasPrefix("👋"))
+        precondition(session.markedHighlight.location == 2, "emoji prefix occupies two UTF-16 units")
+        precondition(session.markedCaret == (session.markedText as NSString).length)
+        session.cancel()
+
+        // Corrected syllables and abbreviation sentences must not lose to raw text.
+        for input in ["xign", "shagn", "zhogn", "shagnhai", "zhognwen", "woxiangqubj", "woxiangqxbeijing"] {
+            type(input)
+            precondition(session.candidates.first?.engineIndex != nil,
+                         "native correction should lead \(input): \(session.candidates.prefix(9))")
+            session.cancel()
+        }
+
+        // Preserve the displayed order when lazily enumerating beyond 90 results.
+        precondition(session.setFuzzyEnabled(true))
+        type("hello")
+        let firstPage = Array(session.candidates.prefix(9))
+        let loaded = session.candidates.count
+        for _ in 0..<9 { session.pageCandidates(1) }
+        precondition(session.candidates.count > loaded, "fixture must trigger lazy loading")
+        precondition(Array(session.candidates.prefix(9)) == firstPage,
+                     "loading another page must not undo English promotion")
+        for _ in 0..<9 { session.pageCandidates(-1) }
+        precondition(session.highlighted == 0)
+        session.pageCandidates(-1)
+        precondition(session.highlighted == 0, "previous on first page must not jump to the tail")
+        _ = session.handle(key(kVK_Space), shiftToggleEnabled: true)
+        precondition(session.takeCommit() == "hello", "displayed English selection must map to native index")
+        precondition(session.setFuzzyEnabled(false))
+
+        for (code, symbol) in [(kVK_ANSI_Minus, "_"), (kVK_ANSI_Slash, "/"),
+                               (kVK_ANSI_2, "@"), (kVK_ANSI_0, "0")] {
+            type("nihao")
+            precondition(session.handle(key(code, symbol), shiftToggleEnabled: true))
+            precondition(session.takeCommit() == "你好" + symbol,
+                         "symbol must follow committed composition: \(symbol)")
+            precondition(!session.isComposing)
+        }
+        precondition(!FileManager.default.fileExists(atPath: user.appendingPathComponent("first_is_best.json").path),
+                     "native learning must not require a second frontend learning database")
+        print("PASS: caret editing, forward delete, UTF-16 ranges, partial-prefix safety, correction priority, stable paging, symbols")
         var latencies: [Double] = []
         for _ in 0..<5 {
             for ch in "woxiangqubeijing" {
@@ -242,7 +322,8 @@ import Carbon.HIToolbox
             precondition(phase == "--verify-learning")
             precondition(session.candidates.first?.word == "背景", "User dictionary did not persist across processes")
         }
-        print("PASS: user dictionary", phase)
+        precondition(!FileManager.default.fileExists(atPath: user.appendingPathComponent("first_is_best.json").path))
+        print("PASS: native user dictionary (without frontend pinning)", phase)
     }
 
     static func letter(_ ch: Character) -> PinyinKeyEvent {

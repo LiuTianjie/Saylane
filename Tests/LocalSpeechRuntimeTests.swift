@@ -64,6 +64,15 @@ private final class FakeModel: LoadedSpeechModel {
         let staleResult = await stale.result
         precondition(latest == "recognized")
         if case .success = staleResult { fatalError("replaced preview survived") }
+        let loadsBeforeCancel = meter.values().2
+        let cancelledWorker = Task { try await runtime.transcribe([], language: "Chinese", variant: .qwen4bit) }
+        try await Task.sleep(for: .milliseconds(10))
+        cancelledWorker.cancel()
+        _ = await cancelledWorker.result
+        try await runtime.prepare(.qwen4bit)
+        precondition(meter.values().2 == loadsBeforeCancel + 1, "cancelled Qwen worker was incorrectly reused")
+        let recovered = try await runtime.transcribe([], language: "Chinese", variant: .qwen4bit)
+        precondition(recovered == "recognized")
         let active = Task { try await runtime.transcribe([], language: "Chinese", variant: .qwen4bit) }
         try await Task.sleep(for: .milliseconds(5))
         await runtime.unload(); _ = await active.result

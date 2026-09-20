@@ -5,6 +5,9 @@ import SwiftUI
 final class SettingsController {
     private var window: NSWindow?
     private var closeObserver: NSObjectProtocol?
+    private var localMonitor: Any?
+
+    var isVisible: Bool { window?.isVisible == true }
 
     func show(model: AppModel) {
         // IMK hosts must stay accessory. `.regular` makes Launch Services report
@@ -20,9 +23,11 @@ final class SettingsController {
             let window = NSWindow(contentViewController: hosting)
             window.title = "Saylane"
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-            window.setContentSize(NSSize(width: 780, height: 640))
-            window.minSize = NSSize(width: 720, height: 520)
-            window.titlebarAppearsTransparent = false
+            window.setContentSize(NSSize(width: 880, height: 700))
+            window.minSize = NSSize(width: 780, height: 640)
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.backgroundColor = NSColor.windowBackgroundColor
             window.toolbarStyle = .unified
             window.isReleasedWhenClosed = false
             window.hidesOnDeactivate = false
@@ -33,16 +38,35 @@ final class SettingsController {
                 forName: NSWindow.willCloseNotification,
                 object: window,
                 queue: .main
-            ) { _ in
+            ) { [weak self] _ in
                 Task { @MainActor in
+                    self?.removeMonitor()
                     NSApp.setActivationPolicy(.accessory)
                 }
             }
         }
 
+        installMonitor(model: model)
         window?.makeKeyAndOrderFront(nil)
         window?.orderFrontRegardless()
         NSApp.activate(ignoringOtherApps: true)
         NSApp.setActivationPolicy(.accessory)
+    }
+
+    private func installMonitor(model: AppModel) {
+        guard localMonitor == nil else { return }
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .flagsChanged]) { [weak model] event in
+            guard let model else { return event }
+            return MainActor.assumeIsolated {
+                model.handleSettingsShortcut(event)
+            }
+        }
+    }
+
+    private func removeMonitor() {
+        if let localMonitor {
+            NSEvent.removeMonitor(localMonitor)
+            self.localMonitor = nil
+        }
     }
 }

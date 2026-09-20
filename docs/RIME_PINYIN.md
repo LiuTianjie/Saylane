@@ -1,4 +1,4 @@
-# Rime 拼音内核接入（2026-09-09，0.2.55）
+# Rime 拼音内核与输入体验（2026-09-20 更新）
 
 ## 架构
 
@@ -12,9 +12,9 @@ InputMethodKit / AppModel
   → librime 1.17.0（音节切分、组词、排序、选词、用户词库）
 ```
 
-- 候选窗保留现有 9 候选一页、展开、点击、数字选择、方向键和翻页交互。
+- 候选窗保留现有 9 候选一页、展开、点击、数字选择与翻页；上下键选候选，左右/Home/End 编辑组字。
 - 组词与候选选择均使用 Rime session。没有用旧 Swift 解码器再次排序，也没有初始化失败时静默回退到旧引擎。
-- 旧 Swift 拼音解码器已删除。`PinyinSyllable` 只保留音节表，用来区分拼音过程中的输入和英文整词。
+- 旧 Swift 拼音解码器已删除。`PinyinSyllable` 仅保留全拼及未完成音节的识别，用来避免英文整词抢占正常拼音；不再自行跳过字母或替换拼写来模拟纠错。
 - 运行时调用在输入法主线程串行执行；Rime 返回的文本在桥接层复制，原生 context、commit 和 iterator 均及时释放。
 - `applicationWillTerminate` 结束 Rime service，关闭用户词库。跨进程测试验证选词学习可以恢复。
 
@@ -22,7 +22,7 @@ InputMethodKit / AppModel
 
 - `Vendor/Rime/dependencies.lock.json` 固定 librime 1.17.0 官方 macOS universal archive、雾凇词库和 rime-essay 的版本与 SHA-256。
 - 词库采用雾凇 `8105`、`base`、`ext`、`others` 四个表；不复制鼠须管前端，也不加载雾凇整套 Lua 配置。
-- `scripts/rime` 是 Saylane 自己的轻量 Rime 配置。标准/模糊音两套 prism 共用词典及 `saylane` 用户词库；模糊音在精确翻译器之外附加一条统一降权路径：任意模糊对（z/zh、an/ang、in/ing 等）都保持精确拼写的首选，模糊结果只作补充。中文权重 1.2、英文 1.1。还能读成拼音的输入（含中间 1–2 字母笔误）中文纠错在前；不能当拼音的整词英文才可排第一。简拼、ü/v 转换和自动纠错直接用雾凇 `rime_ice.schema.yaml` 已启用的 speller algebra（不含其注释掉的模糊音和旧拼写）。合法音节之间的模糊音仍走开关。表情用雾凇 OpenCC `emoji.json`，作为候选注释显示。选词在整段上屏后写入 `first_is_best.json`，同一串拼音下次置顶。
+- `scripts/rime` 是 Saylane 自己的轻量 Rime 配置。标准/模糊音两套 prism 共用词典及 `saylane` 用户词库；模糊音在精确翻译器之外附加一条统一降权路径：任意模糊对（z/zh、an/ang、in/ing 等）都保持精确拼写的首选，模糊结果只作补充。中文权重 1.2、英文 1.1。能读成全拼的输入保留原生排序；非全拼的整段英文词可提前。原生能够覆盖整段的纠错/简拼候选优先于原始字母；无法覆盖的未知英文仍可直接选择原文。局部选词或移动光标后不插入整段原文候选。简拼、ü/v 转换和自动纠错直接用雾凇 `rime_ice.schema.yaml` 已启用的 speller algebra（不含其注释掉的模糊音和旧拼写）。合法音节之间的模糊音仍走开关。表情用雾凇 OpenCC `emoji.json`，作为候选注释显示。选词学习统一由 Rime 用户词库负责，不再读写前端 `first_is_best.json`。旧 JSON 文件保留原样；此前的原生用户词库继续使用，不清空、不重新训练。
 - 没有搭载额外神经语言模型、octagram、Lua、predict 插件。整句能力来自 Rime 的 script translator 和配套词典，不声称已接入这些扩展。
 - 词后联想暂不支持，设置页已明确提示，不再展示无效开关。保留原联想偏好值，方便以后增加该能力。
 - 拼音运行不发送网络请求。首次源码构建会下载固定依赖，日常输入不下载或编译词库。
@@ -94,3 +94,29 @@ Python 需要支持 `tarfile.extractall(filter='data')`（建议 Python 3.12+）
 
 验证：`scripts/test-rime-updates.sh`（隔离模拟 API；取消、重复点击、固定版本比较和无写入）；
 `build/tests/rime-updates --live "$PWD/Vendor/Rime/Rime"` 可只读验证真实上游 API。
+
+
+## 2026-09-20 输入体验排查
+
+使用同一个 librime 1.17.0 和固定词库，在隔离临时用户目录比较 HEAD 原前端与修复后前端：
+
+| 场景 | 原行为 | 修复后 |
+| --- | --- | --- |
+| `nihao` 后按左键 | 光标不动，候选从 0 跳到末尾 29 | 光标左移一字符，保留候选首项 |
+| Forward Delete | 与 Backspace 相同 | 删除光标后的字符，末尾不删字 |
+| Home | 透传；即使返回 0 光标也被前端改到末尾 | 原生编辑，保留真正的 0 光标 |
+| 选“你”后剩余 `hao` | `你hao` 下划线范围 `{3, 1}` | UTF-8 转 UTF-16，范围 `{1, 3}`；表情前缀也覆盖 |
+| `shagn` / `zhogn` | 原文抢首选 | 原生纠错“上”/“中”在前，原文保留在第一页后部 |
+| 模糊音下 `hello` 加载超过 90 候选 | 英文首选变回“合理了哦” | 每次快照统一排序，保持显示候选与原生索引对应 |
+| `nihao` 后按 `_` | 被误判成减号翻页，组字未提交 | 上屏 `你好_`；`/`、`@`、`0` 同样保证顺序 |
+| 选择“背景” | Rime 学习后再同步写整份置顶 JSON | 仅 Rime 学习；立即再输与跨进程重启均能优先出“背景” |
+
+移除前端猜测“一两字母间隙”和专门 `ign` 修补；这些不是原生拼音解码的可靠替代。中文纠错现在以引擎实际覆盖范围为依据，合法音节表只服务于英文提前规则。首尾翻页/上下选择采用边界停留，避免突然绕回列表另一端。
+
+回归入口：`bash scripts/test-rime.sh`。新增编辑光标、删除方向、汉字/表情 UTF-16 范围、已选前缀保护、纠错首选、扩展候选排序、符号上屏顺序，以及不依赖前端 JSON 的跨进程学习检查。
+
+本轮真实引擎热按键样本 p50 约 0.2 ms、p95 约 0.6 ms；原前端 p95 同为约 0.6 ms，主要收益是行为正确性，不宣称解码速度提升。没有引入新的语言模型，也没有实测豆包准确率。测试输入 `woxiangqxbeijing` 仍可能给出“我想起向北京”，说明长句纠错质量仍受当前词典与原生模型限制。
+
+已完成 `make test` 全部测试、Debug 构建、应用包内 `--pinyin-self-test` 和隔离引擎回归；尚未替换系统安装，也未声称已完成微信、浏览器、编辑器中的真实 IMK 验收。
+
+按键映射对照固定版本上游实现：[navigator.cc](https://github.com/rime/librime/blob/1.17.0/src/rime/gear/navigator.cc)、[editor.cc](https://github.com/rime/librime/blob/1.17.0/src/rime/gear/editor.cc)。

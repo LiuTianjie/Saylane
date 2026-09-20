@@ -4,9 +4,37 @@ import Foundation
 @MainActor
 enum InputDiagnostics {
     private static var entries: [[String: String]] = []
+    private static var pendingWrite: Task<Void, Never>?
+    private static let writer = DiagnosticWriter()
+    private static let formatter = ISO8601DateFormatter()
+
     static func record(_ stage: String, _ detail: String = "") {
-        entries.append(["time": ISO8601DateFormatter().string(from: Date()), "stage": stage, "detail": detail])
+        entries.append(["time": formatter.string(from: Date()), "stage": stage, "detail": detail])
         entries = Array(entries.suffix(60))
+        guard pendingWrite == nil else { return }
+        // Bound write frequency and keep file I/O off the IME/ASR main actor.
+        pendingWrite = Task {
+            try? await Task.sleep(for: .milliseconds(200))
+            let snapshot = entries
+            await writer.persist(snapshot)
+            pendingWrite = nil
+            // Events received during I/O must not be lost if no further event comes.
+            if entries != snapshot { scheduleFlush() }
+        }
+    }
+
+    private static func scheduleFlush() {
+        pendingWrite = Task {
+            let snapshot = entries
+            await writer.persist(snapshot)
+            pendingWrite = nil
+            if entries != snapshot { scheduleFlush() }
+        }
+    }
+}
+
+private actor DiagnosticWriter {
+    func persist(_ entries: [[String: String]]) {
         guard let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return }
         let dir = root.appendingPathComponent("RTranslate/Diagnostics", isDirectory: true)
         do {

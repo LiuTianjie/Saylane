@@ -14,12 +14,18 @@ import Foundation
             precondition(!manifest.directory().path.contains(".app/"))
         }
         precondition(SpeechModel.allCases.count == 5 && SpeechModel.allCases[0] == .apple)
+        precondition(!SpeechModel.apple.emitsLivePartial)
+        for model in SpeechModel.allCases where model.isLocal {
+            precondition(model.emitsLivePartial)
+            precondition(model.preemptsLivePartial == model.isNative)
+        }
         for model in [SpeechModel.senseVoice, .funASRNano] {
             let data = try Data(contentsOf: URL(fileURLWithPath: "Sources/Resources/ASR/\(model.rawValue).json"))
             let manifest = try JSONDecoder().decode(ASRModelManifest.self, from: data)
             try manifest.validate()
             precondition(model.isLocal && model.isNative && !model.isQwen)
-            precondition(model.emitsLivePartial == (model == .senseVoice))
+            precondition(model.emitsLivePartial)
+            precondition(model.preemptsLivePartial)
             precondition(model.supports(locale: Locale(identifier: "zh-CN")))
             precondition(!model.supports(locale: Locale(identifier: "fr-FR")))
         }

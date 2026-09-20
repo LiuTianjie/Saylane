@@ -21,15 +21,18 @@ enum SpeechModel: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .apple: return "系统管理 · 实时组字"
         case .senseVoice: return "约 254 MB · 中英粤日韩 · 边说边出字"
-        case .funASRNano: return "约 954 MB · 中英日 · 松开后出字"
-        case .qwen4bit: return "约 724 MB · 较小体积 · 松开后出字"
-        case .qwen6bit: return "约 873 MB · 较低量化损失 · 松开后出字"
+        case .funASRNano: return "约 954 MB · 中英日 · 边说边出字"
+        case .qwen4bit: return "约 724 MB · 较小体积 · 边说边出字"
+        case .qwen6bit: return "约 873 MB · 较低量化损失 · 边说边出字"
         }
     }
     var isQwen: Bool { self == .qwen4bit || self == .qwen6bit }
     var isLocal: Bool { self != .apple }
     var isNative: Bool { self == .senseVoice || self == .funASRNano }
-    var emitsLivePartial: Bool { self == .senseVoice }
+    var emitsLivePartial: Bool { isLocal }
+    /// Native CLI jobs can be killed mid-preview. The Qwen worker must drain, or cancel would SIGKILL the process.
+    var preemptsLivePartial: Bool { isNative }
+    var livePartialPoll: Duration { self == .funASRNano ? .milliseconds(450) : .milliseconds(280) }
     var repository: String {
         switch self {
         case .apple: return ""
@@ -159,7 +162,7 @@ enum SpeechHotwords {
         let aliases: [String]
     }
 
-    static func entries(_ raw: String) -> [Entry] {
+    static func entries(_ raw: String, limit: Int? = 50) -> [Entry] {
         var seen = Set<String>()
         var result: [Entry] = []
         for line in raw.components(separatedBy: CharacterSet(charactersIn: "\n,，;；")) {
@@ -170,7 +173,7 @@ enum SpeechHotwords {
             var aliases: [String] = []
             for alias in parts.dropFirst() where alias != canonical && !aliases.contains(alias) { aliases.append(alias) }
             result.append(Entry(canonical: canonical, aliases: aliases))
-            if result.count == 50 { break }
+            if let limit, result.count == limit { break }
         }
         return result
     }
@@ -178,8 +181,10 @@ enum SpeechHotwords {
     /// Recognizer bias uses only the canonical spellings.
     static func terms(_ raw: String) -> [String] { entries(raw).map(\.canonical) }
 
-    static func context(_ raw: String) -> String? {
-        let result = String(terms(raw).joined(separator: "、").prefix(1000))
+    static func context(_ raw: String) -> String? { context(terms: terms(raw)) }
+
+    static func context(terms: [String]) -> String? {
+        let result = String(terms.joined(separator: "、").prefix(1000))
         return result.isEmpty ? nil : result
     }
 }

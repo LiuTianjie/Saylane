@@ -9,11 +9,13 @@ struct FinalPolishSettingsView: View {
 
     var body: some View {
         @Bindable var model = model
-        Section {
+        SettingsSection {
             Toggle("自动修正口误", isOn: $model.dictationCleanupEnabled)
                 .help("去掉嗯、呃和口吃重复；「不对，我是说…」「不是 A，是 B」直接写成改正后的内容。标记词必须独立成句，「不对称」「这个答案不对，我们再看看」不会被改。")
+            Toggle("常见术语", isOn: $model.dictationGlossaryEnabled)
+                .help("数学、科学、计算机、编程、生物化学和互联网热词。识别后按读音或拼写改回标准写法；人名和你们自己的词仍用个人词库。不含微信、翻译这类同音日常词。开启时每天从中文维基百科、维基词典的分类标题补新词（CC BY-SA）。")
             Toggle("个人词库", isOn: $model.speechHotwordsEnabled)
-                .help("识别后按读音或拼写改成词库写法；Apple 和 Qwen 识别时也优先考虑这些词。中文按拼音匹配并容忍 z/zh、n/l、in/ing；英文容忍少量拼写差异。最多 50 个。")
+                .help("人名、公司名和你们自己的词。识别后按读音或拼写改成词库写法；Apple 和 Qwen 识别时也优先考虑。中文按拼音匹配并容忍 z/zh、n/l、in/ing；英文容忍少量拼写差异。最多 50 个，排在常见术语前面。")
             if model.speechHotwordsEnabled {
                 TextField("每行一个词；常被听错的写法用 | 标在后面，如 Saylane|赛兰|塞蓝", text: $model.speechHotwords, axis: .vertical)
                     .lineLimit(3...8)
@@ -23,11 +25,11 @@ struct FinalPolishSettingsView: View {
         } header: {
             Text("本地修正")
         } footer: {
-            Text("在本机同步完成，不联网，边说边生效。识别结果先经过这里，再交给大模型。")
+            Text("口误、术语和个人词库均在本机修正。常见术语每日从维基百科和维基词典更新（CC BY-SA），不上传语音。")
         }
         .disabled(model.isListening)
 
-        Section {
+        SettingsSection {
             Toggle("语音输入", isOn: $model.finalPolishEnabled)
                 .help("说写语言相同时只修同音错字、口误和标点，不改措辞；需要翻译时用整句原文修正译文")
             Toggle("截屏翻译", isOn: $model.screenPolishEnabled)
@@ -35,14 +37,20 @@ struct FinalPolishSettingsView: View {
         } header: {
             Text("大模型校对")
         } footer: {
-            Text("松手后调用一次，本地结果先上屏，模型返回后替换。失败、超过 8 秒或改动过大都保留本地结果。只发送文字。")
+            Text("仅发送文字进行校对。先显示本地结果，校对成功后更新；失败、超时或改动过大时保留原文。")
         }
         .disabled(model.isListening)
 
-        Section {
-            TextField("接口地址", text: $model.finalPolishEndpoint, prompt: Text("https://…/v1/chat/completions"))
-            TextField("模型", text: $model.finalPolishModel, prompt: Text("模型 ID"))
-            SecureField("API Key", text: $key, prompt: Text(configuration?.isLocal == true ? "本机服务可不填" : "不回显已保存的密钥"))
+        SettingsSection {
+            LabeledContent("接口地址") {
+                TextField("接口地址", text: $model.finalPolishEndpoint, prompt: Text("https://…/v1/chat/completions")).labelsHidden().frame(maxWidth: 320)
+            }
+            LabeledContent("模型") {
+                TextField("模型", text: $model.finalPolishModel, prompt: Text("模型 ID")).labelsHidden().frame(maxWidth: 320)
+            }
+            LabeledContent("API Key") {
+                SecureField("API Key", text: $key, prompt: Text(configuration?.isLocal == true ? "本机服务可不填" : "不回显已保存的密钥")).labelsHidden().frame(maxWidth: 320)
+            }
             LabeledContent("密钥") {
                 HStack(spacing: 8) {
                     if let notice { Text(notice).font(.system(size: 12)).foregroundStyle(.secondary) }

@@ -1,8 +1,8 @@
 import Foundation
 
 /// Deterministic, on-device post-processing for dictated text. No model, no network.
-/// It runs on every live hypothesis and on the final utterance, so it must stay cheap
-/// and must never invent content: it only drops fillers and stutters, applies the
+/// It runs only on the final utterance; revisable hypotheses remain untouched.
+/// It only drops fillers and stutters, applies the
 /// speaker's own spoken corrections ("不对，我是说…" / "no, I mean…") and normalizes punctuation.
 enum DictationCleanup {
     struct Options: Sendable {

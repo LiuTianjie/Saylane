@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let model = AppModel.shared
             if CommandLine.arguments.count > idx + 2, CommandLine.arguments[idx + 2] == "all" {
                 let base = (path as NSString).deletingPathExtension
-                for tab in 0...4 {
+                for tab in 0...5 {
                     model.settingsTab = tab
                     PreviewSnapshot.takeSnapshot(model: model, path: "\(base)-\(tab).png")
                 }
@@ -42,6 +42,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let idx = CommandLine.arguments.firstIndex(of: "--waveform-snapshot"), idx + 1 < CommandLine.arguments.count {
             let path = CommandLine.arguments[idx + 1]
             PreviewSnapshot.takeWaveformSnapshot(path: path)
+            NSApp.terminate(nil)
+            return
+        }
+        if let idx = CommandLine.arguments.firstIndex(of: "--setup-snapshot"), idx + 1 < CommandLine.arguments.count {
+            let path = CommandLine.arguments[idx + 1]
+            PreviewSnapshot.takeSetupSnapshot(model: AppModel.shared, path: path)
             NSApp.terminate(nil)
             return
         }
@@ -61,7 +67,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        AppModel.shared.openSettings()
+        if !AppModel.shared.setupCompleted {
+            AppModel.shared.beginSetup()
+        } else {
+            AppModel.shared.openSettings()
+        }
         return true
     }
 

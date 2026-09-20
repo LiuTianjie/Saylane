@@ -5,19 +5,13 @@ import AppKit
 @MainActor
 enum PreviewSnapshot {
     static func takeSnapshot(model: AppModel, path: String) {
-        let view = SettingsView()
-            .environment(model)
-            .frame(width: 780, height: 640)
-        
-        let renderer = ImageRenderer(content: view)
-        renderer.scale = 2.0
-        if let nsImage = renderer.nsImage,
-           let tiffData = nsImage.tiffRepresentation,
-           let bitmap = NSBitmapImageRep(data: tiffData),
-           let pngData = bitmap.representation(using: .png, properties: [:]) {
-            try? pngData.write(to: URL(fileURLWithPath: path))
-            print("Settings snapshot successfully written to \(path)")
-        }
+        write(SettingsView().environment(model).frame(width: 880, height: 680), to: path, label: "Settings")
+    }
+
+    static func takeSetupSnapshot(model: AppModel, path: String) {
+        model.isShowingSetup = true
+        model.settingsTab = 0
+        write(SettingsView().environment(model).frame(width: 880, height: 680), to: path, label: "Setup")
     }
 
     static func takeWaveformSnapshot(path: String) {
@@ -27,10 +21,11 @@ enum PreviewSnapshot {
             let s = sin(Double(i) * 0.28)
             return Float(abs(s) * 0.85 + 0.1)
         }
-        let view = OverlayView(model: overlayModel)
-            .padding(24)
-            .background(Color.black.opacity(0.15))
-        
+        write(OverlayView(model: overlayModel).padding(24).background(Color.black.opacity(0.15)),
+              to: path, label: "Waveform")
+    }
+
+    private static func write<V: View>(_ view: V, to path: String, label: String) {
         let renderer = ImageRenderer(content: view)
         renderer.scale = 2.0
         if let nsImage = renderer.nsImage,
@@ -38,7 +33,7 @@ enum PreviewSnapshot {
            let bitmap = NSBitmapImageRep(data: tiffData),
            let pngData = bitmap.representation(using: .png, properties: [:]) {
             try? pngData.write(to: URL(fileURLWithPath: path))
-            print("Waveform snapshot successfully written to \(path)")
+            print("\(label) snapshot successfully written to \(path)")
         }
     }
 }

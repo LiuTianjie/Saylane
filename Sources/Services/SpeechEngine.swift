@@ -4,7 +4,7 @@ import Speech
 
 @MainActor
 final class SpeechEngine: SpeechRecognizing {
-    var onPartial: ((String) -> Void)?
+    var onPartial: ((SpeechHypothesis) -> Void)?
 
     private var transcriber: SpeechTranscriber?
     private var analyzer: SpeechAnalyzer?
@@ -13,6 +13,7 @@ final class SpeechEngine: SpeechRecognizing {
     private let converter = BufferConverter()
     private var analyzerFormat: AVAudioFormat?
     private var finalized = ""
+    private var hasAudioSignal = false
     private var generation = 0
     private let contextualStrings: [String]
 
@@ -48,6 +49,7 @@ final class SpeechEngine: SpeechRecognizing {
         guard let locale = await Self.resolvedLocale(for: locale) else { throw SpeechEngineError.unsupportedLocale }
         try Task.checkCancellation()
         finalized = ""
+        hasAudioSignal = false
         generation += 1
         let token = generation
 
@@ -87,14 +89,13 @@ final class SpeechEngine: SpeechRecognizing {
             do {
                 for try await result in transcriber.results {
                     guard token == self.generation else { return }
+                    guard self.hasAudioSignal else { continue }
                     let text = String(result.text.characters)
                     if result.isFinal {
                         self.finalized += text
-                        let snapshot = self.finalized
-                        self.onPartial?(snapshot)
+                        self.onPartial?(SpeechHypothesis(stableText: self.finalized))
                     } else {
-                        let snapshot = self.finalized + text
-                        self.onPartial?(snapshot)
+                        self.onPartial?(SpeechHypothesis(stableText: self.finalized, volatileText: text))
                     }
                 }
             } catch {
@@ -109,6 +110,7 @@ final class SpeechEngine: SpeechRecognizing {
         guard let analyzerFormat, let inputBuilder else { return }
         do {
             let converted = try converter.convertBuffer(buffer, to: analyzerFormat)
+            hasAudioSignal = hasAudioSignal || AudioLevel.hasSignal(in: converted)
             let input: AVAudioPCMBuffer
             if converted === buffer {
                 guard let copy = PCMCopy.copy(buffer) else { return }
@@ -123,6 +125,12 @@ final class SpeechEngine: SpeechRecognizing {
     }
 
     func finish() async throws -> String {
+        // SpeechAnalyzer can hallucinate words on all-zero audio. Cancel rather
+        // than accepting a final transcript for a recording with no signal.
+        if !hasAudioSignal {
+            await cancel()
+            return ""
+        }
         // Keep accepting final results until the analyzer and result stream drain.
         inputBuilder?.finish()
         if let analyzer {
@@ -152,6 +160,7 @@ final class SpeechEngine: SpeechRecognizing {
         inputBuilder = nil
         analyzerFormat = nil
         finalized = ""
+        hasAudioSignal = false
     }
 
     private static func ensureModel(for transcriber: SpeechTranscriber, locale: Locale) async throws {

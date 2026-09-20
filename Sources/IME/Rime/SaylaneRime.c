@@ -67,6 +67,7 @@ SLRimeSnapshot SLRimeRead(SLSession s, size_t limit) {
     SLRimeSnapshot result = {0};
     const char *input = api->get_input(s);
     result.input = strdup(input ? input : "");
+    result.input_cursor = api->get_caret_pos(s);
     RIME_STRUCT(RimeContext, context);
     if (api->get_context(s, &context)) {
         result.preedit = strdup(context.composition.preedit ? context.composition.preedit : "");

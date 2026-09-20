@@ -101,7 +101,7 @@ import Darwin
                 return 0
             }
             if let index = arguments.firstIndex(of: "--recognize-file"), arguments.count > index + 1 {
-                let file = try AVAudioFile(forReading: URL(fileURLWithPath: arguments[index + 1]))
+                let fileURL = URL(fileURLWithPath: arguments[index + 1])
                 let locale = arguments.count > index + 2 && !arguments[index + 2].hasPrefix("--") ? arguments[index + 2] : "zh-CN"
                 let variant: SpeechModel
                 if let modelIndex = arguments.firstIndex(of: "--speech-model") {
@@ -114,19 +114,30 @@ import Darwin
                 if let hotwordsIndex = arguments.firstIndex(of: "--speech-hotwords"), arguments.count > hotwordsIndex + 1 {
                     context = variant.isQwen ? SpeechHotwords.context(arguments[hotwordsIndex + 1]) : nil
                 } else { context = nil }
-                let engine: any SpeechRecognizing = variant == .apple ? SpeechEngine() : QwenSpeechEngine(variant: variant, context: context)
-                var partialCount = 0
-                engine.onPartial = { _ in partialCount += 1 }
-                try await engine.begin(locale: Locale(identifier: locale))
-                while file.framePosition < file.length {
-                    guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 2048) else { throw SpeechEngineError.invalidFormat }
-                    try file.read(into: buffer)
-                    try engine.feed(buffer)
-                    await Task.yield()
+                var repetitions = 1
+                if let repeatIndex = arguments.firstIndex(of: "--asr-repeat") {
+                    guard arguments.count > repeatIndex + 1,
+                          let count = Int(arguments[repeatIndex + 1]), (1...20).contains(count) else { return 2 }
+                    repetitions = count
                 }
-                let result = try await engine.finish()
-                print("partials=\(partialCount)\nfinal=\(result)")
-                return result.isEmpty ? 1 : 0
+                let reports = try await SpeechFileBenchmark.run(fileURL: fileURL, locale: Locale(identifier: locale),
+                    model: variant.rawValue, realtime: arguments.contains("--realtime"), repetitions: repetitions) {
+                    if variant == .apple { return SpeechEngine() }
+                    return QwenSpeechEngine(variant: variant, context: context, runtime: QwenRuntime.shared)
+                }
+                if let reportIndex = arguments.firstIndex(of: "--asr-report") {
+                    guard arguments.count > reportIndex + 1 else { return 2 }
+                    let encoder = JSONEncoder()
+                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                    try encoder.encode(reports).write(to: URL(fileURLWithPath: arguments[reportIndex + 1]), options: .atomic)
+                }
+                for report in reports {
+                    print("partials=\(report.hypothesisCount)\nfinal=\(report.text)")
+                    print(String(format: "run=%d setup=%.1fms first=%.1fms finish=%.1fms revised=%d",
+                                 report.iteration, report.setupMS, report.firstHypothesisMS ?? -1,
+                                 report.finalizeMS, report.revisedCharacterCount))
+                }
+                return reports.last?.text.isEmpty == false ? 0 : 1
             }
             if arguments.contains("--translation-check") {
                 let engine = TranslationEngine()

@@ -1,59 +1,84 @@
 import SwiftUI
 import Translation
 
-/// Settings follow the System Settings idiom: a plain sidebar, grouped forms, one accent
-/// colour and one short footer per group. Details live in tooltips, not in the layout.
+/// A quiet sidebar and aligned setting rows, shared with the first-run experience.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
-    @FocusState private var testFocused: Bool
     @AppStorage("screenFontWeightExperiment") private var fontWeightExperiment = true
     @State private var deletingSpeechModel: SpeechModel?
+    var initialSetupStep = 0
 
     private struct Tab: Identifiable, Hashable {
         let id: Int
         let title: String
         let symbol: String
-        let color: Color
     }
     private static let tabs: [Tab] = [
-        Tab(id: 1, title: "语音输入", symbol: "mic.fill", color: .blue),
-        Tab(id: 4, title: "截屏翻译", symbol: "text.viewfinder", color: .indigo),
-        Tab(id: 3, title: "AI 修正", symbol: "wand.and.stars", color: .purple),
-        Tab(id: 2, title: "本地模型", symbol: "cpu", color: .gray),
-        Tab(id: 0, title: "开始使用", symbol: "checkmark.circle.fill", color: .green),
+        Tab(id: 1, title: "语音输入", symbol: "mic"),
+        Tab(id: 5, title: "键盘输入", symbol: "keyboard"),
+        Tab(id: 4, title: "截屏翻译", symbol: "text.viewfinder"),
+        Tab(id: 3, title: "文字修正", symbol: "wand.and.stars"),
+        Tab(id: 2, title: "本地模型", symbol: "square.stack.3d.up"),
+        Tab(id: 0, title: "权限管理", symbol: "lock"),
     ]
     private var currentTab: Tab { Self.tabs.first { $0.id == model.settingsTab } ?? Self.tabs[0] }
 
     var body: some View {
         @Bindable var model = model
-        NavigationSplitView {
-            List(selection: Binding(get: { model.settingsTab }, set: { model.settingsTab = $0 ?? 1 })) {
-                ForEach(Self.tabs) { tab in
-                    Label { Text(tab.title) } icon: { SettingsGlyph(symbol: tab.symbol, color: tab.color) }
-                        .tag(tab.id)
+        Group {
+            if model.isShowingSetup {
+                OnboardingView(initialStep: initialSetupStep)
+            } else {
+                HStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        SaylaneBrand().padding(.horizontal, 16).padding(.top, 27).padding(.bottom, 22)
+                        ForEach(Self.tabs) { tab in
+                            SettingsNavigationButton(title: tab.title, symbol: tab.symbol,
+                                                     selected: model.settingsTab == tab.id) {
+                                model.settingsTab = tab.id
+                            }
+                        }
+                        Spacer(minLength: 24)
+                        sidebarFooter
+                    }
+                    .padding(.horizontal, 10)
+                    .frame(width: 204)
+                    .background(Theme.sidebarBackground)
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(currentTab.title)
+                            .font(.system(size: 18, weight: .semibold))
+                            .padding(.horizontal, 30).padding(.top, 28).padding(.bottom, 20)
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 20) {
+                                if let error = model.lastError { errorBanner(error) }
+                                switch model.settingsTab {
+                                case 0: setup
+                                case 1: voice
+                                case 2: models
+                                case 3: FinalPolishSettingsView()
+                                case 4: screen
+                                case 5: keyboard
+                                default: voice
+                                }
+                            }
+                            .padding(.horizontal, 26).padding(.bottom, 28)
+                            .frame(maxWidth: 760)
+                            .frame(maxWidth: .infinity)
+                        }
+                        .id(model.settingsTab)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .background(Theme.settingsBackground)
                 }
             }
-            .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 176, ideal: 188, max: 220)
-            .safeAreaInset(edge: .bottom) { sidebarFooter }
-        } detail: {
-            Form {
-                if let error = model.lastError { errorBanner(error) }
-                switch model.settingsTab {
-                case 1: voice
-                case 2: models
-                case 3: FinalPolishSettingsView()
-                case 4: screen
-                default: setup
-                }
-            }
-            .formStyle(.grouped)
-            .navigationTitle(currentTab.title)
-            .frame(maxWidth: 640)
         }
-        .navigationSplitViewStyle(.balanced)
-        .frame(minWidth: 720, minHeight: 520)
-        .tint(.accentColor)
+        .font(.system(size: 13))
+        .toggleStyle(SettingsToggleStyle())
+        .labeledContentStyle(SettingsLabeledContentStyle())
+        .controlSize(.regular)
+        .tint(Theme.accent)
+        .frame(minWidth: 780, minHeight: 600)
         .translationTask(model.translationConfiguration) { session in
             await model.handleTranslationSession(session)
         }
@@ -81,18 +106,36 @@ struct SettingsView: View {
     }
 
     private var sidebarFooter: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            StatusText(text: model.ready ? "已就绪" : "待完成设置", ready: model.ready)
-            Text("Saylane \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
-                .font(.system(size: 11)).foregroundStyle(.tertiary)
+        VStack(alignment: .leading, spacing: 12) {
+            Button { model.beginSetup() } label: {
+                HStack(spacing: 9) {
+                    Image(systemName: "list.bullet.rectangle").font(.system(size: 15))
+                        .accessibilityHidden(true)
+                    Text(model.setupCompleted ? "使用引导" : "完成设置")
+                        .font(.system(size: 13, weight: .semibold))
+                    Spacer(minLength: 4)
+                    Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold))
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 14)
+                .frame(height: 44)
+            }
+            .buttonStyle(SettingsGuideButtonStyle())
+            .accessibilityHint("打开 Saylane 的设置引导和语音试用")
+            VStack(alignment: .leading, spacing: 8) {
+                StatusText(text: model.ready ? "已就绪" : "待完成设置", ready: model.ready)
+                Text("Saylane \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
+                    .font(.system(size: 11)).foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 10)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 2)
         .padding(.vertical, 12)
     }
 
     private func errorBanner(_ error: String) -> some View {
-        Section {
+        SettingsSection {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 Text(error).font(.system(size: 12)).textSelection(.enabled)
@@ -109,17 +152,26 @@ struct SettingsView: View {
         @Bindable var model = model
         let modes = TranslationDirection.voiceModes(a: model.pairSource, b: model.pairTarget)
         let busy = model.isListening || model.isPreparingModels
-        Section {
-            Picker("我说", selection: $model.pairSource) {
-                ForEach(AppLanguage.allCases) { Text($0.displayName).tag($0) }
+        SettingsSection {
+            LabeledContent("我说") {
+                Picker("我说", selection: $model.pairSource) {
+                    ForEach(AppLanguage.allCases) { Text($0.displayName).tag($0) }
+                }
+                .labelsHidden()
             }
-            Picker("写成", selection: $model.pairTarget) {
-                ForEach(AppLanguage.allCases) { Text($0.displayName).tag($0) }
+            LabeledContent("写成") {
+                Picker("写成", selection: $model.pairTarget) {
+                    ForEach(AppLanguage.allCases) { Text($0.displayName).tag($0) }
+                }
+                .labelsHidden()
             }
-            Picker("当前", selection: Binding(get: { model.currentDirection }, set: { model.setVoiceMode($0) })) {
-                ForEach(modes) { Text($0.compactTitle).tag($0) }
+            LabeledContent("当前") {
+                Picker("当前", selection: Binding(get: { model.currentDirection }, set: { model.setVoiceMode($0) })) {
+                    ForEach(modes) { Text($0.compactTitle).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
             }
-            .pickerStyle(.segmented)
         } header: {
             Text("语言")
         } footer: {
@@ -127,13 +179,19 @@ struct SettingsView: View {
         }
         .disabled(busy)
 
-        Section {
-            Picker("触发", selection: $model.tapToTalk) {
-                Text("按住说话").tag(false)
-                Text("点按开始").tag(true)
+        SettingsSection {
+            LabeledContent("触发") {
+                Picker("触发", selection: $model.tapToTalk) {
+                    Text("按住说话").tag(false)
+                    Text("点按开始").tag(true)
+                }
+                .labelsHidden()
             }
-            Picker("快捷键", selection: $model.pushToTalk) {
-                ForEach(PushToTalkHotkey.allCases) { Text($0.displayName).tag($0) }
+            LabeledContent("快捷键") {
+                Picker("快捷键", selection: $model.pushToTalk) {
+                    ForEach(PushToTalkHotkey.allCases) { Text($0.displayName).tag($0) }
+                }
+                .labelsHidden()
             }
             Toggle("双击右 ⌘ 切换方向", isOn: $model.languageSwitchEnabled)
             Toggle("说话时显示底部声波", isOn: $model.overlayEnabled)
@@ -144,7 +202,10 @@ struct SettingsView: View {
         }
         .disabled(model.isListening)
 
-        Section {
+    }
+
+    @ViewBuilder private var keyboard: some View {
+        SettingsSection {
             LabeledContent("当前模式") {
                 HStack(spacing: 10) {
                     Text(model.pinyinEnglishMode ? "英文键盘" : "拼音中文").foregroundStyle(.secondary)
@@ -162,7 +223,7 @@ struct SettingsView: View {
         } header: {
             Text("拼音")
         } footer: {
-            Text("Rime 拼音：空格上屏、数字改词、Shift 切中英；中文模式可直接出英文单词。")
+            Text("空格确认，数字选词，Shift 切换中英文。中文模式也能直接输入英文单词。")
         }
         .disabled(model.isListening)
     }
@@ -171,7 +232,7 @@ struct SettingsView: View {
 
     @ViewBuilder private var screen: some View {
         @Bindable var model = model
-        Section {
+        SettingsSection {
             LabeledContent("划选") { Text("按住左 ⌃ 约 0.3 秒后拖动").foregroundStyle(.secondary) }
             LabeledContent("额外快捷键") {
                 Button {
@@ -190,7 +251,7 @@ struct SettingsView: View {
             Text("松开鼠标即翻译，松开 ⌃ 取消。划选或钉住时双击右 ⌘ 切换方向，不影响说话。")
         }
 
-        Section {
+        SettingsSection {
             Toggle("本地字重识别", isOn: $fontWeightExperiment)
                 .help("实验功能：按原图字形判断粗细，可能漏识别小字号粗体；更改后下次划选生效")
             LabeledContent("大模型润色") {
@@ -199,10 +260,10 @@ struct SettingsView: View {
         } header: {
             Text("译文")
         } footer: {
-            Text("大模型润色在「AI 修正」中统一设置。截图不会上传。")
+            Text("大模型润色在「文字修正」中统一设置。截图不会上传。")
         }
 
-        Section {
+        SettingsSection {
             LabeledContent("屏幕录制") {
                 if model.permissions.screenCaptureGranted {
                     StatusText(text: "已允许，只截你划出的区域", ready: true)
@@ -215,112 +276,33 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - 开始使用
+    // MARK: - 权限
 
     @ViewBuilder private var setup: some View {
-        @Bindable var model = model
-        Section {
-            if let blocker = model.readiness.blocker {
-                Label(blocker.message, systemImage: "exclamationmark.circle.fill")
-                    .foregroundStyle(.orange)
-                    .font(.system(size: 12.5))
-            }
-            checkRow("麦克风", detail: model.permissions.microphone == .granted ? "仅听写时采集" : model.permissions.microphone == .denied ? "在系统里被拒绝了" : "还没授权", ready: model.permissions.microphone == .granted) {
-                Button(model.permissions.isRequestingMicrophone ? "等待授权…" : model.permissions.microphone == .denied ? "前往授权" : "允许") {
-                    Task { await model.requestMicrophonePermission() }
-                }.disabled(model.permissions.isRequestingMicrophone)
-            }
-            checkRow("输入法", detail: model.inputSourceSelected ? "已选中 Saylane" : model.inputSourceEnabled ? "已启用，按快捷键会自动选中" : model.inputSourceInstalled ? "已安装，尚未启用" : "系统还没发现组件", ready: model.inputSourceEnabled) {
-                Button(model.isActivatingInputSource ? "等待启用…" : model.inputSourceEnabled ? "选中" : "启用") { model.enableInputSource() }
-                    .disabled(model.isActivatingInputSource || !model.installationPathValid)
-            }
-            checkRow("模型", detail: model.speechModelReady && model.translationModelReady ? "当前语言已就绪" : "按所选语言下载", ready: model.speechModelReady && model.translationModelReady) {
-                Button("去下载") { model.settingsTab = 2 }
-            }
-            checkRow("全局唤醒", detail: model.globalHotkeyActive ? "其它输入法下也能按快捷键说话" : model.permissions.inputMonitoringGranted ? "权限有了，监听还没接上" : "需要输入监控权限", ready: model.globalHotkeyActive) {
-                Button(model.permissions.inputMonitoringGranted ? "重新接入" : "允许") { model.requestInputMonitoring() }
-            }
-        } header: {
-            Text("准备")
-        } footer: {
-            HStack {
-                if !model.installationPathValid {
-                    Text("这是未安装的构建副本，请用安装包装到系统输入法目录。").foregroundStyle(.orange)
-                }
-                Spacer()
-                Button("打开系统输入法设置") { InputSourceInstall.openSystemInputSourceSettings() }
-                    .buttonStyle(.link).font(.system(size: 12))
-            }
-        }
-
-        Section {
-            TextEditor(text: $model.testText)
-                .focused($testFocused)
-                .font(.system(size: 16, design: .rounded))
-                .frame(height: 96)
-                .scrollContentBackground(.hidden)
-                .accessibilityLabel("听写测试输入框")
-            HStack {
-                Button {
-                    if model.ready { testFocused = true }
-                    else if model.permissions.microphone == .denied {
-                        Task { await model.requestMicrophonePermission() }
-                    } else { model.beginSetup() }
-                } label: {
-                    HStack(spacing: 6) {
-                        if model.isSetupRunning { ProgressView().controlSize(.small) }
-                        Text(model.isSetupRunning ? "正在完成…" : model.ready ? "试说一句" : model.permissions.microphone == .denied ? "去允许麦克风" : "继续设置")
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(model.isSetupRunning || model.permissions.isRequestingMicrophone)
-                Spacer()
-                Button("清空") { model.coordinator.cancel(); model.testText = "" }.buttonStyle(.link)
-            }
-        } header: {
-            Text("试一下")
-        } footer: {
-            Text(model.completedSessions > 0
-                 ? "点进输入框，按住 \(model.pushToTalk.shortLabel) 说一句。已提交 \(model.completedSessions) 次。"
-                 : "点进输入框，按住 \(model.pushToTalk.shortLabel) 说一句；当前是\(model.currentDirection.title)。")
-        }
-    }
-
-    private func checkRow<Action: View>(_ title: String, detail: String, ready: Bool, @ViewBuilder action: () -> Action) -> some View {
-        LabeledContent {
-            if ready {
-                StatusText(text: detail, ready: true)
-            } else {
-                HStack(spacing: 10) {
-                    Text(detail).foregroundStyle(.secondary).font(.system(size: 12))
-                    action().controlSize(.small)
-                }
-            }
-        } label: {
-            Text(title)
-        }
+        PermissionsSettingsView()
+        DictationTrialView()
     }
 
     // MARK: - 本地模型
 
     @ViewBuilder private var models: some View {
         @Bindable var model = model
-        Section {
+        SettingsSection {
             LabeledContent("语音") { StatusText(text: model.speechModelDetail, ready: model.speechModelReady) }
             LabeledContent("翻译") { StatusText(text: model.translationModelDetail, ready: model.translationModelReady) }
         } header: {
             Text("状态")
         }
 
-        Section {
+        SettingsSection {
             ForEach(SpeechModel.allCases) { speechModelRow($0) }
         } header: {
             Text("识别模型")
         } footer: {
-            Text("权重按需下载，可分别删除。SenseVoice 边说边刷新预览，Fun-ASR-Nano 与 Qwen 松开后出字；每次最多 30 秒。")
+            Text("权重按需下载，可分别删除。本地模型按住说话时刷新预览，松开后再出最终结果；每次最多 30 秒。")
         }
 
-        Section {
+        SettingsSection {
             Toggle("仅识别，不翻译", isOn: $model.recognitionOnly)
                 .disabled(model.isListening || model.isChecking || model.isPreparingModels)
                 .help("口误修正、个人词库和大模型校对不受影响")

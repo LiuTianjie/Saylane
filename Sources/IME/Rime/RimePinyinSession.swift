@@ -27,16 +27,15 @@ final class RimePinyinSession {
     private var singleQuoteOpen = false
     private var candidateLimit = 90
     private var hasMore = false
-    private let pinnedURL: URL
-    private var pinned: [String: String]
+    private var inputCaret = 0
+    private var canRankWholeInput = false
+    private var engineCoversInput = false
     var onModeChange: ((Bool) -> Void)?
 
     init(runtime: RimeRuntime, englishMode: Bool = false, fuzzyEnabled: Bool = false) throws {
         native = try runtime.makeSession(fuzzy: fuzzyEnabled)
         self.englishMode = englishMode
         self.fuzzyEnabled = fuzzyEnabled
-        pinnedURL = runtime.userData.appendingPathComponent("first_is_best.json")
-        pinned = Self.loadPinned(pinnedURL)
     }
 
     deinit { SLRimeDestroy(native) }
@@ -76,9 +75,26 @@ final class RimePinyinSession {
             guard isComposing else { return false }
             cancel()
             return true
-        case kVK_Delete, kVK_ForwardDelete:
+        case kVK_Delete:
             guard isComposing else { return false }
             _ = process(0xff08) // X11 BackSpace, the codes used by librime's C API.
+            return true
+        case kVK_ForwardDelete:
+            guard isComposing else { return false }
+            _ = process(0xffff) // X11 Delete, not BackSpace.
+            return true
+        case kVK_LeftArrow, kVK_RightArrow, kVK_Home, kVK_End:
+            guard isComposing else { return false }
+            // Rime owns editing and confirmed segments. Use character movement;
+            // prevent its default wrap from jumping across the whole composition.
+            switch Int(event.keyCode) {
+            case kVK_LeftArrow:
+                if inputCaret > 0 { _ = process(0xff96) } // KP_Left
+            case kVK_RightArrow:
+                if inputCaret < preedit.utf8.count { _ = process(0xff98) } // KP_Right
+            case kVK_Home: _ = process(0xff50)
+            default: _ = process(0xff57)
+            }
             return true
         case kVK_Return, kVK_ANSI_KeypadEnter:
             guard isComposing else { englishPunctAfterDigit = false; return false }
@@ -92,11 +108,11 @@ final class RimePinyinSession {
             guard isComposing else { englishPunctAfterDigit = false; return false }
             if showsCandidates { selectCandidate(at: highlighted) } else { commitRawInput() }
             return true
-        case kVK_LeftArrow, kVK_UpArrow:
+        case kVK_UpArrow:
             guard showsCandidates else { return false }
             moveHighlight(-1)
             return true
-        case kVK_RightArrow, kVK_DownArrow:
+        case kVK_DownArrow:
             guard showsCandidates else { return false }
             moveHighlight(1)
             return true
@@ -109,11 +125,11 @@ final class RimePinyinSession {
         if showsCandidates {
             // Default paging keys: minus/equal and PageUp/Down.
             // Other punctuation always commits, then inserts.
-            if [kVK_PageDown, kVK_ANSI_Equal, kVK_ANSI_KeypadPlus].contains(Int(event.keyCode)) || ["+", "="].contains(event.characters) {
+            if Int(event.keyCode) == kVK_PageDown || ["+", "="].contains(event.characters) {
                 pageCandidates(1)
                 return true
             }
-            if [kVK_PageUp, kVK_ANSI_Minus, kVK_ANSI_KeypadMinus].contains(Int(event.keyCode)) || ["-"].contains(event.characters) {
+            if Int(event.keyCode) == kVK_PageUp || event.characters == "-" {
                 pageCandidates(-1)
                 return true
             }
@@ -133,19 +149,23 @@ final class RimePinyinSession {
             englishPunctAfterDigit = false
             return true
         }
+        // Printable symbols without a Chinese mapping (/, @, _, 0, …) must
+        // follow the composition, rather than reach the client ahead of it.
+        if isComposing, event.characters.utf8.count == 1,
+           let byte = event.characters.utf8.first, (33...126).contains(byte) {
+            commit()
+            pendingCommit += event.characters
+            englishPunctAfterDigit = false
+            return true
+        }
         return false
     }
 
     func selectCandidate(at index: Int) {
         guard candidates.indices.contains(index) else { return }
-        let typed = preedit.lowercased().filter(\.isLetter)
-        let word = candidates[index].word
+        // The native user dictionary learns both complete and partial selections.
         acceptDisplayedCandidate(at: index)
         refresh()
-        if !isComposing, typed.count >= 2, !word.isEmpty {
-            pinned[typed] = word
-            savePinned()
-        }
     }
 
     func commit() {
@@ -245,17 +265,22 @@ final class RimePinyinSession {
             pendingCommit += String(cString: text)
             SLRimeFreeString(text)
         }
+        let previousChoice = candidates.indices.contains(highlighted) ? candidates[highlighted] : nil
         if resetHighlight { candidateLimit = 90; highlighted = 0 }
         var snapshot = SLRimeRead(native, candidateLimit)
         defer { SLRimeFreeSnapshot(&snapshot) }
         preedit = snapshot.input.map { String(cString: $0) } ?? ""
         markedText = snapshot.preedit.map { String(cString: $0) } ?? ""
-        let markedLen = (markedText as NSString).length
-        let selStart = min(max(0, Int(snapshot.sel_start)), markedLen)
-        let selEnd = min(max(selStart, Int(snapshot.sel_end)), markedLen)
+        // librime offsets are UTF-8 bytes; InputMethodKit uses UTF-16 units.
+        // Clamping byte offsets to NSString.length corrupts ranges after 你/emoji.
+        let selStart = Self.utf16Offset(snapshot.sel_start, in: markedText)
+        let selEnd = max(selStart, Self.utf16Offset(snapshot.sel_end, in: markedText))
         markedHighlight = NSRange(location: selStart, length: selEnd - selStart)
-        let cursor = min(max(0, Int(snapshot.cursor)), markedLen)
-        markedCaret = cursor == 0 && markedLen > 0 ? markedLen : cursor
+        markedCaret = Self.utf16Offset(snapshot.cursor, in: markedText)
+        inputCaret = Int(snapshot.input_cursor)
+        canRankWholeInput = selStart == 0 && inputCaret == preedit.utf8.count
+            && preedit.utf8.allSatisfy { (97...122).contains($0) }
+        engineCoversInput = Int(snapshot.sel_end) == markedText.utf8.count
         candidates = (0..<snapshot.count).compactMap { i in
             guard let text = snapshot.candidates?[i] else { return nil }
             let comment = snapshot.comments?[i].map { String(cString: $0) } ?? ""
@@ -263,68 +288,45 @@ final class RimePinyinSession {
                                    engineIndex: i, comment: comment)
         }
         hasMore = snapshot.has_more != 0
-        if resetHighlight { rankCandidates() }
+        rankCandidates()
+        if !resetHighlight, let previousChoice,
+           let index = candidates.firstIndex(where: {
+               $0.engineIndex == previousChoice.engineIndex && $0.word == previousChoice.word
+           }) {
+            highlighted = index
+        }
         highlighted = min(highlighted, max(0, candidates.count - 1))
     }
 
-    /// Pinyin-shaped input (including one mid-string slip) keeps Chinese first.
-    /// English leads only when the whole string is not pinyin and equals a word;
-    /// unmatched latin is echoed only in that non-pinyin case, never over correction.
+    /// Only promote an exact English word for whole, non-quanpin input.
+    /// Segmentation, typo correction and Chinese learning stay in Rime. In
+    /// particular, a selected Chinese prefix must never be cleared by a raw echo.
     private func rankCandidates() {
-        let typed = preedit.lowercased().filter(\.isLetter)
-        if let preferred = pinned[typed],
-           let index = candidates.firstIndex(where: { $0.word == preferred }), index > 0 {
-            let item = candidates.remove(at: index)
+        guard canRankWholeInput, preedit.count >= 2,
+              !PinyinSyllable.coversQuanpin(preedit) else { return }
+        if let english = candidates.firstIndex(where: { $0.word.lowercased() == preedit }) {
+            let item = candidates.remove(at: english)
             candidates.insert(item, at: 0)
-            return
+        } else if preedit.count >= 4 {
+            // A native correction/abbreviation covering the input keeps priority.
+            // Unknown Latin remains directly selectable on the first page.
+            let index = engineCoversInput ? min(Self.pageSize - 1, candidates.count) : 0
+            candidates.insert(PinyinCandidate(word: preedit, pinyin: "", inputLength: preedit.count,
+                                              frequency: 0), at: index)
         }
-        guard typed.count >= 2, typed.unicodeScalars.allSatisfy({ $0.isASCII && CharacterSet.letters.contains($0) }) else { return }
-        if Self.looksLikePinyin(typed) {
-            if let chinese = candidates.firstIndex(where: Self.isChinese), chinese > 0 {
-                let item = candidates.remove(at: chinese)
-                candidates.insert(item, at: 0)
+    }
+
+    private static func utf16Offset(_ byteOffset: Int32, in text: String) -> Int {
+        let bytes = text.utf8
+        var offset = min(max(0, Int(byteOffset)), bytes.count)
+        while offset > 0 {
+            let index = bytes.index(bytes.startIndex, offsetBy: offset)
+            if let boundary = String.Index(index, within: text) {
+                return text[..<boundary].utf16.count
             }
-            return
+            offset -= 1
         }
-        if let english = candidates.firstIndex(where: { $0.word.lowercased() == typed }) {
-            if english > 0 {
-                let item = candidates.remove(at: english)
-                candidates.insert(item, at: 0)
-            }
-            return
-        }
-        if typed.count >= 4 {
-            candidates.insert(PinyinCandidate(word: typed, pinyin: "", inputLength: typed.count, frequency: 0), at: 0)
-        }
-    }
-
-    private static func isChinese(_ item: PinyinCandidate) -> Bool {
-        item.word.contains(where: { !$0.isASCII })
-    }
-
-    private static func looksLikePinyin(_ typed: String) -> Bool {
-        if PinyinSyllable.coversQuanpin(typed) || PinyinSyllable.segment(typed) != nil { return true }
-        if PinyinSyllable.coversQuanpinAllowingOneGap(typed) { return true }
-        var fixed = typed
-        for (wrong, right) in [("ign", "ing")] {
-            if fixed.hasSuffix(wrong) {
-                fixed = String(fixed.dropLast(wrong.count)) + right
-            }
-        }
-        guard fixed != typed else { return false }
-        return PinyinSyllable.coversQuanpin(fixed) || PinyinSyllable.segment(fixed) != nil
-            || PinyinSyllable.coversQuanpinAllowingOneGap(fixed)
-    }
-
-    private static func loadPinned(_ url: URL) -> [String: String] {
-        guard let data = try? Data(contentsOf: url),
-              let values = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
-        return values
-    }
-
-    private func savePinned() {
-        guard let data = try? JSONEncoder().encode(pinned) else { return }
-        try? data.write(to: pinnedURL, options: .atomic)
+        return 0
     }
 
     private func loadMoreIfNeeded(_ index: Int) {
@@ -336,20 +338,20 @@ final class RimePinyinSession {
 
     func pageCandidates(_ delta: Int) {
         guard showsCandidates else { return }
-        let target = (pageIndex + delta) * Self.pageSize
+        let target = max(0, pageIndex + delta) * Self.pageSize
         loadMoreIfNeeded(target)
-        let pages = max(1, (candidates.count + Self.pageSize - 1) / Self.pageSize)
-        highlighted = min(((pageIndex + delta + pages) % pages) * Self.pageSize, candidates.count - 1)
+        let lastPage = (candidates.count - 1) / Self.pageSize
+        highlighted = min(target, lastPage * Self.pageSize)
     }
 
     private func moveHighlight(_ delta: Int) {
         loadMoreIfNeeded(highlighted + delta)
-        highlighted = (highlighted + delta + candidates.count) % candidates.count
+        highlighted = min(max(0, highlighted + delta), candidates.count - 1)
     }
 
     private static let repeatableKeys: Set<Int> = [
         kVK_Delete, kVK_ForwardDelete, kVK_LeftArrow, kVK_RightArrow,
-        kVK_UpArrow, kVK_DownArrow, kVK_PageUp, kVK_PageDown
+        kVK_UpArrow, kVK_DownArrow, kVK_Home, kVK_End, kVK_PageUp, kVK_PageDown
     ]
 
     private func mappedPunctuation(_ raw: String) -> String? {

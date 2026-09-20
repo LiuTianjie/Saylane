@@ -79,6 +79,15 @@ final class AppModel {
     var dictationCleanupEnabled = UserDefaults.standard.object(forKey: "dictationCleanupEnabled") as? Bool ?? true {
         didSet { UserDefaults.standard.set(dictationCleanupEnabled, forKey: "dictationCleanupEnabled") }
     }
+    /// Built-in domain terms plus a daily Wikimedia harvest; on by default, independent of the personal list.
+    var dictationGlossaryEnabled = UserDefaults.standard.object(forKey: "dictationGlossaryEnabled") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(dictationGlossaryEnabled, forKey: "dictationGlossaryEnabled")
+            if dictationGlossaryEnabled {
+                Task { await DictationGlossaryStore.shared.refreshIfStale() }
+            }
+        }
+    }
     var speechHotwords = UserDefaults.standard.string(forKey: "speechHotwords") ?? "" {
         didSet { UserDefaults.standard.set(speechHotwords, forKey: "speechHotwords") }
     }
@@ -102,7 +111,6 @@ final class AppModel {
     private var checkingSettings = false
     private var speechStatusChecks = 0
     var isChecking: Bool { checkingSettings || speechStatusChecks > 0 }
-    var testText = ""
     let permissions = PermissionService()
     let translationEngine = TranslationEngine()
     let coordinator = SessionCoordinator()
@@ -117,9 +125,14 @@ final class AppModel {
             globalInvokeAvailable: globalHotkey.isListeningToEvents)
     }
     var ready: Bool { readiness.blocker == nil }
-    var setupCompleted = UserDefaults.standard.bool(forKey: "setupVerifiedV3")
-    var settingsTab = 0
-    var isSetupRunning = false
+    var setupCompleted = UserDefaults.standard.bool(forKey: "setupVerifiedV7") {
+        didSet { UserDefaults.standard.set(setupCompleted, forKey: "setupVerifiedV7") }
+    }
+    /// Settings-panel trial field. Voice writes here; the host is not an IMK client.
+    var testText = ""
+    private var settingsCapture: SettingsCaptureTarget?
+    var isShowingSetup = false
+    var settingsTab = 1
     private var lastBlockedPromptTime: TimeInterval = 0
     private let overlay = OverlayController()
     let screenTranslate = ScreenTranslateController()
@@ -242,10 +255,9 @@ final class AppModel {
                 self.overlay.showConversionFailure()
             }
         }
-        coordinator.onPreview = { InputDiagnostics.record("marked-preview", "characters=\($0)") }
+        coordinator.onMetrics = { InputDiagnostics.record("speech-metrics", $0.logValue) }
         coordinator.onCommit = { [weak self] in self?.completedSessions += 1; self?.lastError = nil
             self?.setupCompleted = true
-            UserDefaults.standard.set(true, forKey: "setupVerifiedV3")
             InputDiagnostics.record("text-committed") }
         IMEManager.shared.onWillSwitchClient = { [weak self] in self?.pinyin.commit() }
         IMEManager.shared.onTargetLost = { [weak self] in
@@ -286,60 +298,46 @@ final class AppModel {
         startGlobalHotkeyMonitor()
         refreshInputSourceStatus()
         settingsChanged()
-        if !setupCompleted || !permissions.allCriticalGranted {
-            beginSetup()
-        }
+        refreshGlossaryIfNeeded()
     }
 
     func beginSetup() {
-        guard !isSetupRunning else { return }
-        isSetupRunning = true
+        isShowingSetup = true
+        refreshInputSourceStatus()
         settingsTab = 0
+        lastError = nil
         openSettings()
-        Task { [weak self] in
-            guard let self else { return }
-            defer { self.isSetupRunning = false }
-            // Present the explanation window before asking the OS for first-time consent.
-            await Task.yield()
-            self.permissions.refresh()
-            if self.permissions.microphone == .notDetermined {
-                await self.requestMicrophonePermission()
-            }
-            self.refreshInputSourceStatus()
-            guard self.permissions.microphone == .granted else {
-                self.report(SetupReadiness.Blocker.microphoneDenied.message)
-                return
-            }
-            if !self.inputSourceSelected {
-                self.enableInputSource()
-                // Keep setup on the current step while the user responds to macOS.
-                while self.isActivatingInputSource {
-                    try? await Task.sleep(for: .milliseconds(200))
-                }
-                self.refreshInputSourceStatus()
-                guard self.inputSourceEnabled && self.inputSourceSelected else { return }
-            }
-            // Initial model inspection is asynchronous. Wait rather than silently
-            // dropping the download request because inspection is still in progress.
-            for _ in 0..<100 {
-                if !self.isChecking { break }
-                try? await Task.sleep(for: .milliseconds(100))
-            }
-            guard !self.isChecking else {
-                self.report("模型检查仍未完成，请稍后点击继续设置。")
-                return
-            }
-            if !self.speechModelReady || !self.translationModelReady {
-                await self.downloadModels()
-            }
+    }
+
+    /// PTT while the settings window is up. Does not compose pinyin — this process is not its own IMK client.
+    func handleSettingsShortcut(_ event: NSEvent) -> NSEvent? {
+        guard settingsWindow.isVisible else { return event }
+        let (action, consumed) = keys.handle(type: event.type, keyCode: event.keyCode,
+            flags: UInt64(event.modifierFlags.rawValue), repeatKey: event.type == .keyDown && event.isARepeat,
+            trigger: pushToTalk, switchEnabled: languageSwitchEnabled,
+            active: isListening, now: ProcessInfo.processInfo.systemUptime, tapToTalk: tapToTalk)
+        performShortcut(action, fromGlobal: false)
+        return consumed ? nil : event
+    }
+
+    func openInputMethodPermission() {
+        InputSourceInstall.openSystemInputSourceSettings()
+        if installationPathValid {
+            enableInputSource()
         }
+    }
+
+    func requestSpeechRecognitionPermission() async {
+        await permissions.requestSpeechRecognition()
+        refreshInputSourceStatus()
+        if permissions.speechRecognition == .granted { lastError = nil }
     }
 
     func requestMicrophonePermission() async {
         await permissions.requestMicrophone()
         refreshInputSourceStatus()
         if permissions.microphone == .granted { lastError = nil }
-        else { report(SetupReadiness.Blocker.microphoneDenied.message) }
+        else if !settingsWindow.isVisible { report(SetupReadiness.Blocker.microphoneDenied.message) }
     }
 
     func requestInputMonitoring() {
@@ -387,11 +385,13 @@ final class AppModel {
         let now = ProcessInfo.processInfo.systemUptime
         guard now - lastBlockedPromptTime > 1.5 else { return }
         lastBlockedPromptTime = now
-        settingsTab = blocker == .modelsMissing ? 2 : 0
-        openSettings()
-        // This press is cancelled. Consent must never silently resume an old recording.
-        if blocker == .microphoneNotRequested {
-            Task { [weak self] in await self?.requestMicrophonePermission() }
+        switch blocker {
+        case .modelsMissing, .modelsChecking:
+            settingsTab = 2
+            openSettings()
+        case .microphoneNotRequested, .microphoneDenied, .inputMethodNotEnabled, .inputMethodNotSelected:
+            settingsTab = 0
+            openSettings()
         }
     }
 
@@ -550,6 +550,12 @@ final class AppModel {
     private func startSession(fromGlobal: Bool = false) {
         guard !isListening else { return }
         guard !screenTranslate.isActive else { return }
+        if settingsWindow.isVisible {
+            beginShortcutDirect()
+            startSessionNow(openSettingsIfNeeded: false)
+            if !isListening { endShortcutDirect() }
+            return
+        }
         if fromGlobal {
             beginShortcutDirect()
             InputDiagnostics.record("global-press", "current=\(InputSourceInstall.currentID ?? "none")")
@@ -601,18 +607,26 @@ final class AppModel {
     private func startSessionNow(openSettingsIfNeeded: Bool) {
         guard !isListening else { return }
         refreshInputSourceStatus()
-        InputDiagnostics.record("start-check", "selected=\(inputSourceSelected) client=\(IMEManager.shared.hasClient) mic=\(permissions.allCriticalGranted) speech=\(speechModelReady) translation=\(translationModelReady) checking=\(isChecking)")
-        if let blocker = readiness.blocker {
-            showBlockedStart(blocker)
-            return
-        }
-        guard let target = IMEManager.shared.captureTarget() else {
-            report("没有可输入的目标。请先点击普通文本框，再按住快捷键。")
-            if openSettingsIfNeeded {
-                settingsTab = 0
-                openSettings()
+        let inSettings = settingsWindow.isVisible
+        InputDiagnostics.record("start-check", "settings=\(inSettings) selected=\(inputSourceSelected) client=\(IMEManager.shared.hasClient) mic=\(permissions.allCriticalGranted) speech=\(speechModelReady) translation=\(translationModelReady) checking=\(isChecking)")
+        let target: any CompositionTarget
+        if inSettings {
+            guard let captured = settingsCaptureTarget() else { return }
+            target = captured
+        } else {
+            if let blocker = readiness.blocker {
+                showBlockedStart(blocker)
+                return
             }
-            return
+            guard let captured = IMEManager.shared.captureTarget() else {
+                report("没有可输入的目标。请先点击普通文本框，再按住快捷键。")
+                if openSettingsIfNeeded {
+                    settingsTab = 0
+                    openSettings()
+                }
+                return
+            }
+            target = captured
         }
         lastError = nil
         // Freeze the request destination and languages for this utterance. No network
@@ -631,25 +645,63 @@ final class AppModel {
             return result
         } : nil
         coordinator.start(locale: sourceLanguage.speechLocale, speech: makeSpeechEngine(), capture: AudioCaptureService(),
-                          target: target, passthrough: recognitionOnly || sourceLanguage == targetLanguage,
-                          refine: makeRefine(), polish: polish) { [translationEngine] text in
+                          target: target,
+                          passthrough: recognitionOnly || sourceLanguage == targetLanguage || (inSettings && !translationModelReady),
+                          refine: makeRefine(), polish: polish, model: speechModel.rawValue) { [translationEngine] text in
             try await translationEngine.translate(text)
         }
     }
 
-    private var vocabularyTerms: [String] { speechHotwordsEnabled ? SpeechHotwords.terms(speechHotwords) : [] }
+    private func settingsCaptureTarget() -> (any CompositionTarget)? {
+        if permissions.microphone != .granted {
+            report(permissions.microphone == .denied
+                ? SetupReadiness.Blocker.microphoneDenied.message
+                : SetupReadiness.Blocker.microphoneNotRequested.message)
+            return nil
+        }
+        if isChecking || isPreparingModels || asrModels.isDownloading {
+            report("正在准备语音模型，好了再按住说。")
+            return nil
+        }
+        if !speechModelReady {
+            report("正在准备语音模型，好了再按住说。")
+            Task { await downloadModels() }
+            return nil
+        }
+        if let settingsCapture { return settingsCapture }
+        let target = SettingsCaptureTarget(model: self)
+        settingsCapture = target
+        return target
+    }
 
-    /// Deterministic, on-device text repair shared by live previews and the final result.
+    private var vocabularyTerms: [String] {
+        DictationGlossary.biasTerms(userRaw: speechHotwords, includeUser: speechHotwordsEnabled,
+                                    includeGlossary: dictationGlossaryEnabled,
+                                    remote: DictationGlossaryStore.shared.terms)
+    }
+
+    /// Deterministic, on-device repair applied only to the final recognized text.
     /// Cleanup runs first so vocabulary matches see spoken corrections already applied.
     private func makeRefine() -> ((String) -> String)? {
         let cleanup = dictationCleanupEnabled
+        let glossary = dictationGlossaryEnabled
+            ? DictationVocabulary(entries: DictationGlossary.combined(remote: DictationGlossaryStore.shared.terms))
+            : nil
         let vocabulary = speechHotwordsEnabled ? DictationVocabulary(raw: speechHotwords) : nil
-        guard cleanup || vocabulary?.isEmpty == false else { return nil }
+        guard cleanup || glossary?.isEmpty == false || vocabulary?.isEmpty == false else { return nil }
         return { text in
             var result = cleanup ? DictationCleanup.clean(text) : text
+            if let glossary { result = glossary.apply(to: result) }
             if let vocabulary { result = vocabulary.apply(to: result) }
             return result
         }
+    }
+
+    private func refreshGlossaryIfNeeded() {
+        _ = DictationGlossaryStore.shared.terms
+        guard dictationGlossaryEnabled else { return }
+        if CommandLine.arguments.contains("--snapshot") || CommandLine.arguments.contains("--waveform-snapshot") { return }
+        Task { await DictationGlossaryStore.shared.refreshIfStale() }
     }
 
     func refreshInputSourceStatus() {
@@ -658,6 +710,12 @@ final class AppModel {
         inputSourceInstalled = IMEManager.shared.isInstalled
         inputSourceEnabled = InputSourceInstall.isEnabled
         inputSourceSelected = InputSourceInstall.isSelected
+        if !setupCompleted,
+           SetupFlow.isComplete(installationPathValid: installationPathValid,
+                                inputMethodEnabled: inputSourceEnabled,
+                                microphoneGranted: permissions.microphone == .granted) {
+            setupCompleted = true
+        }
         globalHotkey.updateContext(selected: inputSourceSelected, trigger: pushToTalk,
                                    switchEnabled: languageSwitchEnabled, listening: isListening,
                                    tapToTalk: tapToTalk)
@@ -732,7 +790,8 @@ final class AppModel {
         // Apple biases recognition with contextual strings, Qwen with its prompt; the FunASR
         // CLIs accept no hotwords, so those engines rely on post-recognition vocabulary repair.
         if speechModel == .apple { return SpeechEngine(contextualStrings: vocabularyTerms) }
-        return QwenSpeechEngine(variant: speechModel, context: speechModel.isQwen && speechHotwordsEnabled ? SpeechHotwords.context(speechHotwords) : nil)
+        let prompt = speechModel.isQwen ? SpeechHotwords.context(terms: vocabularyTerms) : nil
+        return QwenSpeechEngine(variant: speechModel, context: prompt, runtime: QwenRuntime.shared)
     }
 
     func selectSpeechModel(_ selected: SpeechModel) {
@@ -864,7 +923,7 @@ final class AppModel {
             permissions.requestScreenCapture()
             if !permissions.screenCaptureGranted {
                 report("截屏翻译需要屏幕录制权限。允许后按住左 ⌃ 划区。")
-                settingsTab = 4
+                settingsTab = 0
                 openSettings()
                 return
             }
@@ -953,5 +1012,28 @@ final class AppModel {
         InputDiagnostics.record("error", message)
         NSLog("Saylane: %@", message)
         // Error persists in menu/settings; do not steal focus from the target app.
+    }
+
+    /// Writes ASR into `testText`. The IME host is not a valid IMK client for itself.
+    private final class SettingsCaptureTarget: CompositionTarget {
+        unowned let model: AppModel
+        private var committed = ""
+        private var ownsMarked = false
+        init(model: AppModel) { self.model = model }
+        var isValid: Bool { model.settingsWindow.isVisible }
+        func setMarked(_ text: String) {
+            ownsMarked = true
+            model.testText = text
+        }
+        func commit(_ text: String) {
+            ownsMarked = false
+            committed = text
+            model.testText = text
+        }
+        func cancelMarked() {
+            guard ownsMarked else { return }
+            ownsMarked = false
+            model.testText = committed
+        }
     }
 }

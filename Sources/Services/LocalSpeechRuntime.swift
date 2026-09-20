@@ -119,6 +119,11 @@ actor LocalSpeechRuntime {
             guard generation == token else { throw CancellationError() }
             return text
         } catch is CancellationError {
+            // Qwen cancellation terminates its worker process. Do not leave a
+            // dead worker marked ready for the next press-to-talk session.
+            if variant.isQwen, generation == token, inferenceID == request {
+                await unload()
+            }
             throw CancellationError()
         } catch {
             // A failed in-process worker is disposable. Replacing a live preview must not unload.
