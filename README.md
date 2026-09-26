@@ -1,87 +1,241 @@
-# Saylane
+<p align="center">
+  <img src="website/assets/brand-icon.png" alt="Saylane" width="96" />
+</p>
 
-macOS 输入法：打字走拼音，按住快捷键说话则在当前输入框写入译文（默认中文 → 英文）。装在 `/Library/Input Methods/`，和系统其它输入法一样切换使用。
+<h1 align="center">Saylane</h1>
 
-已发布版本 `0.2.75`。语音识别和翻译默认走 Apple 端侧框架；可选的终稿润色才走外部 API。
+<p align="center">
+  <strong>Speak naturally. Write in the language you need.</strong><br />
+  A native macOS input method for Pinyin, voice dictation, and translation directly into your text field.
+</p>
 
-## 要求
+<p align="center">
+  <a href="https://github.com/LiuTianjie/Saylane/releases/latest"><img src="https://img.shields.io/github/v/release/LiuTianjie/Saylane?style=flat-square&amp;color=e77864" alt="Latest release" /></a>
+  <a href="project.yml"><img src="https://img.shields.io/badge/macOS-26%2B-343b48?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="macOS 26 or newer" /></a>
+  <a href="project.yml"><img src="https://img.shields.io/badge/architecture-Apple%20Silicon-64748b?style=flat-square" alt="Apple Silicon" /></a>
+</p>
 
-- macOS 26+
-- Apple Silicon
-- Xcode 26.2+（首次构建 MLX 需 `xcodebuild -downloadComponent MetalToolchain`）
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen)
-- 打安装包需要 Developer ID Application 证书（`scripts/package.sh` 会拒绝 ad-hoc 身份）
+<p align="center">
+  <a href="https://github.com/LiuTianjie/Saylane/releases/latest">Download</a> ·
+  <a href="https://liutianjie.github.io/Saylane/">Website &amp; interactive demo</a> ·
+  <a href="docs/安装说明.md">Installation guide</a> ·
+  <a href="#build-from-source">Development</a> ·
+  <a href="README.zh-CN.md">简体中文</a>
+</p>
 
-## 开发
+<p align="center">
+  <img src="docs/previews/waveform.png" alt="Saylane's compact native voice waveform" width="282" /><br />
+  <sub>Hold to speak. Release to commit. Stay in the app you're using.</sub>
+</p>
+
+---
+
+Saylane lives in the macOS input-source menu. Type Chinese with Rime-backed Pinyin, hold a key to dictate, or speak in one language and write in another. Text appears as editable composition in the focused field, then commits when you finish.
+
+**The default path uses Apple's on-device speech recognition and translation.** Downloadable local recognizers are available, and AI editing is an optional final step using an endpoint you configure. Ordinary dictation and translation need no model API key.
+
+For example, with Chinese → English selected:
+
+> **You say:** 把会议改到明天下午三点。<br />
+> **You write:** Move the meeting to 3 p.m. tomorrow.
+
+*Illustrative output; wording depends on the recognizer and translation model.*
+
+## Built around the text field
+
+- **Keep typing and speaking in one input method.** Rime handles Pinyin composition, candidate selection, mixed English, and user vocabulary learning. Voice input uses the same native text-input connection.
+- **See a draft while you speak.** Recognition and translation update the current composition. Releasing the shortcut finalizes and commits once; `Esc` cancels the session.
+- **Choose dictation or translation.** Configure a language pair and switch between A → A, A → B, B → A, and B → B. Same-language dictation skips translation.
+- **Choose your local recognizer.** Start with Apple, or download Qwen3-ASR, SenseVoiceSmall, or Fun-ASR-Nano from Settings.
+- **Separate previews from final editing.** Local cleanup and terminology corrections run at the final stage. Optional AI editing can refine the finished draft without processing every partial result.
+- **Read text on screen, too.** Capture a region and view translated text over the pinned screenshot, using local Vision OCR and Apple Translation.
+
+Text is composed through **InputMethodKit**, without clipboard-based insertion. Compatibility depends on the target application's support for native text input.
+
+## Get started
+
+### 1. Install and enable Saylane
+
+You need **macOS 26+ on Apple Silicon**. Intel Macs and older macOS versions are not supported by the current build.
+
+Download the `.pkg` and `SHA256SUMS.txt` from [GitHub Releases](https://github.com/LiuTianjie/Saylane/releases/latest). The installer places the input method at:
+
+```text
+/Library/Input Methods/Saylane.app
+```
+
+> **Distribution status:** the [v0.2.75 release](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.75) contains an app signed with Developer ID Application. Its PKG installer is unsigned and has not been notarized by Apple. See the [installation guide](docs/安装说明.md) for the current installation requirements.
+
+The installer opens the setup guide. Enable Saylane under **System Settings → Keyboard → Input Sources**, grant the required permissions, and prepare any language assets requested by the app. The built-in practice field lets you try a sentence before using another application.
+
+### 2. Speak into a text field
+
+1. Focus a compatible text field and select **Saylane** as the input source.
+2. Check the speaking and output languages; the default is **Simplified Chinese → English**.
+3. Hold **right Option (⌥)** and speak. A compact waveform shows recording activity while the draft appears in the field.
+4. Release to finalize. Press **Esc** to cancel the active session.
+
+The hold-to-talk key is configurable. To invoke Saylane while another input source is selected, enable **Input Monitoring** in Settings.
+
+### 3. Switch language modes
+
+When quick language switching is enabled, double-tap **right Command (⌘)** to cycle through the four modes for your chosen pair:
+
+| Mode | With Chinese and English selected |
+| --- | --- |
+| A → A | Speak Chinese, write Chinese |
+| A → B | Speak Chinese, write English |
+| B → A | Speak English, write Chinese |
+| B → B | Speak English, write English |
+
+This also makes English dictation useful for self-practice. Saylane transcribes what the model recognizes; it does not score pronunciation.
+
+## Local speech models
+
+Choose a model in **Settings → Local Models**, download it if needed, then select **Use**. Model weights are stored separately from the app and excluded from the installer.
+
+| Recognizer | Approximate download | Runtime and preview behavior |
+| --- | --- | --- |
+| **Apple · default** | Language assets managed by macOS | SpeechAnalyzer / SpeechTranscriber with live hypotheses |
+| **Qwen3-ASR 0.6B · 4-bit** | 724 MB | MLX worker; repeated decoding of accumulated audio |
+| **Qwen3-ASR 0.6B · 6-bit** | 873 MB | MLX worker; repeated decoding of accumulated audio |
+| **SenseVoiceSmall · Q8** | 254 MB | Native helper; repeated decoding of accumulated audio; experimental |
+| **Fun-ASR-Nano · Q4** | 954 MB | Native helper; repeated decoding of accumulated audio; experimental |
+
+Downloads use pinned revisions and SHA-256 verification. Settings provide cancellation, retry, repair, and deletion. Switching away from a local model releases its runtime; downloaded files remain on disk.
+
+The downloadable recognizers refresh the draft while you speak, but **this is not native incremental streaming**. Their current recording limit is **30 seconds per session**. Model size is a download estimate, not a RAM requirement or an accuracy ranking. Language availability varies by backend.
+
+The **recognition-only** setting skips translation. AI editing has an independent voice-input switch; turn it off as well to keep text out of the editing endpoint. Personal hotwords can guide supported recognition paths, but do not guarantee a particular transcription. See [local model behavior](docs/ASR_COMPARISON.md) and [Qwen integration](docs/QWEN_ASR.md).
+
+## Screen translation
+
+Hold **left Control (⌃)** to start region selection, then select the area to translate. The app pins the captured region and overlays translated text using Vision OCR and Apple Translation. Screen Recording permission is required.
+
+This is a translated view of a captured image; the underlying application remains unchanged. Dense layouts, small text, and complex backgrounds can affect OCR and text placement. The [screen translation notes](docs/SCREEN_TRANSLATE.md) and [scenario checks](docs/SCREEN_TRANSLATE_SCENARIOS.md) document the implementation and its remaining visual limitations.
+
+Optional screen editing has its own switch and uses the configured AI endpoint. It can send recognized text, the translation draft, and nearby recognized context; it is off by default.
+
+## Privacy and network behavior
+
+Local inference and network access are separate concerns:
+
+| Path | Processing and network use |
+| --- | --- |
+| Pinyin | Local librime and dictionaries; ordinary typing makes no network requests |
+| Speech recognition | Apple on-device recognition or the selected local model; required assets may need downloading |
+| Translation and OCR | Apple Translation and Vision run locally once required language assets are available |
+| Optional AI editing | Sends text to your configured Chat Completions-compatible endpoint; off by default |
+| Terminology glossary | Enabled by default; periodically fetches public category terms from Chinese Wikipedia / Wiktionary, without sending dictation text |
+| Routine diagnostics | Session timing and status metadata; no audio or transcript content |
+
+For voice editing, the request includes the recognized text, languages, draft, and applicable vocabulary. It does not include microphone audio or unrelated text from the input field. Remote editing endpoints require HTTPS; loopback services may use HTTP. API keys are stored in macOS Keychain, keyed to the endpoint.
+
+If voice editing fails or reaches its timeout, the ordinary draft is retained. Cancelling the session discards pending work, including late results. File-based ASR benchmark reports are different from routine diagnostics: they deliberately contain transcripts for evaluation.
+
+<details>
+<summary>Which macOS permissions are used?</summary>
+
+| Permission or setup step | Purpose |
+| --- | --- |
+| Enable the input source | Allows native composition through InputMethodKit |
+| Microphone | Records hold-to-talk input |
+| Speech Recognition | Managed in the permission guide for recognition paths that require it |
+| Input Monitoring | Enables shortcuts while another input source is selected |
+| Screen Recording | Captures the region selected for screen translation |
+
+Missing permissions can be reviewed from **Settings → Permissions**. Model and language readiness are checked separately from system permissions.
+
+</details>
+
+## Under the hood
+
+```mermaid
+flowchart LR
+    Mic[Microphone] --> ASR[Apple / local recognizer]
+    ASR --> Session[Session coordinator]
+    Session --> Output[Dictation / translation]
+    Output --> IMK[InputMethodKit]
+    Output -->|Final draft, opt-in| Edit[AI editing endpoint]
+    Edit --> IMK
+    IMK --> Field[Bound text field]
+```
+
+The coordinator binds each voice session to its original input target. Partial results update marked text; the final result commits once. Cancellation and target changes invalidate pending work so late results cannot write into a different session. Local cleanup runs on the final recognition result, before final translation and optional editing.
+
+The Pinyin path is separate: **InputMethodKit → Rime session → librime**, with Saylane's native candidate UI. It supports composition editing, fuzzy Pinyin with exact matches preferred, mixed English candidates, and native vocabulary learning. Next-word suggestions and migration of the old custom engine's learning data are not currently supported. The manual dictionary-update check reports differences; it does not install them. [Pinyin architecture](docs/RIME_PINYIN.md).
+
+## Build from source
+
+Development requires **Xcode 26.2+**, XcodeGen, and Python 3.12+ on a supported Mac. For the first MLX build, install Apple's Metal Toolchain:
 
 ```bash
-make build          # Debug
-make test           # 本地 swiftc 单测 + 真实 librime 回归
-make pkg            # Release + pkg
+xcodebuild -downloadComponent MetalToolchain
+
+git clone https://github.com/LiuTianjie/Saylane.git
+cd Saylane
+make build
 ```
 
-`Saylane.xcodeproj` 由 `project.yml` 生成，不要手改，也不进 git。
-首次构建还会通过 `scripts/prepare-rime.py` 下载 SHA-256 固定的 librime/词库并预编译；建议 Python 3.12+。
+`make build` prepares the pinned Rime and native ASR dependencies, generates `Saylane.xcodeproj` from `project.yml`, and builds the Debug app. Initial dependency preparation requires network access. The generated project is not tracked and should not be edited by hand.
 
-## Rime 拼音内核（0.2.55）
+| Command | Result |
+| --- | --- |
+| `make build` | Debug app in `build/Build/Products/Debug/` |
+| `make test` | Swift logic tests, native helper checks, and real librime regressions |
+| `make release` | Release build without installation |
+| `make pkg` | Release build and `dist/Saylane-<version>.pkg` |
 
-当前源码已改为 librime + 雾凇词库子集，保留 Saylane 候选窗和语音交互。
-Shift/Caps Lock 在组字中切英文时上屏原始字母，不再先接受中文首选。
-词后联想暂不支持；旧学习文件保留但不自动迁移，新 Rime 用户词库独立保存。
-0.2.50 在设置 → 键盘加入手动「检查词库更新」：显示当前版本、比较实际使用的四份词表，支持取消和重试。此入口只检查，不下载或安装词库。
-0.2.51 模糊音改为统一降权补充：精确拼写保持首选，组字光标在末尾，翻页只用 -/=。
-0.2.52 中文模式可出英文单词。
-0.2.53 还能读成拼音的输入保持中文在前，不能当拼音的整词才出英文首选。候选可出雾凇表情。非法拼写容错（`ign`→`ing` 等）始终开启。整段选词会置顶同一串拼音。
-0.2.54 长串中间拼错仍按拼音纠错，不再把原文顶到第一；组字时 Caps Lock 上屏字母，不上屏中文首选。
-0.2.55 拼音容错改用雾凇已启用的 speller 规则：`lue` 能出「略」，不再用自制 derive。
-固定依赖、架构、构建方法与验证边界见 [docs/RIME_PINYIN.md](docs/RIME_PINYIN.md)。
+Packaging requires a **Developer ID Application** identity; ad-hoc signing is rejected. Set `SAYLANE_SIGNING_IDENTITY` when identity selection is ambiguous. `SAYLANE_INSTALLER_IDENTITY` is separate and controls PKG signing when available. App signing, installer signing, notarization, and successful input-source activation are distinct checks.
 
-0.2.75 优化拼音光标编辑、删除、候选排序与原生词频学习；语音首个结果立即显示，后续预览合并刷新，口误和术语修正只在终稿执行，并修复 Apple 全零静音误出字。新增设置内试说、权限引导与常见术语词库；语音实现与评测边界见 [docs/VOICE_INPUT_OPTIMIZATION.md](docs/VOICE_INPUT_OPTIMIZATION.md)。
+Build artifacts live in ignored `build/` and `dist/` directories. Building an app does not register it as a working system input method; follow the [installation guide](docs/安装说明.md) for that step.
 
-第一次使用：安装结束后会打开使用引导，依次开启权限并按住快捷键试一句。后续可从设置里的「权限管理」开通缺少的权限。若要在其它输入法下按快捷键唤起，再开输入监控。
+## Repository and technical notes
 
-## 可选千问识别（v0.2.47）
+| Path | Responsibility |
+| --- | --- |
+| `Sources/IME/` | InputMethodKit host, composition, and Rime integration |
+| `Sources/Services/` | Capture, recognition, translation, session lifecycle, and screen overlays |
+| `Sources/Views/` | Native settings, setup, candidates, and waveform UI |
+| `Tests/` | Swift/Python checks and native-runtime regression tests |
+| `Vendor/` | ASR integration source, dependency locks, and generated runtime resources |
+| `scripts/` | Project generation, dependency preparation, tests, packaging, and uninstall |
+| `website/` | Product website and illustrative interactive demo |
 
-设置 → 本地模型新增 Qwen3-ASR 0.6B 的 **4-bit（约 724 MB）** 和 **6-bit（约 873 MB）**。
-默认仍用 Apple；用户主动下载后再点“使用”，可取消、重试、修复和删除。
-权重不进 `.app` / PKG，分别存储在用户 Application Support 目录。打包脚本会检查并拒绝包含模型权重的应用。
+| Guide | Covers |
+| --- | --- |
+| [Installation](docs/安装说明.md) | Package status, input-source activation, and permissions |
+| [Voice input behavior and evaluation](docs/VOICE_INPUT_OPTIMIZATION.md) | Live hypotheses, finalization, diagnostics, and reproducible ASR benchmarks |
+| [Rime Pinyin](docs/RIME_PINYIN.md) | Candidate behavior, learning, dependency pins, and dictionary licenses |
+| [Local recognizers](docs/ASR_COMPARISON.md) | Backend differences and validation limits |
+| [Qwen3-ASR](docs/QWEN_ASR.md) | Model manifests, MLX integration, and runtime lifecycle |
+| [Screen translation](docs/SCREEN_TRANSLATE.md) | Rendering behavior and follow-up implementation notes |
+| [Voice design history](docs/VOICE_INPUT_V2.md) | Evolving interaction contracts and dated verification records |
 
-本地模型按住说话时刷新预览，松开后再出最终结果，每次最多 30 秒。快捷键、翻译和可选润色复用原有流程。
-千问运行在独立进程中；切回 Apple 会退出并释放模型内存，4/6-bit 互切先释放旧模型。下载文件仍保留在磁盘。
-技术细节、固定来源及验证边界见 [docs/QWEN_ASR.md](docs/QWEN_ASR.md)。v0.2.47 提供以上可选模型；v0.2.75 起 Qwen 与 Fun-ASR-Nano 也边说边出字（累计录音重解码，不是 Apple 那种真流式）。
+Older design documents contain historical plans and handoffs. Use the current source and release notes when evaluating shipped behavior.
 
-0.2.64 本地试用版新增 SenseVoiceSmall Q8、Fun-ASR-Nano Q4、Qwen 个人热词和“仅识别，暂不翻译或润色”开关。设置 → 本地模型中切换。能力边界见 [docs/ASR_COMPARISON.md](docs/ASR_COMPARISON.md)。
+<details>
+<summary>Why do some identifiers still say RTranslate?</summary>
 
-## 安装
+Saylane was previously named RTranslate. The app, executable, scheme, and new packages use Saylane; selected identifiers remain stable for upgrades:
 
-从 [GitHub Release 下载 v0.2.75 安装包](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.75)，或访问 [产品网页](https://liutianjie.github.io/Saylane/)。Release 同时提供 SHA-256 校验文件。
+- `com.rtranslate.*` bundle/input-source IDs, Keychain service names, and installer receipt IDs.
+- `~/Library/Application Support/RTranslate` for existing models and diagnostics.
+- A separate `~/Library/Application Support/Saylane/Rime` directory for Rime's user dictionary.
+- `RTRANSLATE_SIGNING_IDENTITY` as a compatibility alias for `SAYLANE_SIGNING_IDENTITY`.
 
-注意：包内应用已签名，当前 PKG 安装器未签名、未完成 Apple 公证。
+The installer recognizes old and new app paths and checks bundle identity before cleanup. Keeping these identifiers preserves continuity; they should not be renamed as a cosmetic change.
 
-见 [docs/安装说明.md](docs/安装说明.md)。构建产物在 `dist/`，不进仓库。
+</details>
 
-## 仓库结构
+## Contributing
 
-```
-Sources/          输入法宿主、拼音、语音、设置
-Tests/            可脱离 Xcode 跑的单测
-Vendor/           Swift ASR 源码、固定版本 Rime 依赖清单与生成资源
-scripts/          打包、词库、图标、卸载
-docs/             架构、安装、语音输入契约
-project.yml       XcodeGen 工程定义
-```
+Focused fixes, reproducible bug reports, and documentation improvements are welcome. Include your macOS version, Mac architecture, Saylane version, recognizer, language pair, and target application. Redact private text, audio, screenshots, and endpoint credentials from reports.
 
-更完整的设计说明见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。语音输入流程契约见 [docs/VOICE_INPUT_V2.md](docs/VOICE_INPUT_V2.md)。
+Run `make test` for code changes. Input-method, hotkey, permission, and overlay changes also need testing in the actual macOS session and affected apps. File recognition benchmarks and unit tests do not establish microphone-to-text latency or cross-app compatibility.
 
-## Saylane 品牌改名与兼容性
+## Licensing
 
-产品显示名、源码入口、Xcode scheme、可执行文件与后续安装包统一为 Saylane。运行 `make build` / `make pkg` 会生成 `Saylane.xcodeproj`、`Saylane.app` 与 `Saylane-<version>.pkg`。
+The repository currently does not declare a project-wide license. Third-party components and model weights retain their own terms; their licenses do not define a license for Saylane as a whole.
 
-以下旧标识刻意保留，不属于遗漏：
-- `com.rtranslate.*` 的 Bundle ID、输入源 ID、Keychain service、偏好迁移域和安装器 receipt ID：保持应用身份连续性；本次不迁移用户凭据和系统授权。
-- `~/Library/Application Support/RTranslate`：继续使用已有模型和诊断目录；旧词频文件保留。开发中的 Rime 内核使用独立的 Saylane/Rime 用户词库，暂不导入旧词频。
-- 安装/卸载脚本兼容旧 `RTranslate.app` 路径，核验 Bundle ID 后才清理；同时支持 `Saylane.app`。
-- 签名环境变量首选 `SAYLANE_SIGNING_IDENTITY`，兼容旧 `RTRANSLATE_SIGNING_IDENTITY`。
-- GitHub 仓库及 Pages 地址仍沿用原路径；已发布 v0.2.47 的文件名和下载地址不变，该历史安装包仍显示旧品牌。Saylane 新版安装包从 v0.2.48 开始发布。
-
-现有系统安装不会自动改名。新版安装器的升级、系统输入法名称和权限连续性仍须实际安装后验收。
+See [third-party notices](Sources/Resources/ThirdPartyNotices.txt), the [vendored ASR license](Vendor/MLXASR/LICENSE), and the [Rime licensing notes](docs/RIME_PINYIN.md#许可材料).
