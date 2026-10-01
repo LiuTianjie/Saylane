@@ -10,6 +10,9 @@ final class SpeechEngine: SpeechRecognizing {
     private var analyzer: SpeechAnalyzer?
     private var inputBuilder: AsyncStream<AnalyzerInput>.Continuation?
     private var recognizerTask: Task<Void, Error>?
+    /// The dictation model's results, used only until the speech model has said something.
+    private var earlyTask: Task<Void, Never>?
+    private var speechModelSpoke = false
     private let converter = BufferConverter()
     private var analyzerFormat: AVAudioFormat?
     private var finalized = ""
@@ -26,6 +29,17 @@ final class SpeechEngine: SpeechRecognizing {
             return match
         }
         return SpeechLocale.bestMatch(for: locale, in: await SpeechTranscriber.supportedLocales)
+    }
+
+    /// The system's dictation model for this language, when it is already on
+    /// the Mac. It answers after about half a second where the speech model
+    /// takes a whole one (measured on the same recording: 530 ms against
+    /// 1020 ms), so it supplies the first words of the preview. The text that
+    /// is written always comes from the speech model.
+    private static func earlyModule(for locale: Locale) async -> DictationTranscriber? {
+        let wanted = locale.identifier(.bcp47)
+        guard await DictationTranscriber.installedLocales.contains(where: { $0.identifier(.bcp47) == wanted }) else { return nil }
+        return DictationTranscriber(locale: locale, preset: .progressiveLongDictation)
     }
 
     static func isInstalled(for locale: Locale) async -> Bool {
@@ -50,6 +64,7 @@ final class SpeechEngine: SpeechRecognizing {
         try Task.checkCancellation()
         finalized = ""
         hasAudioSignal = false
+        speechModelSpoke = false
         generation += 1
         let token = generation
 
@@ -62,7 +77,9 @@ final class SpeechEngine: SpeechRecognizing {
         )
         self.transcriber = transcriber
 
-        let analyzer = SpeechAnalyzer(modules: [transcriber])
+        let early = await Self.earlyModule(for: locale)
+        let modules: [any SpeechModule] = early.map { [transcriber, $0] } ?? [transcriber]
+        let analyzer = SpeechAnalyzer(modules: modules)
         self.analyzer = analyzer
 
         guard await Self.isInstalled(for: locale) else { throw SpeechEngineError.setupFailed }
@@ -76,7 +93,7 @@ final class SpeechEngine: SpeechRecognizing {
             }
         }
 
-        guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
+        guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: modules) else {
             throw SpeechEngineError.invalidFormat
         }
         analyzerFormat = format
@@ -91,6 +108,7 @@ final class SpeechEngine: SpeechRecognizing {
                     guard token == self.generation else { return }
                     guard self.hasAudioSignal else { continue }
                     let text = String(result.text.characters)
+                    if !text.isEmpty { self.speechModelSpoke = true }
                     if result.isFinal {
                         self.finalized += text
                         self.onPartial?(SpeechHypothesis(stableText: self.finalized))
@@ -100,6 +118,23 @@ final class SpeechEngine: SpeechRecognizing {
                 }
             } catch {
                 throw error
+            }
+        }
+
+        if let early {
+            earlyTask = Task { [weak self] in
+                do {
+                    for try await result in early.results {
+                        guard let self, token == self.generation else { return }
+                        // Only the first words: once the speech model has an answer, it is the preview.
+                        if self.speechModelSpoke { return }
+                        guard self.hasAudioSignal else { continue }
+                        let text = String(result.text.characters)
+                        if !text.isEmpty { self.onPartial?(SpeechHypothesis(volatileText: text)) }
+                    }
+                } catch {
+                    // The preview then starts with the speech model's first answer, as before.
+                }
             }
         }
 
@@ -139,6 +174,8 @@ final class SpeechEngine: SpeechRecognizing {
         try await recognizerTask?.value
         generation += 1
         recognizerTask = nil
+        earlyTask?.cancel()
+        earlyTask = nil
         let result = finalized.trimmingCharacters(in: .whitespacesAndNewlines)
         transcriber = nil
         analyzer = nil
@@ -155,6 +192,8 @@ final class SpeechEngine: SpeechRecognizing {
         }
         recognizerTask?.cancel()
         recognizerTask = nil
+        earlyTask?.cancel()
+        earlyTask = nil
         transcriber = nil
         analyzer = nil
         inputBuilder = nil
