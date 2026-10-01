@@ -25,7 +25,7 @@ struct SettingsView: View {
         @Bindable var model = model
         Group {
             if model.isShowingSetup {
-                OnboardingView(initialStep: initialSetupStep)
+                OnboardingView(initialStep: max(initialSetupStep, model.setupStartStep))
             } else {
                 HStack(spacing: 0) {
                     VStack(alignment: .leading, spacing: 5) {
@@ -35,6 +35,7 @@ struct SettingsView: View {
                                                      selected: model.settingsTab == tab.id) {
                                 model.settingsTab = tab.id
                             }
+                            .selfTestAnchor("tab-\(tab.id)")
                         }
                         Spacer(minLength: 24)
                         sidebarFooter
@@ -115,6 +116,7 @@ struct SettingsView: View {
             }
             .buttonStyle(SettingsGuideButtonStyle())
             .accessibilityHint(String(localized: "打开 Saylane 的设置引导和语音试用"))
+            .selfTestAnchor("setup-guide")
             VStack(alignment: .leading, spacing: 8) {
                 StatusText(text: model.ready ? String(localized: "已就绪") : String(localized: "待完成设置"), ready: model.ready)
                 Text("Saylane \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
@@ -194,7 +196,7 @@ struct SettingsView: View {
                     Button(model.readinessState.permissions.accessibility
                            ? String(localized: "重新接入") : String(localized: "去开通")) {
                         if model.readinessState.permissions.accessibility {
-                            model.requestInputMonitoring()
+                            model.reconnectGlobalKeys()
                         } else {
                             model.requestAccessibility()
                         }
@@ -206,8 +208,8 @@ struct SettingsView: View {
         } header: {
             Text(String(localized: "说话"))
         } footer: {
-            Text(p.tapToTalk ? String(localized: "点一下开始录音，再按任意键提交。按下的那一刻就已经在录音，不会丢掉开头。")
-                             : String(localized: "按住说话，松开提交；和其他键一起按不会触发。按下的那一刻就已经在录音，不会丢掉开头。"))
+            Text(p.tapToTalk ? String(localized: "点一下开始录音，再按一次或按任意键提交。和其它键一起按不会触发。")
+                             : String(localized: "单独按住约 0.3 秒开始说话，松开提交。和其它键一起按、或者只是点一下，都不会触发，也不会打开麦克风。"))
         }
         .disabled(model.isListening)
 
@@ -215,7 +217,7 @@ struct SettingsView: View {
             Toggle(String(localized: "说话时显示底部提示"), isOn: model.binding(\.overlayEnabled))
             if !model.readinessState.permissions.accessibility {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Label(String(localized: "还没有允许辅助功能：在其它输入法下，或在不接受输入法写入的应用里，语音结果只能复制到剪贴板。"),
+                    Label(String(localized: "还没有允许辅助功能：只有 Saylane 是当前输入法时才能按键说话；在其它输入法下不会触发，也无法直接写入。"),
                           systemImage: "exclamationmark.triangle")
                         .font(.system(size: 12))
                         .foregroundStyle(.orange)
@@ -243,7 +245,13 @@ struct SettingsView: View {
             Toggle(String(localized: "模糊音"), isOn: model.binding(\.pinyinFuzzyEnabled))
                 .help(String(localized: "zh/z、an/ang 等，精确音节优先"))
             RimeDictionaryUpdateView(model: model.pinyinDictionaryUpdates)
-            if let error = model.pinyin.initializationError {
+            if model.ime.protocolMismatch {
+                Text(String(localized: "输入法组件和主程序的版本不一致，请重新运行安装包。")).font(.system(size: 12)).foregroundStyle(.red)
+            } else if !model.ime.isConnected {
+                Text(String(localized: "输入法组件现在没有运行。切到 Saylane 输入法并点一下任意输入框，它会自动启动。"))
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            if let error = model.ime.pinyinError {
                 Text(String(localized: "拼音引擎未就绪：\(error)")).font(.system(size: 12)).foregroundStyle(.red)
             }
         } header: {

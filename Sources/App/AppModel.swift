@@ -4,11 +4,12 @@ import Foundation
 import Observation
 import SwiftUI
 
-/// Composition root and the single object views observe. It owns no feature
-/// logic itself: preferences live in `PreferencesStore`, readiness in
-/// `Readiness` (reduced from events), input in `InputEventRouter`, voice in
-/// `VoiceSessionController`, models in `ModelCoordinator`, screen translation in
-/// `ScreenTranslateController` and pinyin in `PinyinEngine`.
+/// Composition root of the main program and the single object views observe.
+/// It owns no feature logic itself: preferences live in `PreferencesStore`,
+/// readiness in `Readiness` (reduced from events), input in `InputEventRouter`,
+/// voice in `VoiceSessionController`, models in `ModelCoordinator`, screen
+/// translation in `ScreenTranslateController`. Typing lives in another
+/// process, the input method, reached through `IMEBridgeClient`.
 @MainActor @Observable
 final class AppModel: VoiceSessionHost {
     static let shared = AppModel()
@@ -30,7 +31,7 @@ final class AppModel: VoiceSessionHost {
     let voice: VoiceSessionController
     let screen = ScreenFeature()
     var screenTranslate: ScreenTranslateController { screen.controller }
-    let pinyin = PinyinEngine()
+    let ime = IMEBridgeClient()
     let pinyinDictionaryUpdates = RimeDictionaryUpdateModel()
     let router = InputEventRouter()
     private let settingsWindow = SettingsController()
@@ -39,36 +40,22 @@ final class AppModel: VoiceSessionHost {
 
     var settingsTab = 1
     var isShowingSetup = false
-    /// Settings-panel trial field. Voice writes here; the host is not an IMK client.
+    /// The guide opens on this step (0: welcome … 3: try it).
+    var setupStartStep = 0
+    /// Settings-panel trial field: an ordinary text view, written like any other.
     var testText = ""
     private(set) var dictationTrialVisible = false
     var isRecordingScreenShortcut: Bool { screen.isRecordingShortcut }
     var shortcutRecordingVerdict: ShortcutValidator.Verdict? { screen.recordingVerdict }
     var lastLanguageSwitch: String?
     var isActivatingInputSource: Bool { permissionsController.isActivatingInputSource }
-    private var settingsCapture: SettingsCaptureTarget?
     private var lastPermissionRefreshAt: TimeInterval = -.infinity
     private var lastTapAttemptAt: TimeInterval = -.infinity
     private var lastTapOutcome: String?
     private var noticeExpiry: Task<Void, Never>?
     private var workspaceObserver: NSObjectProtocol?
     private var inputSourceObserver: NSObjectProtocol?
-    private struct DeferredIMEInput {
-        let event: NSEvent
-        let leaseID: UUID
-        let clientGeneration: Int
-    }
-    private var deferredIMEInput: [DeferredIMEInput] = []
-    /// The user typed on while a result was still being finalized: keys are no
-    /// longer held back for the rest of this dictation.
-    private var typingResumedDuringFinalization = false
-    private let deferredInputDeadline = InputDeferralDeadline()
-    private struct DeferredSettingsInput {
-        let event: NSEvent
-        let responder: ObjectIdentifier?
-    }
-    private var deferredSettingsInput: [DeferredSettingsInput] = []
-    private var replayingSettingsInput = false
+    private var releaseWatchdog: Task<Void, Never>?
 
     // MARK: Derived
 
@@ -89,7 +76,9 @@ final class AppModel: VoiceSessionHost {
 
     private init() {
         AppDirectories.migrateLegacyLayout()
-        preferences = PreferencesStore()
+        // The input method's domain, so an upgrade from the one-process
+        // builds keeps every setting.
+        preferences = PreferencesStore(backing: UserDefaults(suiteName: Bridge.defaultsSuite) ?? .standard)
         models = ModelCoordinator(preferences: preferences.current, translation: translation)
         voice = VoiceSessionController()
         voice.host = self
@@ -98,19 +87,16 @@ final class AppModel: VoiceSessionHost {
     // MARK: - Bootstrap
 
     func bootstrap() {
-        InputDiagnostics.record("app-start", "version=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") ?? "unknown") trigger=\(prefs.pushToTalk.rawValue)")
+        InputDiagnostics.channel = "app"
+        InputDiagnostics.record("app-start", "version=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") ?? "unknown") pid=\(getpid()) trigger=\(prefs.pushToTalk.rawValue)")
         NSApp.setActivationPolicy(.accessory)
+        // Running again: the input method may start us whenever it needs us.
+        preferences.setQuitByUser(false)
         voice.overlay.prepare()
         voice.overlay.setHotkeyLabel(prefs.pushToTalk.shortLabel)
-        pinyin.applyPreferences(prefs)
-        if let error = pinyin.initializationError {
-            InputDiagnostics.record("pinyin-init-failed", error)
-        } else {
-            InputDiagnostics.record("pinyin-ready", "librime")
-        }
-        pinyin.onEnglishModeChanged = { [weak self] enabled in
-            self?.preferences.update { $0.pinyinEnglishMode = enabled }
-        }
+        ime.onEvent = { [weak self] event in self?.handle(event) }
+        ime.push(pinyin: pinyinPreferences)
+        ime.start()
         models.onReadiness = { [weak self] event in self?.reduce(event) }
         models.onNotice = { [weak self] notice in self?.post(notice) }
         router.onAction = { [weak self] action in self?.perform(action) }
@@ -122,11 +108,6 @@ final class AppModel: VoiceSessionHost {
         permissionsController.onNotice = { [weak self] notice in self?.post(notice) }
         permissionsController.onChanged = { [weak self] in self?.refreshInputSourceStatus() }
         wireScreen()
-
-        IMEManager.shared.onWillSwitchClient = { [weak self] controller in self?.pinyin.switchClient(to: controller?.sessionID) }
-        // IMK may activate before applicationDidFinishLaunching wires these
-        // observers. Synchronize an already attached client as well.
-        pinyin.switchClient(to: IMEManager.shared.controller?.sessionID)
 
         workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
@@ -148,6 +129,8 @@ final class AppModel: VoiceSessionHost {
                 guard let self else { return }
                 self.refreshStatus(throttled: true)
                 self.retryGlobalHotkeyMonitor()
+                // The input method is started by the system when its source is selected.
+                if !self.ime.isConnected { self.ime.refreshStatus() }
             }
         }
         startGlobalHotkeyMonitor()
@@ -164,10 +147,10 @@ final class AppModel: VoiceSessionHost {
         // Filtering can change while availability stays true (listen-only →
         // consumable). Read it after the monitor has negotiated its backend.
         syncRouterContext()
-        let outcome = ok ? (router.isGlobalTapFiltering ? "filter" : "listen") : "failed"
+        let outcome = ok ? (router.isGlobalTapFiltering ? "filter" : "listen") : "unavailable"
         if outcome != lastTapOutcome {
             lastTapOutcome = outcome
-            InputDiagnostics.record("global-tap", outcome)
+            InputDiagnostics.record("global-keys", outcome)
         }
     }
 
@@ -203,15 +186,14 @@ final class AppModel: VoiceSessionHost {
         let now = ProcessInfo.processInfo.systemUptime
         if !throttled || settingsWindow.isVisible || now - lastPermissionRefreshAt > 3 {
             lastPermissionRefreshAt = now
-            let monitoringWasGranted = readinessState.permissions.inputMonitoring
+            let before = readinessState.permissions
             permissionsController.refresh()
             let currentPermissions = permissionsController.permissions
             reduce(.permissions(currentPermissions))
-            // Returning from System Settings is the normal point at which an input
-            // monitoring grant becomes visible.  A listen-only fallback created
-            // before the grant does not upgrade itself, so rebuild the tap once on
-            // the permission transition.
-            if currentPermissions.inputMonitoring && !monitoringWasGranted {
+            // A grant becomes visible without a restart. A listener created
+            // before it does not upgrade itself, so rebuild it on the transition.
+            if (currentPermissions.accessibility && !before.accessibility)
+                || (currentPermissions.inputMonitoring && !before.inputMonitoring) {
                 startGlobalHotkeyMonitor()
             }
         }
@@ -230,7 +212,7 @@ final class AppModel: VoiceSessionHost {
             $0.tapToTalk = p.tapToTalk
             $0.isListening = isListening
             $0.voiceCapturing = voice.isCapturing
-            $0.voiceEnabled = readinessState.inputSource.enabled || isVoiceTrialActive
+            $0.voiceEnabled = readinessState.inputSource.enabled
             $0.isOursSelected = readinessState.inputSource.selected
             $0.globalEventsCanBeConsumed = globalEventsCanBeConsumed
             $0.screenShortcut = p.screenCaptureShortcut
@@ -239,6 +221,42 @@ final class AppModel: VoiceSessionHost {
             $0.pinVisible = screenTranslate.isPinVisible
             $0.recordingShortcut = isRecordingScreenShortcut
         }
+        syncBridgeContext(appOwnsKeys: globalEventsCanBeConsumed)
+    }
+
+    /// Everything the input method must know, recomputed whole. It decides
+    /// about keys on its own from this; it never waits for an answer from here.
+    private func syncBridgeContext(appOwnsKeys: Bool) {
+        let p = prefs
+        let phase: VoicePhase
+        switch voice.state {
+        case .idle, .cancelling: phase = .idle
+        case .preparing, .listening: phase = .listening
+        case .finalizing: phase = .finalizing
+        case .polishing: phase = .polishing
+        }
+        let direction = currentDirection.title
+        let actionable = notice.flatMap { $0.level == .actionable ? $0.message : nil }
+        ime.update {
+            $0.phase = phase
+            $0.session = phase == .idle ? nil : voice.sessionID
+            $0.sessionBundleID = phase == .idle ? nil : voice.targetBundleID
+            $0.appOwnsKeys = appOwnsKeys
+            $0.trigger = p.pushToTalk.rawValue
+            $0.screenSelecting = screenTranslate.isActive && !screenTranslate.isPinVisible
+            $0.screenShortcutKeyCode = p.screenCaptureShortcut.keyCode
+            $0.screenShortcutFlags = p.screenCaptureShortcut.normalizedFlags
+            $0.userInputFence = voice.policy.userInputFence
+            $0.menu = BridgeMenuState(directionTitle: direction,
+                                      canSwitchDirection: p.languageSwitchEnabled && !isPreparingModels,
+                                      hasLastDictation: voice.lastDictation != nil,
+                                      notice: actionable)
+        }
+    }
+
+    private var pinyinPreferences: BridgePinyinPreferences {
+        BridgePinyinPreferences(englishMode: prefs.pinyinEnglishMode, fuzzy: prefs.pinyinFuzzyEnabled,
+                                barPreedit: prefs.pinyinBarPreeditEnabled)
     }
 
     // MARK: - Notices
@@ -264,9 +282,10 @@ final class AppModel: VoiceSessionHost {
             self.notice = notice
             voice.showNotice(notice)
         }
+        syncRouterContext()
     }
 
-    func dismissNotice() { notice = nil }
+    func dismissNotice() { notice = nil; syncRouterContext() }
 
     // MARK: - Preferences
 
@@ -302,7 +321,7 @@ final class AppModel: VoiceSessionHost {
         }
         if new.pinyinEnglishMode != old.pinyinEnglishMode || new.pinyinBarPreeditEnabled != old.pinyinBarPreeditEnabled
             || new.pinyinFuzzyEnabled != old.pinyinFuzzyEnabled {
-            pinyin.applyPreferences(new)
+            ime.push(pinyin: pinyinPreferences)
         }
         if new.screenPinFreezesScreen != old.screenPinFreezesScreen || new.screenFontWeightExperiment != old.screenFontWeightExperiment {
             screen.apply(new)
@@ -366,63 +385,46 @@ final class AppModel: VoiceSessionHost {
 
     // MARK: - Input
 
-    /// IMK delivered a key while Saylane is the selected input source.
-    func consumeIMEEvent(_ event: NSEvent) -> Bool {
-        pinyin.ensureClient(IMEManager.shared.currentLeaseID)
-        if router.feed(event, source: .imk) { return true }
-        // Optional polish never blocks typing: the ordinary result is already
-        // complete and can be committed before handling this same event.
-        if voice.state == .polishing {
-            _ = voice.commitCompletedOutputForUserInput()
-        }
-        if voice.state == .finalizing {
-            // A bare modifier is not typing.
-            guard event.type == .keyDown else { return pinyin.handle(event, pushToTalk: prefs.pushToTalk) }
-            guard !typingResumedDuringFinalization, deferredIMEInput.count < 64,
-                  PinyinKeyEvent(event).canDeferForVoiceFinalization,
-                  let snapshot = IMEManager.shared.deferredInputSnapshot else {
-                // Commands cannot be reconstructed through IMKTextInput, so they
-                // stay on this callback. The dictation is not discarded: its
-                // preview is withdrawn and the result is written when it is ready.
-                resumeTypingDuringFinalization()
-                return pinyin.handle(event, pushToTalk: prefs.pushToTalk)
+    /// The input method reported something.
+    private func handle(_ event: BridgeEvent) {
+        switch event {
+        case .hello, .attachment:
+            // The client keeps the state; the menu and the routes follow it.
+            syncRouterContext()
+        case .key(let meta):
+            let type: NSEvent.EventType = meta.kind == .keyDown ? .keyDown : .flagsChanged
+            router.feed(InputEvent(source: .imk, type: type, keyCode: meta.keyCode, flags: meta.flags,
+                                   isRepeat: meta.isRepeat, timestamp: meta.timestamp))
+        case .userTyped(let session):
+            // Optional polish never blocks typing: the ordinary result is
+            // complete and can be written before the key that is waiting.
+            if voice.sessionID == session, voice.state == .polishing {
+                _ = voice.commitCompletedOutputForUserInput()
             }
-            deferredIMEInput.append(DeferredIMEInput(event: event, leaseID: snapshot.leaseID,
-                                                      clientGeneration: snapshot.generation))
-            armDeferredIMEFence()
-            return true
+        case .typingResumed:
+            break
+        case .menu(let action):
+            perform(action)
+        case .pinyinMode(let english):
+            preferences.update { $0.pinyinEnglishMode = english }
         }
-        // Cancellation has already removed the run and cleared its marked text;
-        // speech cleanup may continue without blocking ordinary Pinyin input.
-        if voice.state == .cancelling {
-            return pinyin.handle(event, pushToTalk: prefs.pushToTalk)
-        }
-        if isListening { return false }
-        return pinyin.handle(event, pushToTalk: prefs.pushToTalk)
     }
 
-    /// Key events while the settings window is key.
+    private func perform(_ action: BridgeMenuAction) {
+        switch action {
+        case .openSettings: openSettings()
+        case .showNotice: openSettings(for: notice?.destination ?? .none)
+        case .switchDirection: swapTranslationDirection()
+        case .screenCapture: handleScreenCaptureHotkey()
+        case .copyLastDictation: copyLastDictation()
+        }
+    }
+
+    /// Key events while the settings window is key. They reach the gestures
+    /// under any input source and without any permission.
     func handleSettingsShortcut(_ event: NSEvent) -> NSEvent? {
         guard settingsWindow.isVisible else { return event }
-        if replayingSettingsInput { return event }
-        if router.feed(event, source: .settingsWindow) { return nil }
-        guard event.type == .keyDown else { return event }
-        if voice.state == .polishing {
-            _ = voice.commitCompletedOutputForUserInput()
-        }
-        if voice.state == .finalizing {
-            guard PinyinKeyEvent(event).canDeferForVoiceFinalization,
-                  deferredSettingsInput.count < 64 else {
-                voice.cancel()
-                replayDeferredSettingsInput()
-                return event
-            }
-            deferredSettingsInput.append(DeferredSettingsInput(
-                event: event, responder: settingsWindow.focusedResponderIdentity))
-            armDeferredIMEFence()
-            return nil
-        }
-        return event
+        return router.feed(event, source: .settingsWindow) ? nil : event
     }
 
     private func perform(_ action: InputAction) {
@@ -430,38 +432,33 @@ final class AppModel: VoiceSessionHost {
         switch action {
         case .voice(let gesture):
             switch gesture {
-            case .armHold, .armTap:
+            case .prewarm:
                 guard !screenTranslate.isActive else { return }
-                // Opening the microphone on every ⌘/⌃/⇧ press would flash the
-                // recording indicator for ordinary shortcuts; those keys start
-                // capturing when the hold is confirmed.
-                if gesture == .armTap || !prefs.pushToTalk.isChordModifier { voice.arm() }
-            case .disarm:
+                // An application handles its ⌘-shortcuts before the input
+                // method sees the key, so a chord is also read from the system.
+                if chordDuringHold(since: VoiceGesture.prewarmDelay) { abandonHold(); return }
+                voice.arm()
+            case .discard:
                 voice.disarm()
-            case .press:
-                guard !screenTranslate.isActive else { return }
+            case .start:
+                guard !screenTranslate.isActive else { voice.disarm(); return }
                 if !prefs.pushToTalk.isModifier && !router.isGlobalTapFiltering {
                     voice.disarm()
                     post(.actionable(String(localized: "功能键语音快捷键需要辅助功能权限，才能拦截按键并可靠收到松开事件。"), .permissions))
                     return
                 }
-                if prefs.pushToTalk.isModifier, !prefs.tapToTalk, Self.keyWentDownDuringHold() {
-                    // Applications handle ⌘-shortcuts before the input method
-                    // sees the key, so the chord is read from the system instead.
-                    InputDiagnostics.record("hold-abandoned", "key pressed during hold")
-                    voice.disarm()
-                    return
-                }
+                if !prefs.tapToTalk, chordDuringHold(since: VoiceGesture.holdDelay) { abandonHold(); return }
                 voice.press()
-            case .release:
+                if voice.isListening, !prefs.tapToTalk { startReleaseWatchdog() }
+            case .stop:
                 voice.release()
             case .cancel:
                 voice.cancel()
-            case .switchTarget:
+            case .interrupt:
+                voice.interrupt()
+            case .switchDirection:
                 voice.disarm()
                 cycleDirection()
-            case .none:
-                break
             }
         case .switchDirection:
             cycleDirection()
@@ -476,10 +473,45 @@ final class AppModel: VoiceSessionHost {
         }
     }
 
-    /// A key was pressed while the talk key was being held, as seen by the
-    /// window server. Needs no permission and works under any input source.
-    private static func keyWentDownDuringHold() -> Bool {
-        CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .keyDown) < InputShortcutHandler.holdDelay
+    /// A key went down while a modifier talk key was being held, as the window
+    /// server saw it. Needs no permission and works under any input source.
+    private func chordDuringHold(since interval: TimeInterval) -> Bool {
+        guard prefs.pushToTalk.isModifier else { return false }
+        return CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .keyDown) < interval
+    }
+
+    private func abandonHold() {
+        InputDiagnostics.record("hold-abandoned", "key pressed during hold")
+        router.abandonVoiceGesture()
+        voice.disarm()
+    }
+
+    /// The release of the talk key can be lost: InputMethodKit stops reporting
+    /// keys when the client changes mid-hold. While a hold-to-talk dictation
+    /// records, the modifier is also read from the window server; when it has
+    /// been up for a while the key is treated as released.
+    private func startReleaseWatchdog() {
+        releaseWatchdog?.cancel()
+        let trigger = prefs.pushToTalk
+        guard trigger.isModifier, let flag = trigger.modifierFlag else { return }
+        // If the system does not show the key as held now, it cannot tell us when it is up.
+        guard CGEventSource.flagsState(.combinedSessionState).contains(flag) else {
+            InputDiagnostics.record("release-watchdog", "modifier state unavailable")
+            return
+        }
+        releaseWatchdog = Task { [weak self] in
+            var up = 0
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(150)) } catch { return }
+                guard let self, self.voice.isCapturing else { return }
+                up = CGEventSource.flagsState(.combinedSessionState).contains(flag) ? 0 : up + 1
+                if up >= 3 {
+                    InputDiagnostics.record("release-watchdog", "talk key is up; its release was not delivered")
+                    self.router.voiceTriggerLost()
+                    return
+                }
+            }
+        }
     }
 
     private func cycleDirection() {
@@ -540,20 +572,21 @@ final class AppModel: VoiceSessionHost {
 
     func translate(_ text: String) async throws -> String { try await translation.translate(text) }
 
-    func textSink(inFront bundleID: String?) -> VoiceTextSink {
-        let ime = IMEManager.shared
-        InputDiagnostics.record("voice-target", "imk=\(ime.canWriteVoice(inFront: bundleID)) client=\(ime.clientBundleID ?? "none") paste=\(AccessibilityInserter.isTrusted)")
+    func textSink(inFront bundleID: String?, session: UUID) -> VoiceTextSink {
+        let ime = ime
+        let own = bundleID == Bundle.main.bundleIdentifier
+        InputDiagnostics.record("voice-target", "front=\(bundleID ?? "none") input-method=\(ime.canWrite(inFront: bundleID)) attached=\(ime.attachedBundleID ?? "none") paste=\(AccessibilityInserter.isTrusted)")
         return VoiceTextSink(
-            setMarked: { ime.setVoiceMarked($0, inFront: bundleID) },
-            clearMarked: { ime.clearVoiceMarked() },
-            insert: { [weak self] text in
-                guard ime.canWriteVoice(inFront: bundleID) else { return false }
-                // `insertText` would replace a pinyin composition typed meanwhile.
-                if self?.pinyin.isComposing == true { self?.pinyin.commit() }
-                return ime.insertVoiceText(text, inFront: bundleID)
+            setMarked: { ime.setMarked($0, session: session, inFront: bundleID) },
+            clearMarked: { ime.clearMarked(session: session) },
+            insert: { text in
+                if ime.insert(text, session: session, inFront: bundleID) { return true }
+                // Our own text fields can always be written without anybody's help.
+                return own && LocalTextInserter.insert(text)
             },
             paste: { AccessibilityInserter.paste($0) },
-            copy: { AccessibilityInserter.copy($0) })
+            copy: { AccessibilityInserter.copy($0) },
+            end: { ime.end(session: session) })
     }
 
     /// Put the most recent dictation on the pasteboard (input-method menu).
@@ -563,118 +596,24 @@ final class AppModel: VoiceSessionHost {
         post(.transient(String(localized: "上一次听写已复制到剪贴板。")))
     }
 
-    func voiceSessionStateDidChange() { syncRouterContext() }
-
-    func setDictationTrialVisible(_ visible: Bool) {
-        dictationTrialVisible = visible
+    func voiceSessionStateDidChange() {
+        if !voice.isCapturing { releaseWatchdog?.cancel(); releaseWatchdog = nil }
         syncRouterContext()
     }
 
-    func settingsCaptureTarget() -> (any CompositionTarget)? {
-        let r = readinessState
-        if r.permissions.microphone != .granted {
-            post(.actionable(r.permissions.microphone == .denied
-                ? SetupReadiness.Blocker.microphoneDenied.message
-                : SetupReadiness.Blocker.microphoneNotRequested.message, .permissions))
-            return nil
-        }
-        if r.models.busy {
-            post(.transient(String(localized: "正在准备语音模型，好了再按住说。")))
-            return nil
-        }
-        if !r.models.speechReady {
-            post(.transient(String(localized: "正在准备语音模型，好了再按住说。")))
-            Task { await downloadModels() }
-            return nil
-        }
-        if !r.models.translationReady {
-            post(.transient(String(localized: "正在准备翻译模型，好了再试语音翻译。")))
-            Task { await downloadModels() }
-            return nil
-        }
-        // The user may have typed or edited the trial field since the previous
-        // session. Snapshot that text for each capture instead of keeping a
-        // second, stale long-lived copy.
-        let target = SettingsCaptureTarget(model: self, initialText: testText)
-        settingsCapture = target
-        return target
-    }
+    func setDictationTrialVisible(_ visible: Bool) { dictationTrialVisible = visible }
 
     func voiceSessionDidEnd(committed: Bool) {
         if committed {
             notice = nil
             if !prefs.onboardingCompleted { preferences.update { $0.onboardingVersion = Preferences.currentOnboardingVersion } }
         }
+        releaseWatchdog?.cancel(); releaseWatchdog = nil
         router.reset()
         syncRouterContext()
-        typingResumedDuringFinalization = false
-        deferredInputDeadline.cancel()
-        replayDeferredIMEInput()
-        replayDeferredSettingsInput()
     }
-
-    /// Typing wins over the wait for a recognizer tail, but never at the price
-    /// of the dictation: queued keys are written now, the result when it is ready.
-    private func resumeTypingDuringFinalization() {
-        typingResumedDuringFinalization = true
-        IMEManager.shared.clearVoiceMarked()
-        replayDeferredIMEInput()
-    }
-
-    private func armDeferredIMEFence() {
-        deferredInputDeadline.arm(after: voice.policy.userInputFence) { [weak self] in
-            guard let self else { return }
-            if self.voice.state == .polishing {
-                _ = self.voice.commitCompletedOutputForUserInput()
-            } else if self.voice.state == .finalizing {
-                if self.deferredSettingsInput.isEmpty {
-                    self.resumeTypingDuringFinalization()
-                } else {
-                    // The trial field has no way to order a late result after typed text.
-                    self.voice.cancel()
-                    self.post(.transient(String(localized: "已继续键盘输入，本次听写已取消。")))
-                }
-            }
-            self.replayDeferredIMEInput()
-            self.replayDeferredSettingsInput()
-        }
-    }
-
-    private func replayDeferredIMEInput() {
-        deferredInputDeadline.cancel()
-        let pending = deferredIMEInput
-        deferredIMEInput.removeAll(keepingCapacity: true)
-        for item in pending {
-            guard IMEManager.shared.matchesDeferredInput(leaseID: item.leaseID,
-                                                         generation: item.clientGeneration) else { continue }
-            if !pinyin.handle(item.event, pushToTalk: prefs.pushToTalk) {
-                _ = IMEManager.shared.insertDeferredText(item.event.characters ?? "",
-                                                         leaseID: item.leaseID,
-                                                         generation: item.clientGeneration)
-            }
-        }
-    }
-
-    private func replayDeferredSettingsInput() {
-        let pending = deferredSettingsInput
-        deferredSettingsInput.removeAll(keepingCapacity: true)
-        guard !pending.isEmpty, settingsWindow.isFocused else { return }
-        replayingSettingsInput = true
-        defer { replayingSettingsInput = false }
-        for item in pending where item.responder == settingsWindow.focusedResponderIdentity {
-            NSApp.sendEvent(item.event)
-        }
-    }
-
-    func commitPinyinBeforeVoice() { pinyin.commit() }
 
     // MARK: - Pinyin
-
-    func commitPinyin() {
-        // Caps Lock often makes IMK call commitComposition before flagsChanged.
-        // Commit the typed letters, not the highlighted Chinese candidate.
-        if NSEvent.modifierFlags.contains(.capsLock) { pinyin.commitRaw() } else { pinyin.commit() }
-    }
 
     func togglePinyinEnglishMode() { set(\.pinyinEnglishMode, !prefs.pinyinEnglishMode) }
 
@@ -733,20 +672,17 @@ final class AppModel: VoiceSessionHost {
         }
     }
 
-    func requestInputMonitoring() {
-        permissionsController.requestInputMonitoring()
+    /// Accessibility is granted but the listener is not running: try again now.
+    func reconnectGlobalKeys() {
         startGlobalHotkeyMonitor()
         refreshInputSourceStatus()
-        if router.isGlobalTapListening {
-            notice = nil
-        } else if !permissions.inputMonitoringGranted {
-            post(.actionable(String(localized: "还没有允许输入监控。允许后，在其它输入法下按住快捷键也能开始语音。"), .permissions))
-        } else {
-            post(.actionable(String(localized: "输入监控已允许，但全局按键监听没有成功。请再试一次，或先手动切到 Saylane。"), .permissions))
-        }
     }
 
-    func requestAccessibility() { permissionsController.requestAccessibility() }
+    func requestAccessibility() {
+        permissionsController.requestAccessibility()
+        // The grant shows up without a restart; pick it up as soon as it does.
+        lastTapAttemptAt = -.infinity
+    }
 
     func requestScreenCapturePermission() {
         if !permissionsController.requestScreenCapture() {
@@ -802,38 +738,12 @@ final class AppModel: VoiceSessionHost {
     func beginRecordScreenShortcut() { screen.beginRecordingShortcut() }
     func cancelRecordScreenShortcut() { screen.cancelRecordingShortcut() }
 
-    // MARK: - Settings trial target
+    func clearTestText() { testText = "" }
 
-    /// Writes ASR into `testText`. The IME host is not a valid IMK client for itself.
-    private final class SettingsCaptureTarget: CompositionTarget {
-        unowned let model: AppModel
-        private var committed = ""
-        private var ownsMarked = false
-        init(model: AppModel, initialText: String) {
-            self.model = model
-            committed = initialText
-        }
-        var isValid: Bool { model.isVoiceTrialActive }
-        func setMarked(_ text: String) {
-            ownsMarked = true
-            model.testText = committed + text
-        }
-        func commit(_ text: String) throws {
-            guard isValid else { throw SessionFailure.targetLost }
-            ownsMarked = false
-            committed += text
-            model.testText = committed
-        }
-        func cancelMarked() {
-            guard ownsMarked else { return }
-            ownsMarked = false
-            model.testText = committed
-        }
-        func reset() { committed = ""; model.testText = "" }
-    }
-
-    func clearTestText() {
-        settingsCapture?.reset()
-        testText = ""
+    /// The user chose Quit: the input method must not start us again by itself.
+    func quitByUser() {
+        voice.cancel()
+        preferences.setQuitByUser(true)
+        NSApp.terminate(nil)
     }
 }

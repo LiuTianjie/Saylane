@@ -1,19 +1,15 @@
 import Foundation
 import AppKit
-import InputMethodKit
 #if DEBUG
 import SwiftUI
 #endif
 
 @main
 enum SaylaneMain {
-    /// Retained for the process lifetime; only ever touched from `main` on the main thread.
-    nonisolated(unsafe) private static var inputServer: IMKServer?
-
     static func main() {
-        if CommandLine.arguments.contains("--pinyin-self-test") {
-            exit(RimeDiagnostics.run())
-        }
+        // Input-source management for the installer scripts. The input method
+        // itself is never run as a command: every exit of that process counts
+        // against it (docs/DESIGN_0.3.md §0).
         if CommandLine.arguments.contains("--register-input-source") {
             exit(InputSourceInstall.registerBundle() == noErr ? EXIT_SUCCESS : EXIT_FAILURE)
         }
@@ -33,7 +29,7 @@ enum SaylaneMain {
             return
         }
         #if DEBUG
-        // Preview the real settings without registering a second IMK server or global hotkeys.
+        // Preview the real settings without touching the input method or global hotkeys.
         if CommandLine.arguments.contains("--preview-models")
             || Bundle.main.object(forInfoDictionaryKey: "SaylaneUIPreview") as? Bool == true {
             MainActor.assumeIsolated {
@@ -78,10 +74,14 @@ enum SaylaneMain {
             return
         }
         #endif
-        // Establish the IMK connection before entering the AppKit lifecycle, as a
-        // dedicated input-method host. Retain it for the entire process lifetime.
-        let name = Bundle.main.object(forInfoDictionaryKey: "InputMethodConnectionName") as! String
-        inputServer = IMKServer(name: name, bundleIdentifier: Bundle.main.bundleIdentifier!)
+        // One main program per login session. LaunchServices already reuses the
+        // running one; this covers the binary being started directly.
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+            .filter { $0.processIdentifier != getpid() }
+        if let running = others.first, !TestHome.isActive {
+            if !CommandLine.arguments.contains("--background") { running.activate() }
+            exit(EXIT_SUCCESS)
+        }
         let application = NSApplication.shared
         let delegate = AppDelegate()
         application.delegate = delegate

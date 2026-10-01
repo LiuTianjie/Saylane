@@ -68,6 +68,8 @@ def logical_shell(source: str) -> str:
 
 scripts = [
     "scripts/package.sh",
+    "scripts/package-local.sh",
+    "scripts/stage-bundles.sh",
     "scripts/pkg/preinstall",
     "scripts/pkg/postinstall",
     "scripts/uninstall.sh",
@@ -87,38 +89,85 @@ for path in scripts:
     check("export TZ=Asia/Shanghai" in script, f"{path} must force Shanghai time")
 
 
-# Upgrade safety: Installer must atomically replace the live payload. The preinstall
-# script may remove legacy/user copies, but must never pre-delete the system Saylane.
+# Upgrade safety. Installer replaces each bundle atomically, so nothing may be
+# deleted before the payload is in place. And the input method is restarted
+# exactly once per install: macOS counts every exit of an input-method process,
+# and past ten in half an hour every running application drops it until that
+# application is relaunched (docs/DESIGN_0.3.md §0).
 preinstall = read("scripts/pkg/preinstall")
-destructive_lines = [
-    line for line in active_shell_lines(preinstall)
-    if re.search(r"(^|[;&|]\s*|\s)(cleanup|/bin/rm|rm)\s", line)
-]
+pre_lines = active_shell_lines(preinstall)
 check(
-    not any(
-        re.search(r"(?:^|\s)[\"']?/Library/Input Methods/Saylane\.app(?:[\"']|\s|$)", line)
-        for line in destructive_lines
-    ),
-    "preinstall must not delete the live /Library/Input Methods/Saylane.app before payload validation",
+    not any(re.search(r"(^|[;&|]\s*|\s)(/bin/rm|rm)\s", line) for line in pre_lines),
+    "preinstall must not delete anything: a failed payload must leave the previous version intact",
 )
-pre_stop = shell_function(preinstall, "stop_process")
-term = pre_stop.find("pkill -TERM -x")
-first_probe = pre_stop.find("pgrep -x", term + 1)
-wait = pre_stop.find("sleep", first_probe + 1)
-kill = pre_stop.find("pkill -KILL -x", wait + 1)
-final_probe = pre_stop.find("pgrep -x", kill + 1)
 check(
-    min(term, first_probe, wait, kill, final_probe) >= 0
-    and term < first_probe < wait < kill < final_probe
-    and "exit 1" in pre_stop[final_probe:],
-    "preinstall must TERM, poll/wait, KILL if needed, and fail if the old process still runs",
+    not any("Input Methods" in line for line in pre_lines),
+    "preinstall must not stop or touch the input method; postinstall restarts it once",
 )
-first_cleanup = preinstall.find("cleanup '/Library/Input Methods/RTranslate.app'")
 check(
-    first_cleanup < 0
-    or (0 <= preinstall.find("stop_process Saylane") < first_cleanup
-        and 0 <= preinstall.find("stop_process RTranslate") < first_cleanup),
-    "preinstall must finish stopping Saylane and RTranslate before touching old bundles",
+    any("pkill -TERM -f" in line and "$MAIN" in line for line in pre_lines)
+    and "MAIN='/Applications/Saylane.app/Contents/MacOS/Saylane'" in preinstall,
+    "preinstall must quit the main program by its exact path",
+)
+check(
+    not any(re.search(r"pkill\s+(-\w+\s+)*-x\s", line) for line in pre_lines),
+    "preinstall must not stop processes by bare name: both processes of this product could match",
+)
+
+postinstall = read("scripts/pkg/postinstall")
+post_lines = active_shell_lines(postinstall)
+old_pids = postinstall.find("OLD_PIDS=")
+register = postinstall.find("--register-input-source")
+restart = postinstall.find('for pid in $OLD_PIDS')
+launch = postinstall.find("/usr/bin/open")
+check(
+    0 <= old_pids < register < restart < launch,
+    "postinstall must note the running input method, register, restart it, then open the main program",
+)
+check(
+    '"$APP_BIN" --register-input-source' in postinstall,
+    "registration must run from the main program's binary, never from the input method's",
+)
+check(
+    not any("pkill" in line or "killall" in line for line in post_lines),
+    "postinstall must stop only the processes it found before registering, by pid",
+)
+kill_lines = [line for line in post_lines if re.search(r"/bin/kill\s+-TERM", line)]
+check(
+    len(kill_lines) == 1 and '"$pid"' in kill_lines[0],
+    "postinstall must send exactly one TERM, to a pid that was running the previous version",
+)
+check(
+    "launchctl asuser" in logical_shell(postinstall) and "--args --installed" in logical_shell(postinstall),
+    "postinstall must open the main program in the console user's session",
+)
+for script_name, script in (("preinstall", preinstall), ("postinstall", postinstall)):
+    check(
+        "Contents/MacOS/SaylaneIME" not in script,
+        f"{script_name} must never execute the input method's binary",
+    )
+cleanup = shell_function(postinstall, "cleanup_old_copy")
+check(
+    "com.rtranslate.saylane" not in cleanup and "Preserved unexpected bundle" in cleanup,
+    "legacy cleanup must only remove bundles with the old identifiers",
+)
+check(
+    "cleanup_old_copy '/Applications/Saylane.app'" not in postinstall
+    and "cleanup_old_copy '/Library/Input Methods/Saylane.app'" not in postinstall,
+    "postinstall must never remove the two bundles it has just installed",
+)
+
+components = read("scripts/component-plist.py")
+check(
+    'component["BundleIsRelocatable"] = False' in components
+    and '"Applications/Saylane.app", "Library/Input Methods/Saylane.app"' in components,
+    "both bundles must be installed exactly where the package says",
+)
+for packager in ("scripts/package.sh", "scripts/package-local.sh"):
+    check("scripts/component-plist.py" in read(packager), f"{packager} must use the shared component list")
+check(
+    "--allow-same-version" not in read("scripts/package.sh"),
+    "a release package must keep the installer's version check",
 )
 
 
@@ -128,16 +177,18 @@ check(
 uninstall = read("scripts/uninstall.sh")
 uninstall_logical = logical_shell(uninstall)
 disable_lines = [line.strip() for line in uninstall_logical.splitlines()
-                 if "--disable-input-source" in line]
+                 if "--disable-input-source" in line and not line.strip().startswith("#")]
 check(len(disable_lines) == 1, "uninstall must invoke exactly one input-source disable command")
+as_user = uninstall_logical[uninstall_logical.find("as_user()"):]
+as_user = as_user[:as_user.find("\n")]
+check(
+    "launchctl asuser" in as_user and "/usr/bin/sudo" in as_user
+    and re.search(r"\s-u\s+\"?\$USER_NAME\"?", as_user) is not None,
+    "as_user must run its command in the logged-in console user's session",
+)
 if disable_lines:
-    disable_command = disable_lines[0]
-    check(
-        "launchctl asuser" in disable_command
-        and "/usr/bin/sudo" in disable_command
-        and re.search(r"\s-u\s+\"?\$USER_NAME\"?", disable_command) is not None,
-        "uninstall must run input-source disable in the logged-in console user's context",
-    )
+    check(disable_lines[0].startswith("as_user "),
+          "uninstall must run input-source disable in the logged-in console user's context")
 
 disable_position = uninstall_logical.find("--disable-input-source")
 remove_loop_position = uninstall_logical.find("for path in ", disable_position + 1)
@@ -158,27 +209,23 @@ between_disable_and_remove = (
     if disable_position >= 0 and remove_loop_position > disable_position
     else ""
 )
-user_unregister_lines = [
-    line.strip() for line in between_disable_and_remove.splitlines()
-    if "lsregister" in line and " -u " in f" {line} "
-]
 remove_body = logical_shell(shell_function(uninstall, "remove_bundle"))
-remove_user_unregister_lines = [
-    line.strip() for line in remove_body.splitlines()
-    if "lsregister" in line and " -u " in f" {line} "
-]
-helper_unregisters_before_delete = (
-    any("launchctl asuser" in line and "/usr/bin/sudo" in line
-        for line in remove_user_unregister_lines)
-    and 0 <= remove_body.find("lsregister") < remove_body.find("/bin/rm")
+check(
+    "as_user" in remove_body and 0 <= remove_body.find("lsregister") < remove_body.find("/bin/rm"),
+    "uninstall must run lsregister -u in the console user's context before each bundle is removed",
 )
 check(
-    any("launchctl asuser" in line and "/usr/bin/sudo" in line for line in user_unregister_lines)
-    or helper_unregisters_before_delete,
-    "uninstall must run lsregister -u in the console user's context after TIS disable and before bundle removal",
+    0 <= uninstall_logical.find("--disable-input-source") < uninstall_logical.find("stop_matching '")
+    < uninstall_logical.find("for path in "),
+    "uninstall must leave the input source, then stop both processes, then remove the bundles",
+)
+check(
+    "com.rtranslate.saylane|com.rtranslate.app|com.rtranslate.inputmethod.rtranslate" in remove_body
+    and "Refusing unexpected bundle" in remove_body,
+    "uninstall must remove only bundles that carry this product's identifiers",
 )
 
-input_source = read("Sources/IME/InputSourceInstall.swift")
+input_source = read("Sources/Services/InputSourceInstall.swift")
 disable_body = swift_function(input_source, "disableForUninstall")
 ascii_helpers = []
 for helper in re.findall(r"\bstatic\s+func\s+(\w+)", input_source):
@@ -211,59 +258,56 @@ check(
 )
 
 
-# Release gates: both version axes must match build/source/project, app signing
-# must be a stable Developer ID from the expected team, and the final PKG must be
-# installer-signed. An unsigned intermediate must never be renamed to a final PKG.
+# Release gates: both version axes of both bundles must match project.yml, both
+# bundles must be signed with a stable Developer ID from the expected team, and
+# the final PKG must be installer-signed. An unsigned intermediate must never be
+# renamed to a final PKG.
 package = read("scripts/package.sh")
-required_version_terms = [
-    "CFBundleShortVersionString",
-    "CFBundleVersion",
-    "MARKETING_VERSION",
-    "CURRENT_PROJECT_VERSION",
-    "$BUILD_VERSION",
-    "$SOURCE_BUILD_VERSION",
-    "$PROJECT_BUILD_VERSION",
-]
-for term in required_version_terms:
-    check(term in package, f"package version gate is missing {term}")
-version_failure = package.find("Version mismatch:")
-staging = package.find("ROOT=")
-version_gate_start = package.rfind("[[", 0, version_failure)
-version_gate = package[version_gate_start:version_failure] if version_gate_start >= 0 else ""
-for variable in (
-    "$VERSION", "$SOURCE_VERSION", "$PROJECT_VERSION",
-    "$BUILD_VERSION", "$SOURCE_BUILD_VERSION", "$PROJECT_BUILD_VERSION",
-):
-    check(variable in version_gate, f"package mismatch gate does not compare {variable}")
+stage = read("scripts/stage-bundles.sh")
+for term in ("CFBundleShortVersionString", "CFBundleVersion", "MARKETING_VERSION", "CURRENT_PROJECT_VERSION",
+             "$PROJECT_VERSION", "$PROJECT_BUILD", "SaylaneIME.app", "Saylane.app"):
+    check(term in stage, f"staging version gate is missing {term}")
 check(
-    0 <= version_failure < staging,
-    "short and build version mismatches must abort before staging the package",
+    0 <= stage.find("Version mismatch") < stage.find('rm -rf "$ROOT"'),
+    "short and build version mismatches must abort before anything is staged",
+)
+check(
+    "AVFAudio|AVFoundation|Speech" in stage and stage.find("otool -L") < stage.find('if [[ -n "$IDENTITY" ]]'),
+    "staging must refuse an input method that links what belongs to the main program, before signing",
 )
 
 identity_guard = package.find('[[ -n "$IDENTITY" ]]')
-first_app_sign = package.find("codesign --force")
+staging_call = package.find("scripts/stage-bundles.sh")
 check(
-    0 <= identity_guard < first_app_sign and "exit 1" in package[identity_guard:first_app_sign],
-    "a non-empty application signing identity must be required before codesign",
+    0 <= identity_guard < staging_call and "exit 1" in package[identity_guard:staging_call],
+    "a non-empty application signing identity must be required before anything is signed",
 )
 for variable in ("INSTALLER", "NOTARY_PROFILE"):
     guard = package.find(f'[[ -n "${variable}" ]]')
-    check(0 <= guard < first_app_sign,
+    check(0 <= guard < staging_call,
           f"{variable} must be validated before accessing any signing key")
 check(
-    "--options runtime" in package and "--timestamp" in package
-    and "--entitlements Sources/Saylane.entitlements" in package,
-    "release app signing must use hardened runtime, a timestamp, and Saylane entitlements",
+    stage.count("--options runtime --timestamp") >= 4
+    and "--entitlements Sources/App/Saylane.entitlements" in stage,
+    "both bundles and their native code must be signed with hardened runtime and a timestamp",
 )
-strict_verify = package.find("codesign --verify --strict")
-pkgbuild = package.find("pkgbuild --analyze")
-team_region = package[strict_verify:pkgbuild] if 0 <= strict_verify < pkgbuild else ""
+ime_sign = [line for line in logical_shell(stage).splitlines() if 'codesign --force' in line and line.rstrip().endswith('"$IME"')]
 check(
-    "TeamIdentifier" in team_region and "L95PYLFT86" in team_region,
-    "after signing, package.sh must verify the app TeamIdentifier is L95PYLFT86 before pkgbuild",
+    len(ime_sign) == 1 and "--entitlements" not in ime_sign[0],
+    "the input method is signed without entitlements: it asks for nothing",
 )
 check(
-    "designated => cdhash" in package and package.find("designated => cdhash") < pkgbuild,
+    stage.count("codesign --verify --strict") == 2,
+    "both staged bundles must pass strict signature verification",
+)
+component_step = package.find("scripts/component-plist.py")
+team_region = package[staging_call:component_step] if 0 <= staging_call < component_step else ""
+check(
+    "TeamIdentifier" in team_region and "L95PYLFT86" in team_region and "for STAGED_APP in" in team_region,
+    "after signing, package.sh must verify the TeamIdentifier of both bundles before pkgbuild",
+)
+check(
+    "designated => cdhash" in team_region,
     "package.sh must reject an ad-hoc cdhash requirement before pkgbuild",
 )
 

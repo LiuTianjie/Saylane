@@ -61,6 +61,7 @@ final class PreferencesStore {
         static let pinyinBarPreeditEnabled = "pinyinBarPreeditEnabled"
         static let pinyinFuzzyEnabled = "pinyinFuzzyEnabled"
         static let onboardingVersion = "onboardingVersion"
+        static let quitByUser = "mainProgramQuitByUser"
         /// Pre-0.3 flag. Read once for migration, never written again.
         static let legacySetupVerified = "setupVerifiedV7"
         static let legacyDomain = "com.rtranslate.app"
@@ -81,6 +82,12 @@ final class PreferencesStore {
         let previous = current
         current = next
         Self.save(next, previous: previous, to: backing)
+    }
+
+    /// Not a setting: whether the user quit the main program on purpose. The
+    /// input method reads it and then leaves the main program alone.
+    func setQuitByUser(_ quit: Bool) {
+        if quit { backing.set(true, forKey: Key.quitByUser) } else { backing.removeObject(forKey: Key.quitByUser) }
     }
 
     // MARK: - Migration

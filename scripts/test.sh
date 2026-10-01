@@ -19,12 +19,10 @@ swiftc Sources/Services/BufferConverter.swift Tests/PCMCopyTests.swift -o build/
 build/tests/pcm
 swiftc Sources/Services/AudioLevel.swift Tests/AudioSignalTests.swift -o build/tests/audio-signal
 build/tests/audio-signal
-swiftc Sources/Models/PushToTalkHotkey.swift Sources/Input/PushToTalkHandler.swift Tests/HotkeyTests.swift -o build/tests/hotkey
-build/tests/hotkey
-swiftc Sources/Models/PushToTalkHotkey.swift Sources/Input/PushToTalkHandler.swift Sources/Input/InputShortcutHandler.swift Sources/Input/GlobalHotkeyRouter.swift Tests/GlobalHotkeyTests.swift -o build/tests/global-hotkey
-build/tests/global-hotkey
-swiftc Sources/Models/PushToTalkHotkey.swift Sources/Input/PushToTalkHandler.swift Sources/Input/InputShortcutHandler.swift Tests/InputShortcutTests.swift -o build/tests/gestures
-build/tests/gestures
+swiftc Sources/Input/VoiceGesture.swift Tests/VoiceGestureTests.swift -o build/tests/voice-gesture
+build/tests/voice-gesture
+swiftc Sources/Shared/BridgePort.swift Tests/BridgePortTests.swift -o build/tests/bridge-port
+build/tests/bridge-port
 swiftc Sources/Models/SessionState.swift Sources/Models/SpeechHypothesis.swift Sources/Models/SpeechSessionMetrics.swift Sources/Models/SpeechEngineError.swift Sources/Services/AudioLevel.swift Sources/Voice/VoicePolicy.swift Sources/Voice/SessionCoordinator.swift Tests/SessionCoordinatorTests.swift -o build/tests/session
 build/tests/session
 swiftc Sources/Services/FinalPolishService.swift Tests/FinalPolishTests.swift -o build/tests/polish
@@ -52,7 +50,7 @@ build/tests/screen-font
 build/tests/screen-translate
 swiftc -framework AppKit Sources/Models/PushToTalkHotkey.swift Sources/Input/ScreenHoldHandler.swift Tests/ScreenHoldTests.swift -o build/tests/screen-hold
 build/tests/screen-hold
-INPUT_SOURCES="Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Models/PushToTalkHotkey.swift Sources/Input/PushToTalkHandler.swift Sources/Input/InputShortcutHandler.swift Sources/Input/GlobalHotkeyRouter.swift Sources/Input/ScreenHoldHandler.swift Sources/Input/InputEvent.swift Sources/Input/GestureArbiter.swift Sources/Input/ShortcutValidator.swift"
+INPUT_SOURCES="Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Models/PushToTalkHotkey.swift Sources/Input/VoiceGesture.swift Sources/Input/ScreenHoldHandler.swift Sources/Input/InputEvent.swift Sources/Input/GestureArbiter.swift Sources/Input/ShortcutValidator.swift"
 swiftc -framework AppKit $INPUT_SOURCES Tests/GestureArbiterTests.swift -o build/tests/gesture-arbiter
 build/tests/gesture-arbiter
 swiftc -framework AppKit $INPUT_SOURCES Tests/ShortcutValidatorTests.swift -o build/tests/shortcut-validator
@@ -60,13 +58,18 @@ build/tests/shortcut-validator
 swiftc -framework AppKit $INPUT_SOURCES Sources/Input/GlobalHotkeyMonitor.swift Sources/Input/InputEventRouter.swift Tests/InputEventRouterTests.swift -o build/tests/input-router
 build/tests/input-router
 swiftc -parse-as-library -framework AppKit -framework Carbon \
-  Sources/IME/Pinyin/PinyinEngine.swift Tests/PinyinEngineLeaseTests.swift -o build/tests/pinyin-lease
+  Sources/IME/Pinyin/PinyinHandling.swift Sources/IME/Pinyin/PinyinEngine.swift Tests/PinyinEngineLeaseTests.swift -o build/tests/pinyin-lease
 build/tests/pinyin-lease
-swiftc -framework AppKit -framework InputMethodKit Sources/IME/IMEManager.swift \
+swiftc -framework AppKit -framework InputMethodKit Sources/IME/IMEManager.swift Sources/IME/CurrentInputSource.swift \
   Sources/IME/Pinyin/PinyinKeyEvent.swift Tests/IMEManagerTests.swift -o build/tests/ime-manager
 build/tests/ime-manager
-swiftc Sources/Input/InputDeferralDeadline.swift Tests/InputDeferralDeadlineTests.swift -o build/tests/input-deferral
+swiftc Sources/IME/InputDeferralDeadline.swift Tests/InputDeferralDeadlineTests.swift -o build/tests/input-deferral
 build/tests/input-deferral
+swiftc -framework AppKit -framework InputMethodKit Sources/Shared/BridgeMessages.swift Sources/Shared/TestHome.swift \
+  Sources/IME/InputMethodCore.swift Sources/IME/IMEManager.swift Sources/IME/CurrentInputSource.swift \
+  Sources/IME/InputDeferralDeadline.swift Sources/IME/Pinyin/PinyinHandling.swift Sources/IME/Pinyin/PinyinKeyEvent.swift \
+  Sources/Models/PushToTalkHotkey.swift Tests/InputMethodCoreTests.swift -o build/tests/ime-core
+build/tests/ime-core
 swiftc -framework AppKit Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Models/PushToTalkHotkey.swift Sources/Core/AppDirectories.swift Sources/Models/SpeechModel.swift Sources/Core/Preferences.swift Sources/Core/PreferencesStore.swift Tests/PreferencesStoreTests.swift -o build/tests/preferences
 build/tests/preferences
 swiftc Sources/Models/SetupReadiness.swift Sources/Models/SetupFlow.swift Sources/Core/UserNotice.swift Sources/Core/Readiness.swift Tests/ReadinessTests.swift -o build/tests/readiness

@@ -12,34 +12,52 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     SWIFT_EMIT_LOC_STRINGS: YES
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
-    MARKETING_VERSION: "0.2.83"
-    CURRENT_PROJECT_VERSION: "83"
+    MARKETING_VERSION: "0.3.0"
+    CURRENT_PROJECT_VERSION: "300"
     DEAD_CODE_STRIPPING: YES
     ARCHS: arm64
     ONLY_ACTIVE_ARCH: NO
     MACOSX_DEPLOYMENT_TARGET: "26.0"
+    GENERATE_INFOPLIST_FILE: false
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    ENABLE_HARDENED_RUNTIME: NO
+    COMBINE_HIDPI_IMAGES: YES
+    LD_RUNPATH_SEARCH_PATHS:
+      - "@executable_path/../Frameworks"
 
 packages:
   MLXASR:
     path: Vendor/MLXASR
 
 targets:
-  Saylane:
+  # The input method: typing and writing into the focused client. No
+  # permissions, no windows, no models. Installed as
+  # /Library/Input Methods/Saylane.app; see docs/DESIGN_0.3.md.
+  SaylaneIME:
     type: application
     platform: macOS
     sources:
-      - path: Sources
+      - path: Sources/IME
         excludes:
-          - Resources/AppIcon.iconset/**
-          - Resources/AppIcon.png
+          - Info.plist
+      - path: Sources/Shared
+      - path: Sources/Core/AppDirectories.swift
+      - path: Sources/Support/InputDiagnostics.swift
+      - path: Sources/Support/Theme.swift
+      - path: Sources/Models/PushToTalkHotkey.swift
+      - path: Sources/Resources
+        excludes:
+          - AppIcon.iconset/**
+          - AppIcon.png
+          - ASR/**
+          - FontWeight.mlpackage
+          - FunASRLicenses/**
+          - Localizable.xcstrings
       - path: Sources/Resources/Localizable.xcstrings
         buildPhase: resources
       - path: Vendor/Rime/Rime
         name: Rime
-        type: folder
-        buildPhase: resources
-      - path: Vendor/FunASR/Runtime
-        name: FunASRRuntime
         type: folder
         buildPhase: resources
     dependencies:
@@ -47,27 +65,47 @@ targets:
       - framework: Vendor/Rime/Runtime/lib/librime.1.dylib
         embed: true
         codeSign: true
-      - package: MLXASR
-        product: MLXASR
     settings:
       base:
         SWIFT_OBJC_BRIDGING_HEADER: Sources/IME/Rime/SaylaneRime.h
         LIBRARY_SEARCH_PATHS: "$(inherited) $(SRCROOT)/Vendor/Rime/Runtime/lib"
         HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/Vendor/Rime/Runtime/include"
-        INFOPLIST_FILE: Sources/Info.plist
-        GENERATE_INFOPLIST_FILE: false
+        INFOPLIST_FILE: Sources/IME/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: com.rtranslate.inputmethod.rtranslate
+        PRODUCT_NAME: SaylaneIME
+
+  # The main program: talk key, recording, recognition, translation, screen
+  # translation, settings and every permission. Installed as /Applications/Saylane.app.
+  Saylane:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+        excludes:
+          - IME/**
+          - App/Info.plist
+          - Resources/AppIcon.iconset/**
+          - Resources/AppIcon.png
+          - Resources/Localizable.xcstrings
+      - path: Sources/Resources/Localizable.xcstrings
+        buildPhase: resources
+      - path: Vendor/FunASR/Runtime
+        name: FunASRRuntime
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - package: MLXASR
+        product: MLXASR
+    settings:
+      base:
+        INFOPLIST_FILE: Sources/App/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.rtranslate.saylane
         PRODUCT_NAME: Saylane
-        CODE_SIGN_ENTITLEMENTS: Sources/Saylane.entitlements
-        CODE_SIGN_STYLE: Manual
-        CODE_SIGN_IDENTITY: "-"
-        ENABLE_HARDENED_RUNTIME: NO
-        LD_RUNPATH_SEARCH_PATHS:
-          - "@executable_path/../Frameworks"
-        COMBINE_HIDPI_IMAGES: YES
+        CODE_SIGN_ENTITLEMENTS: Sources/App/Saylane.entitlements
 
 schemes:
   Saylane:
     build:
       targets:
+        SaylaneIME: all
         Saylane: all

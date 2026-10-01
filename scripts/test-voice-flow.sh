@@ -18,10 +18,10 @@ swiftc -swift-version 6 -strict-concurrency=complete "${shared[@]}" \
   Sources/Models/SetupReadiness.swift Sources/Models/SetupFlow.swift Sources/Screen/ScreenLayout.swift \
   Sources/Core/AppDirectories.swift Sources/Core/Preferences.swift Sources/Core/Readiness.swift Sources/Core/UserNotice.swift \
   Sources/Input/InputEvent.swift Sources/Input/InputEventRouter.swift Sources/Input/GestureArbiter.swift \
-  Sources/Input/GlobalHotkeyMonitor.swift Sources/Input/GlobalHotkeyRouter.swift Sources/Input/InputShortcutHandler.swift \
-  Sources/Input/PushToTalkHandler.swift Sources/Input/ScreenHoldHandler.swift Sources/Input/ShortcutValidator.swift \
+  Sources/Input/GlobalHotkeyMonitor.swift Sources/Input/VoiceGesture.swift \
+  Sources/Input/ScreenHoldHandler.swift Sources/Input/ShortcutValidator.swift \
   Sources/Voice/OverlayController.swift Sources/Views/OverlayView.swift Sources/Voice/AccessibilityInserter.swift \
   Sources/Voice/VoiceInputEnvironment.swift Sources/Voice/VoiceTarget.swift Sources/Voice/VoiceSessionController.swift \
-  Sources/IME/InputSourceInstall.swift Sources/Support/InputDiagnostics.swift \
+  Sources/Support/InputDiagnostics.swift \
   Tests/VoiceSessionControllerTests.swift -o build/tests/voice-controller
 build/tests/voice-controller

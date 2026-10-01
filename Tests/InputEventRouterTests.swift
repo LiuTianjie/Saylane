@@ -19,16 +19,22 @@ import Carbon.HIToolbox
             InputEvent(source: source, type: .flagsChanged, keyCode: rightOption, flags: flags, isRepeat: false, timestamp: time)
         }
 
-        // One physical hold delivered by IMK alone produces one press, after the hold delay.
+        // One physical hold delivered by IMK alone: nothing on key-down, then the
+        // router's own timer opens the microphone and starts the dictation.
         precondition(router.feed(event(.imk, flags: option, at: clock)))
-        precondition(actions == [.voice(.armHold)])
-        clock += 0.3
-        await settle(340)
-        precondition(actions == [.voice(.armHold), .voice(.press)], "\(actions)")
+        precondition(actions.isEmpty)
+        await settle(60)
+        precondition(actions.isEmpty, "fired before its deadline")
+        clock += 0.13
+        await settle(160)
+        precondition(actions == [.voice(.prewarm)], "\(actions)")
+        clock += 0.2
+        await settle(220)
+        precondition(actions == [.voice(.prewarm), .voice(.start)], "\(actions)")
         router.updateContext { $0.isListening = true; $0.voiceCapturing = true }
         clock += 0.5
         precondition(router.feed(event(.imk, flags: 0, at: clock)))
-        precondition(actions == [.voice(.armHold), .voice(.press), .voice(.release)])
+        precondition(actions == [.voice(.prewarm), .voice(.start), .voice(.stop)])
         router.updateContext { $0.isListening = false; $0.voiceCapturing = false }
         actions = []
 
@@ -38,12 +44,14 @@ import Carbon.HIToolbox
         let command = UInt64(NSEvent.ModifierFlags.command.rawValue) | PushToTalkHotkey.rightCommand.deviceMask
         clock += 1
         _ = router.feed(InputEvent(source: .imk, type: .flagsChanged, keyCode: rightCommand, flags: command, isRepeat: false, timestamp: clock))
-        precondition(actions == [.voice(.armHold)])
         await settle(90)
-        precondition(actions == [.voice(.armHold)], "hold fired before its deadline")
+        precondition(actions.isEmpty, "hold fired before its deadline")
         clock += 0.3
         await settle(260)
-        precondition(actions == [.voice(.armHold), .voice(.press)], "\(actions)")
+        precondition(actions == [.voice(.prewarm), .voice(.start)], "\(actions)")
+        // A release the router is told about (the key-up never arrived) ends it.
+        router.voiceTriggerLost()
+        precondition(actions == [.voice(.prewarm), .voice(.start), .voice(.stop)], "\(actions)")
         actions = []
         router.reset()
         router.updateContext { $0.trigger = .rightOption; $0.isListening = false }
@@ -73,11 +81,27 @@ import Carbon.HIToolbox
         actions = []
         router.reset()
         router.updateContext { $0.trigger = .rightOption; $0.voiceCapturing = false; $0.isListening = false }
+        clock = 200
         let first = event(.imk, flags: option, at: 200)
         let laterTap = event(.tap, flags: option, at: 200.01)
         precondition(router.feed(first))
         precondition(router.feed(laterTap))
-        precondition(actions == [.voice(.armHold)], "reverse-order duplicate dispatched twice: \(actions)")
+        clock = 200.3
+        await settle(340)
+        precondition(actions == [.voice(.prewarm), .voice(.start)], "reverse-order duplicate dispatched twice: \(actions)")
+        // A hidden chord: the owner abandons the press and its release means nothing.
+        actions = []
+        router.reset()
+        clock = 250
+        _ = router.feed(event(.imk, flags: option, at: clock))
+        clock += 0.13
+        await settle(160)
+        precondition(actions == [.voice(.prewarm)])
+        router.abandonVoiceGesture()
+        clock += 0.3
+        await settle(200)
+        precondition(actions == [.voice(.prewarm), .voice(.discard)], "\(actions)")
+        precondition(!router.feed(event(.imk, flags: 0, at: clock)) || actions.count == 2)
 
         // Mouse-only monitoring must never promote global keyboard readiness.
         precondition(GlobalHotkeyMonitor.keyboardStartPlan(canObserve: false, canFilter: false).isEmpty)
@@ -114,11 +138,11 @@ import Carbon.HIToolbox
         clock = 300
         _ = router.feed(InputEvent(source: .tap, type: .flagsChanged, keyCode: rightCommand,
                                    flags: command, isRepeat: false, timestamp: clock))
-        precondition(actions == [.voice(.armHold)])
+        precondition(actions.isEmpty)
         router.globalTapDidInterrupt(capability: .filtering)
         clock += 1
         await settle(340)
-        precondition(actions == [.voice(.armHold), .voice(.cancel)], "tap interruption left stale work: \(actions)")
+        precondition(actions == [.voice(.cancel)], "tap interruption left stale work: \(actions)")
         precondition(router.context.globalEventsCanBeConsumed)
         precondition(capabilities == ["true-true"])
 

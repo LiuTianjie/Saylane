@@ -19,6 +19,7 @@ struct OnboardingView: View {
                 SaylaneBrand()
                 Spacer()
                 Button(String(localized: "稍后设置")) { model.deferSetup() }.buttonStyle(.plain).foregroundStyle(.secondary)
+                    .selfTestAnchor("setup-later")
             }
             .padding(.horizontal, 36).padding(.top, 24)
 

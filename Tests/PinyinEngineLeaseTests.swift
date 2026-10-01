@@ -1,9 +1,9 @@
 import AppKit
 
-struct Preferences {
-    var pinyinEnglishMode = false
-    var pinyinBarPreeditEnabled = false
-    var pinyinFuzzyEnabled = true
+struct BridgePinyinPreferences {
+    var englishMode = false
+    var fuzzy = true
+    var barPreedit = false
 }
 
 enum PushToTalkHotkey { case leftShift, rightShift, other }
@@ -165,7 +165,7 @@ struct PinyinEngineLeaseTests {
         manager.currentLease = b
         engine.switchClient(to: b)
         let sessionB = RimePinyinSession.created[1]
-        engine.applyPreferences(Preferences(pinyinEnglishMode: true))
+        engine.applyPreferences(BridgePinyinPreferences(englishMode: true))
         precondition(sessionB.englishMode)
         precondition(!sessionA.englishMode)
         manager.currentLease = a

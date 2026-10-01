@@ -13,6 +13,9 @@ struct VoicePolicy: Equatable, Sendable {
     var userInputFence: TimeInterval = 0.45
     /// Audio captured from the press until the recognizer is ready is kept up to this long.
     var prerollLimit: TimeInterval = 3.0
+    /// A key or a click this soon after the start means the press was a
+    /// shortcut: the dictation is dropped without a word. Later it is kept.
+    var interruptGrace: TimeInterval = 1.5
 
     static let standard = VoicePolicy()
 }

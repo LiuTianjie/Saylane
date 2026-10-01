@@ -1,17 +1,21 @@
 import AppKit
+import Carbon
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // NSHostingController settings still need standard edit/menu commands,
-        // but no NSStatusItem/MenuBarExtra is created by this input-method host.
+        // The main program has no Dock icon and no menu bar of its own, but its
+        // settings window still needs the standard editing commands.
         let menu = NSMenu()
         let appItem = menu.addItem(withTitle: "Saylane", action: nil, keyEquivalent: "")
         let appMenu = NSMenu(title: "Saylane")
         appItem.submenu = appMenu
         appMenu.addItem(withTitle: String(localized: "设置…"), action: #selector(openPreferences(_:)), keyEquivalent: ",").target = self
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: String(localized: "退出 Saylane"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        // ⌘Q closes the window. The program keeps running: the talk key and
+        // screen translation live here.
+        appMenu.addItem(withTitle: String(localized: "关闭窗口"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: String(localized: "关闭窗口"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         let editItem = menu.addItem(withTitle: String(localized: "编辑"), action: nil, keyEquivalent: "")
         let editMenu = NSMenu(title: String(localized: "编辑"))
         editItem.submenu = editMenu
@@ -53,13 +57,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #endif
 
-        if CommandLine.arguments.contains("--setup") {
+        let arguments = CommandLine.arguments
+        if arguments.contains("--ui-self-test") {
+            Task { @MainActor in exit(await UISelfTest.run(model: AppModel.shared)) }
+            return
+        }
+        if arguments.contains("--setup") {
             AppModel.shared.beginSetup()
+        } else if arguments.contains("--installed") {
+            // Just installed or upgraded: show the guide only if something is
+            // still to be set up (a new permission, the input source).
+            if !AppModel.shared.setupCompleted || !AppModel.shared.readinessState.requiredSetupComplete {
+                AppModel.shared.beginSetup()
+            }
+        } else if arguments.contains("--settings") {
+            AppModel.shared.openSettings()
+        } else if !arguments.contains("--background"), !Self.launchedAsLoginItem {
+            // Opened by hand: show something.
+            if AppModel.shared.setupCompleted { AppModel.shared.openSettings() } else { AppModel.shared.beginSetup() }
         }
     }
 
-    func applicationWillTerminate(_ notification: Notification) {
-        SLRimeFinalize()
+    /// Started by the system at login: stay out of the way.
+    private static var launchedAsLoginItem: Bool {
+        guard let event = NSAppleEventManager.shared().currentAppleEvent,
+              event.eventID == kAEOpenApplication else { return false }
+        return event.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
     }
 
     @objc private func openPreferences(_ sender: Any?) {

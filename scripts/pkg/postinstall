@@ -1,12 +1,19 @@
 #!/bin/bash
 set -euo pipefail
 export TZ=Asia/Shanghai
-APP='/Library/Input Methods/Saylane.app'
-BIN="$APP/Contents/MacOS/Saylane"
-[[ -x "$BIN" ]] || { echo 'Saylane executable is missing' >&2; exit 1; }
-# Registration is a machine-install step; user approval/selection is not.
-# Do not run an immediate enable/select loop as root or pretend selection succeeded.
-"$BIN" --register-input-source
+IME='/Library/Input Methods/Saylane.app'
+APP='/Applications/Saylane.app'
+APP_BIN="$APP/Contents/MacOS/Saylane"
+[[ -d "$IME/Contents/MacOS" ]] || { echo 'Saylane input method is missing' >&2; exit 1; }
+[[ -x "$APP_BIN" ]] || { echo 'Saylane main program is missing' >&2; exit 1; }
+
+# Input-method processes already running execute the previous version.
+OLD_PIDS="$(/usr/bin/pgrep -f '^/Library/Input Methods/(Saylane|RTranslate)\.app/Contents/MacOS/' || true)"
+
+# Registration is a machine-install step; user approval/selection is not. It is
+# done by the main program's binary: the input method is never run as a command.
+"$APP_BIN" --register-input-source || echo 'Input source registration will be completed by the app.' >&2
+
 CONSOLE_USER="$(/usr/bin/stat -f '%Su' /dev/console)"
 cleanup_old_copy() {
   local app="$1" bid
@@ -20,24 +27,42 @@ cleanup_old_copy() {
     echo "Installed Saylane, but could not remove legacy copy: $app" >&2
   fi
 }
+# Only names and places this product no longer uses. The two bundles just
+# installed are never candidates.
 cleanup_old_copy '/Library/Input Methods/RTranslate.app'
 cleanup_old_copy '/Applications/RTranslate.app'
-cleanup_old_copy '/Applications/Saylane.app'
+if [[ "$CONSOLE_USER" != root && "$CONSOLE_USER" != loginwindow && -n "$CONSOLE_USER" ]]; then
+  USER_HOME="$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory | /usr/bin/sed 's/^NFSHomeDirectory: //')"
+  if [[ "$USER_HOME" == /Users/* && "$USER_HOME" != /Users/ ]]; then
+    cleanup_old_copy "$USER_HOME/Library/Input Methods/RTranslate.app"
+    cleanup_old_copy "$USER_HOME/Applications/RTranslate.app"
+    cleanup_old_copy "$USER_HOME/Library/Input Methods/Saylane.app"
+    cleanup_old_copy "$USER_HOME/Applications/Saylane.app"
+  fi
+fi
+
+# Restart the input method once, so that the new version is the one that runs.
+# The system starts it again the moment a text field needs it; applications
+# that are open reconnect by themselves.
+if [[ -n "$OLD_PIDS" ]]; then
+  # Registration may already have made the system restart it.
+  /bin/sleep 1
+  for pid in $OLD_PIDS; do
+    if /bin/kill -0 "$pid" 2>/dev/null; then
+      /bin/kill -TERM "$pid" 2>/dev/null || true
+    fi
+  done
+fi
+
 if [[ "$CONSOLE_USER" == root || "$CONSOLE_USER" == loginwindow || -z "$CONSOLE_USER" ]]; then
-  echo 'Saylane files installed. Open the app after login to complete input-source activation.'
+  echo 'Saylane files installed. Open Saylane after login to finish setting it up.'
   exit 0
 fi
 CONSOLE_UID="$(/usr/bin/id -u "$CONSOLE_USER")"
-USER_HOME="$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory | /usr/bin/sed 's/^NFSHomeDirectory: //')"
-if [[ "$USER_HOME" == /Users/* && "$USER_HOME" != /Users/ ]]; then
-  cleanup_old_copy "$USER_HOME/Library/Input Methods/RTranslate.app"
-  cleanup_old_copy "$USER_HOME/Applications/RTranslate.app"
-  cleanup_old_copy "$USER_HOME/Library/Input Methods/Saylane.app"
-  cleanup_old_copy "$USER_HOME/Applications/Saylane.app"
-fi
+# `--installed`: the app shows its guide only if something is still to be set up.
 if ! /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -H -u "$CONSOLE_USER" \
-  /usr/bin/open "$APP" --args --setup; then
-  echo 'Saylane was installed, but its setup window could not be opened automatically.' >&2
+  /usr/bin/open "$APP" --args --installed; then
+  echo 'Saylane was installed, but could not be opened automatically.' >&2
 fi
 # Installer success means files installed. The app separately verifies activation.
-echo 'Saylane installed; the setup app will verify user approval, enablement, and selection.'
+echo 'Saylane installed; the app verifies user approval, enablement, and selection.'

@@ -88,7 +88,8 @@ struct ScreenHoldHandler {
         type: NSEvent.EventType,
         keyCode: UInt16,
         flags: UInt64,
-        now: TimeInterval
+        now: TimeInterval,
+        deliversKeyUp: Bool = true
     ) -> Action {
         let forbidden = UInt64(NSEvent.ModifierFlags([.option, .command, .shift, .function]).rawValue) | trigger.siblingMask
 
@@ -104,7 +105,9 @@ struct ScreenHoldHandler {
             return .none
         }
         if type == .keyDown {
-            pressedKeys.insert(keyCode)
+            // InputMethodKit never reports key-up: a key remembered as held
+            // from that source would block every later Control hold.
+            if deliversKeyUp { pressedKeys.insert(keyCode) }
             return abortGesture()
         }
 

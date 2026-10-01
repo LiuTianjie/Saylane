@@ -2,10 +2,6 @@ import AppKit
 import InputMethodKit
 import Carbon.HIToolbox
 
-@MainActor enum InputSourceInstall {
-    static let isSelected = true
-    static func ours(includeDisabled: Bool) -> [Int] { [] }
-}
 @MainActor final class SaylaneInputController {
     var sessionID: UUID? = UUID()
     var textInputClient: (any IMKTextInput)?

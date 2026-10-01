@@ -7,26 +7,22 @@ import Observation
 protocol VoiceSessionHost: AnyObject {
     var prefs: Preferences { get }
     var readinessState: Readiness { get }
-    var isVoiceTrialActive: Bool { get }
     func makeSpeechEngine() -> any SpeechRecognizing
     func makeRefine() -> ((String) -> String)?
     func makePolish() -> ((String, String) async throws -> String)?
     func translate(_ text: String) async throws -> String
     /// The ways to write into the application whose bundle is `bundleID`.
-    func textSink(inFront bundleID: String?) -> VoiceTextSink
-    /// The settings-window trial field.
-    func settingsCaptureTarget() -> (any CompositionTarget)?
+    func textSink(inFront bundleID: String?, session: UUID) -> VoiceTextSink
     func post(_ notice: UserNotice)
     func voiceSessionDidEnd(committed: Bool)
     func voiceSessionStateDidChange()
-    func commitPinyinBeforeVoice()
     func refreshInputSourceStatus()
 }
 
-/// The voice feature: press → capture at once → recognize → write at the caret
-/// of the application in front. Whichever input source is selected stays
-/// selected; the text goes through the attached IMK client when there is one
-/// and is pasted otherwise.
+/// The voice feature: hold → capture → recognize → write at the caret of the
+/// application in front. Whichever input source is selected stays selected;
+/// the text goes through the input method when it is attached there and is
+/// pasted otherwise.
 @MainActor @Observable
 final class VoiceSessionController {
     let coordinator: SessionCoordinator
@@ -37,8 +33,12 @@ final class VoiceSessionController {
     private let makeCapture: (TimeInterval) -> PrerollCapture
 
     private var preroll: PrerollCapture?
-    private var targetBundleID: String?
+    /// One dictation, from the start until its text is written or dropped.
+    private(set) var sessionID: UUID?
+    private(set) var targetBundleID: String?
     private var targetPID: pid_t?
+    private var target: FocusedTextTarget?
+    private var sink: VoiceTextSink?
     private var listeningStartedAt: TimeInterval?
     private var sessionActive = false
     private var lastOutcomeCommitted = false
@@ -90,19 +90,33 @@ final class VoiceSessionController {
         }
     }
 
-    /// The gesture turned out not to be a press (double tap, chord, short tap).
+    /// The gesture turned out not to be a hold (a chord, a tap).
     func disarm() {
         preroll?.discard()
         preroll = nil
     }
 
-    /// The gesture is a press: start at once. There is nothing to wait for —
-    /// where the text goes is decided when it is ready.
+    /// The hold is confirmed: start. There is nothing to wait for — where the
+    /// text goes is decided when it is ready.
     func press() {
-        guard !isListening, let host else { return }
+        guard !isListening, host != nil else { return }
         arm()
-        host.commitPinyinBeforeVoice()
         start()
+    }
+
+    /// A key or a click while the talk key was held. Right after the start it
+    /// means the press was a shortcut; later it is a slip, and what was said
+    /// is kept on the pasteboard instead of landing wherever the caret now is.
+    func interrupt() {
+        guard isCapturing else { disarm(); return }
+        guard let duration = listeningDuration, duration >= policy.interruptGrace else {
+            record("interrupted", "dropped")
+            cancel()
+            return
+        }
+        record("interrupted", "kept after \(Int(duration * 1000)) ms")
+        target?.interrupted = true
+        coordinator.release()
     }
 
     func release() {
@@ -129,29 +143,26 @@ final class VoiceSessionController {
         host.refreshInputSourceStatus()
         let p = host.prefs
         let readiness = host.readinessState
-        let inSettings = host.isVoiceTrialActive
         let front = environment.frontmostBundleID()
-        record("start-check", "settings=\(inSettings) selected=\(readiness.inputSource.selected) front=\(front ?? "none") mic=\(readiness.permissions.microphone == .granted) speech=\(readiness.models.speechReady) translation=\(readiness.models.translationReady) checking=\(readiness.models.busy)")
+        record("start-check", "selected=\(readiness.inputSource.selected) front=\(front ?? "none") mic=\(readiness.permissions.microphone == .granted) speech=\(readiness.models.speechReady) translation=\(readiness.models.translationReady) checking=\(readiness.models.busy)")
 
-        let target: any CompositionTarget
-        if inSettings {
-            guard let captured = host.settingsCaptureTarget() else { fail(nil); return }
-            target = captured
-        } else {
-            if let blocker = readiness.blocker {
-                fail(.actionable(blocker.message, ReadinessReducer.destination(for: blocker)))
-                return
-            }
-            let pid = environment.frontmostPID()
-            let environment = self.environment
-            let focused = FocusedTextTarget(sink: host.textSink(inFront: front)) {
-                pid == nil || environment.frontmostPID() == pid
-            }
-            focused.onDelivery = { [weak self] delivery, text in self?.delivered(delivery, text: text) }
-            target = focused
-            targetBundleID = front
-            targetPID = pid
+        if let blocker = readiness.blocker {
+            fail(.actionable(blocker.message, ReadinessReducer.destination(for: blocker)))
+            return
         }
+        let pid = environment.frontmostPID()
+        let environment = self.environment
+        let session = UUID()
+        let sink = host.textSink(inFront: front, session: session)
+        let target = FocusedTextTarget(sink: sink) {
+            pid == nil || environment.frontmostPID() == pid
+        }
+        target.onDelivery = { [weak self] delivery, text in self?.delivered(delivery, text: text) }
+        sessionID = session
+        self.sink = sink
+        self.target = target
+        targetBundleID = front
+        targetPID = pid
 
         let capture: any AudioCapturing = preroll ?? makeCapture(policy.prerollLimit)
         preroll = nil
@@ -169,8 +180,7 @@ final class VoiceSessionController {
     /// The press could not become a session. Nothing was recorded for the user to lose.
     private func fail(_ notice: UserNotice?) {
         disarm()
-        targetBundleID = nil
-        targetPID = nil
+        clearSession()
         host?.voiceSessionDidEnd(committed: false)
         if let notice { host?.post(notice) }
     }
@@ -188,6 +198,8 @@ final class VoiceSessionController {
                 : .actionable(String(localized: "这里无法通过输入法写入，文字已复制到剪贴板，按 ⌘V 粘贴。允许“辅助功能”后会自动写入。"), .permissions)
         case .copiedAfterAppSwitch:
             deliveryNotice = .transient(String(localized: "已切换到其它应用，这次听写没有写入，文字已复制到剪贴板。"))
+        case .copiedAfterInterrupt:
+            deliveryNotice = .transient(String(localized: "听写被按键打断，没有写入，文字已复制到剪贴板。"))
         }
     }
 
@@ -199,7 +211,6 @@ final class VoiceSessionController {
     /// ready it is left on the pasteboard.
     func frontmostAppChanged(to bundleID: String?, pid: pid_t? = nil) {
         guard isListening else { return }
-        if host?.isVoiceTrialActive == true, bundleID == environment.ownBundleID { return }
         let sameBundle = targetBundleID == nil || bundleID == targetBundleID
         let sameProcess = targetPID == nil || pid == targetPID
         guard !(sameBundle && sameProcess) else { return }
@@ -289,8 +300,16 @@ final class VoiceSessionController {
 
     private func sessionEnded(committed: Bool) {
         preroll = nil
+        clearSession()
+        host?.voiceSessionDidEnd(committed: committed)
+    }
+
+    private func clearSession() {
+        sink?.end()
+        sink = nil
+        target = nil
+        sessionID = nil
         targetBundleID = nil
         targetPID = nil
-        host?.voiceSessionDidEnd(committed: committed)
     }
 }

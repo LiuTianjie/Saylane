@@ -14,9 +14,7 @@ final class SettingsController {
     }
 
     func show(model: AppModel) {
-        // IMK hosts must stay accessory. `.regular` makes Launch Services report
-        // ApplicationType=Foreground; other apps then never call activateServer,
-        // so pinyin and voice both die while the menu bar still checks Saylane.
+        // The main program has no Dock icon; its windows come and go like a panel's.
         NSApp.setActivationPolicy(.accessory)
 
         let hosting = NSHostingController(rootView: SettingsView().environment(model))

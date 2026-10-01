@@ -5,7 +5,7 @@ import InputMethodKit
 final class IMEManager {
     static let shared = IMEManager()
     private let selected: () -> Bool
-    init(inputSourceSelected: @escaping () -> Bool = { InputSourceInstall.isSelected }) {
+    init(inputSourceSelected: @escaping () -> Bool = { CurrentInputSource.isSaylane }) {
         selected = inputSourceSelected
     }
     // Explicitly own the active controller. Deactivation clears it; the active
@@ -18,6 +18,8 @@ final class IMEManager {
     private var clientFresh = false
     /// The lease whose client currently shows a dictation preview.
     private var voiceMarkedLeaseID: UUID?
+    /// The lease whose client currently shows a pinyin composition.
+    private var pinyinMarkedLeaseID: UUID?
     /// Client callbacks caused synchronously by our own `insertText` are not a
     /// focus change. Without this guard the final voice commit invalidates the
     /// exact lease before queued user text can be replayed.
@@ -27,7 +29,6 @@ final class IMEManager {
     private(set) var clientGeneration = 0
     private var lastCaretRects: [UUID: NSRect] = [:]
     var hasClient: Bool { clientFresh && controller?.textInputClient != nil }
-    var isInstalled: Bool { !InputSourceInstall.ours(includeDisabled: true).isEmpty }
     var isOursSelected: Bool { selected() }
     /// Application of the attached client, fresh or not.
     var clientBundleID: String? { attachedBundleID }
@@ -46,6 +47,9 @@ final class IMEManager {
 
     /// The active client changed; the pinyin engine switches to that client's session.
     var onWillSwitchClient: ((SaylaneInputController?) -> Void)?
+    /// A client of this application is attached (nil: none). The main program
+    /// uses it to choose how a dictation is written.
+    var onAttachmentChanged: ((String?) -> Void)?
 
     func attach(_ next: SaylaneInputController) {
         guard let nextClient = next.textInputClient, let nextLeaseID = next.sessionID else {
@@ -58,7 +62,7 @@ final class IMEManager {
             attachedClient = nextClient
             return
         }
-        if !sameLease { clearVoiceMarked() }
+        if !sameLease { clearVoiceMarked(); pinyinMarkedLeaseID = nil }
         clientGeneration += 1
         controller = next
         attachedClient = nextClient
@@ -67,12 +71,14 @@ final class IMEManager {
         if !sameLease {
             attachedBundleID = nextClient.bundleIdentifier()
             onWillSwitchClient?(next)
+            onAttachmentChanged?(attachedBundleID)
         }
     }
     @discardableResult
     func detach(_ old: SaylaneInputController, leaseID: UUID) -> Bool {
         guard isCurrent(old, leaseID: leaseID) else { return false }
         clearVoiceMarked()
+        pinyinMarkedLeaseID = nil
         clientGeneration += 1
         lastCaretRects.removeValue(forKey: leaseID)
         controller = nil
@@ -81,6 +87,7 @@ final class IMEManager {
         attachedBundleID = nil
         clientFresh = false
         onWillSwitchClient?(nil)
+        onAttachmentChanged?(nil)
         return true
     }
     /// The client resolved its composition (a click, a focus move inside the
@@ -89,6 +96,8 @@ final class IMEManager {
     func targetChanged(_ old: SaylaneInputController, leaseID: UUID) {
         guard isCurrent(old, leaseID: leaseID) else { return }
         clearVoiceMarked()
+        // The client resolved its composition itself.
+        pinyinMarkedLeaseID = nil
         clientGeneration += 1
         clientFresh = false
     }
@@ -96,6 +105,7 @@ final class IMEManager {
     private func suspendCurrentClient() {
         guard controller != nil || attachedClient != nil || attachedLeaseID != nil else { return }
         clearVoiceMarked()
+        pinyinMarkedLeaseID = nil
         clientGeneration += 1
         if let attachedLeaseID { lastCaretRects.removeValue(forKey: attachedLeaseID) }
         controller = nil
@@ -104,6 +114,7 @@ final class IMEManager {
         attachedBundleID = nil
         clientFresh = false
         onWillSwitchClient?(nil)
+        onAttachmentChanged?(nil)
     }
 
     func matchesDeferredInput(leaseID: UUID, generation: Int) -> Bool {
@@ -131,6 +142,8 @@ final class IMEManager {
             ownedInsertDepth -= 1
             if ownedInsertDepth == 0 { ownedInsertLeaseID = previous }
         }
+        // `insertText` replaces whatever the client had marked.
+        if pinyinMarkedLeaseID == leaseID { pinyinMarkedLeaseID = nil }
         client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
     }
 
@@ -185,6 +198,15 @@ final class IMEManager {
     func setPinyinMarked(_ text: String, caret: Int? = nil,
                          highlight: NSRange = NSRange(location: 0, length: 0), leaseID: UUID) -> Bool {
         guard isCurrentLease(leaseID), let client = attachedClient else { return false }
+        // An empty composition is written only to a client that shows one.
+        // Clearing nothing on every activation makes some hosts resolve their
+        // selection or announce a composition that never existed.
+        if text.isEmpty {
+            guard pinyinMarkedLeaseID == leaseID else { return true }
+            pinyinMarkedLeaseID = nil
+        } else {
+            pinyinMarkedLeaseID = leaseID
+        }
         Self.applyMarkedText(text, caret: caret ?? (text as NSString).length, highlight: highlight, to: client)
         return true
     }

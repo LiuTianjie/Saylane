@@ -3,7 +3,7 @@ import Foundation
 
 @main struct InputIconTests {
     static func main() throws {
-        let info = try PropertyListSerialization.propertyList(from: Data(contentsOf: URL(fileURLWithPath: "Sources/Info.plist")), format: nil) as! [String: Any]
+        let info = try PropertyListSerialization.propertyList(from: Data(contentsOf: URL(fileURLWithPath: "Sources/IME/Info.plist")), format: nil) as! [String: Any]
         let modes = (info["ComponentInputModeDict"] as! [String: Any])["tsInputModeListKey"] as! [String: [String: Any]]
         let mode = modes["com.rtranslate.inputmethod.rtranslate.voice"]!
         for language in ["en", "zh-Hans"] {

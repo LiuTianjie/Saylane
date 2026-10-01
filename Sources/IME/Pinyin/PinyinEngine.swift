@@ -3,9 +3,9 @@ import Carbon.HIToolbox
 
 /// Pinyin front end. Like Squirrel, every IMK client gets its own Rime session so
 /// switching windows never commits one client's composition into another; the
-/// candidate window is shared. Preferences arrive from the store, never from defaults.
+/// candidate window is shared. Preferences are pushed by the host, never read here.
 @MainActor
-final class PinyinEngine {
+final class PinyinEngine: PinyinHandling {
     private final class ClientSession {
         let rime: RimePinyinSession
         var undeliveredCommit = ""
@@ -48,11 +48,11 @@ final class PinyinEngine {
         }
     }
 
-    func applyPreferences(_ p: Preferences) {
-        englishModePreference = p.pinyinEnglishMode
-        barPreeditEnabled = p.pinyinBarPreeditEnabled
-        if fuzzyEnabled != p.pinyinFuzzyEnabled {
-            fuzzyEnabled = p.pinyinFuzzyEnabled
+    func applyPreferences(_ p: BridgePinyinPreferences) {
+        englishModePreference = p.englishMode
+        barPreeditEnabled = p.barPreedit
+        if fuzzyEnabled != p.fuzzy {
+            fuzzyEnabled = p.fuzzy
         }
         synchronizeActivePreferences()
         publish()

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>zh-Hans</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Saylane</string>
+	<key>CFBundleDisplayName</key>
+	<string>Saylane</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2026 Saylane</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Saylane 使用麦克风在设备端识别你的语音，并翻译到选定语言。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Saylane 在设备端把语音转成文字，音频不会上传到服务器。</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Saylane 截取你划出的屏幕区域，在这台电脑上识别并翻译其中的文字。</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>LSHasLocalizedDisplayName</key>
+	<true/>
+</dict>
+</plist>

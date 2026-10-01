@@ -112,7 +112,7 @@ enum ScreenPinKey: Equatable, Sendable {
 
 /// Everything the arbiter can ask the app to do.
 enum InputAction: Equatable, Sendable {
-    case voice(InputShortcutHandler.Action)
+    case voice(VoiceGesture.Action)
     case switchDirection
     case screenCapture
     case screenHold(ScreenHoldHandler.Action)

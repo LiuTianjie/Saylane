@@ -11,7 +11,6 @@ struct PermissionsSettingsView: View {
     private var imeReady: Bool { model.readinessState.inputSource.enabled }
     private var micReady: Bool { model.permissions.microphone == .granted }
     private var speechReady: Bool { model.permissions.speechRecognition == .granted }
-    private var monitoringReady: Bool { model.permissions.inputMonitoringGranted }
     private var screenReady: Bool { model.permissions.screenCaptureGranted }
     private var accessibilityReady: Bool { model.readinessState.permissions.accessibility }
     private var globalEventListening: Bool { model.router.isGlobalTapListening }
@@ -72,22 +71,11 @@ struct PermissionsSettingsView: View {
                     title: String(localized: "辅助功能"),
                     detail: accessibilityDetail,
                     why: accessibilityWhy,
-                    ready: accessibilityReady,
-                    optional: !selectedHotkeyNeedsFiltering,
-                    actionTitle: String(localized: "去开通")
+                    ready: accessibilityReady && globalEventFiltering,
+                    recommended: true,
+                    actionTitle: accessibilityReady ? String(localized: "重新接入") : String(localized: "去开通")
                 ) {
-                    model.requestAccessibility()
-                }
-                permissionRow(
-                    symbol: "hand.raised.fill",
-                    title: String(localized: "输入监控"),
-                    detail: monitoringDetail,
-                    why: String(localized: "让你在豆包、系统拼音等其它输入法下也能直接按快捷键说话。"),
-                    ready: globalEventListening,
-                    optional: true,
-                    actionTitle: monitoringReady ? String(localized: "重新接入") : String(localized: "去开通")
-                ) {
-                    model.requestInputMonitoring()
+                    if accessibilityReady { model.reconnectGlobalKeys() } else { model.requestAccessibility() }
                 }
                 permissionRow(
                     symbol: "waveform",
@@ -114,7 +102,7 @@ struct PermissionsSettingsView: View {
                     model.requestScreenCapturePermission()
                 }
             } header: {
-                Text(selectedHotkeyNeedsFiltering ? String(localized: "增强与当前快捷键") : String(localized: "可选"))
+                Text(String(localized: "推荐与可选"))
             } footer: {
                 Text(optionalPermissionsFooter)
             }
@@ -126,7 +114,7 @@ struct PermissionsSettingsView: View {
         if imeReady {
             if model.readinessState.inputSource.selected { return String(localized: "已选中 Saylane") }
             if globalTriggerUsable { return String(localized: "已启用，其它输入法下也能按快捷键说话") }
-            return String(localized: "已启用；请先手动选中 Saylane")
+            return String(localized: "已启用；切到 Saylane 后可以打字和说话")
         }
         if model.readinessState.inputSource.installed { return String(localized: "系统设置 → 键盘 → 输入法") }
         return String(localized: "系统还没发现组件")
@@ -148,30 +136,17 @@ struct PermissionsSettingsView: View {
         }
     }
 
-    private var monitoringDetail: String {
-        if globalEventFiltering { return String(localized: "已接入，可监听并拦截全局按键") }
-        if globalEventListening {
-            return selectedHotkeyNeedsFiltering
-                ? String(localized: "已接入监听；当前功能键仍需辅助功能权限")
-                : String(localized: "已接入监听；当前修饰键快捷键可用")
-        }
-        if monitoringReady { return String(localized: "权限已开，监听还没接上") }
-        return String(localized: "系统设置 → 隐私与安全性 → 输入监控")
-    }
-
     private var accessibilityWhy: String {
         if selectedHotkeyNeedsFiltering {
             return String(localized: "当前功能键需要辅助功能权限，才能拦截按键并可靠收到松开事件；也可以改用 Option、Command、Control、Shift 或 fn。")
         }
-        return String(localized: "在其它输入法下、终端和部分网页应用里，把语音结果直接写到光标处；不开启时只能复制到剪贴板。")
+        return String(localized: "让快捷键在任何应用、任何输入法下都能用，并把文字直接写到光标处。不开启时，只有 Saylane 是当前输入法时才能说话。")
     }
 
     private var accessibilityDetail: String {
         if accessibilityReady {
-            if selectedHotkeyNeedsFiltering && !globalEventFiltering {
-                return String(localized: "已允许；全局按键拦截尚未接入")
-            }
-            return String(localized: "已允许")
+            if !globalEventFiltering { return String(localized: "已允许；全局按键监听尚未接入") }
+            return String(localized: "已允许，任何应用和输入法下都能按键说话")
         }
         if selectedHotkeyNeedsFiltering {
             return String(localized: "当前功能键需要这项权限")
@@ -183,11 +158,12 @@ struct PermissionsSettingsView: View {
         if selectedHotkeyNeedsFiltering {
             return String(localized: "当前功能键需要辅助功能权限；若不想开启，请改用 Option、Command、Control、Shift 或 fn。其它增强可以稍后开启。")
         }
-        return String(localized: "都可以稍后在「权限管理」里开启，不影响在 Saylane 输入法下说话和打字。")
+        return String(localized: "都可以稍后在「权限管理」里开启。不开辅助功能时，在 Saylane 输入法下仍然可以说话和打字。")
     }
 
     private func permissionRow(symbol: String, title: String, detail: String, why: String,
-                               ready: Bool, optional: Bool = false, pending: Bool = false, locked: Bool = false,
+                               ready: Bool, optional: Bool = false, recommended: Bool = false,
+                               pending: Bool = false, locked: Bool = false,
                                busy: Bool = false, actionTitle: String, disabled: Bool = false,
                                action: @escaping () -> Void) -> some View {
         HStack(alignment: .center, spacing: 12) {
@@ -198,8 +174,8 @@ struct PermissionsSettingsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(title)
-                    if optional {
-                        Text(String(localized: "可选"))
+                    if optional || recommended {
+                        Text(recommended ? String(localized: "推荐") : String(localized: "可选"))
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 5)

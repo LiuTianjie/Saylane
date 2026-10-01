@@ -53,10 +53,10 @@ final class SaylaneInputController: IMKInputController {
     private func retire(_ leaseID: UUID) {
         if IMEManager.shared.isCurrent(self, leaseID: leaseID) {
             // IMK expects the composition to be resolved when the client goes away.
-            AppModel.shared.commitPinyin()
+            IMEHost.shared.commitPinyin()
             IMEManager.shared.detach(self, leaseID: leaseID)
         }
-        AppModel.shared.pinyin.forgetClient(leaseID)
+        IMEHost.shared.forgetClient(leaseID)
         guard sessionID == leaseID else { return }
         sessionID = nil
         keyboardBound = false
@@ -69,67 +69,65 @@ final class SaylaneInputController: IMKInputController {
         return built
     }
 
+    /// Wording and state come from the main program; this process only shows them.
     @MainActor private func buildMenu() -> NSMenu {
-        do {
-            let model = AppModel.shared
-            let menu = NSMenu(title: "Saylane")
-            menu.autoenablesItems = false
-            if let notice = model.notice, notice.level == .actionable {
-                let item = menu.addItem(withTitle: "⚠︎ " + notice.message, action: #selector(showNoticeDestination(_:)), keyEquivalent: "")
-                item.target = self
-                menu.addItem(.separator())
-            }
-            let languages = menu.addItem(withTitle: model.currentDirection.title, action: nil, keyEquivalent: "")
-            languages.isEnabled = false
-            let keyboard = menu.addItem(withTitle: model.pinyinEnglishMode ? String(localized: "切换到拼音中文") : String(localized: "切换到英文键盘"),
-                                        action: #selector(togglePinyinMode(_:)), keyEquivalent: "")
-            keyboard.target = self
-            keyboard.isEnabled = !model.isListening
-            if model.prefs.languageSwitchEnabled {
-                let change = menu.addItem(withTitle: String(localized: "切换翻译方向"), action: #selector(switchOutputLanguage(_:)), keyEquivalent: "")
-                change.target = self
-                change.isEnabled = !model.isListening && !model.isPreparingModels
-            }
-            let screen = menu.addItem(withTitle: String(localized: "截屏翻译"), action: #selector(captureScreen(_:)), keyEquivalent: "")
-            screen.target = self
-            if model.voice.lastDictation != nil {
-                let copy = menu.addItem(withTitle: String(localized: "复制上一次听写"), action: #selector(copyLastDictation(_:)), keyEquivalent: "")
-                copy.target = self
-            }
+        let host = IMEHost.shared
+        let state = host.menu
+        let menu = NSMenu(title: "Saylane")
+        menu.autoenablesItems = false
+        if let notice = state.notice {
+            add(menu, "⚠︎ " + notice, #selector(showNotice(_:)))
             menu.addItem(.separator())
-            let redeploy = menu.addItem(withTitle: String(localized: "打开 Rime 用户词库目录"), action: #selector(openRimeUserDirectory(_:)), keyEquivalent: "")
-            redeploy.target = self
-            let settings = menu.addItem(withTitle: String(localized: "Saylane 设置…"), action: #selector(showPreferences(_:)), keyEquivalent: "")
-            settings.target = self
-            return menu
         }
+        if !state.directionTitle.isEmpty {
+            menu.addItem(withTitle: state.directionTitle, action: nil, keyEquivalent: "").isEnabled = false
+        }
+        add(menu, host.englishMode ? String(localized: "切换到拼音中文") : String(localized: "切换到英文键盘"),
+            #selector(togglePinyinMode(_:))).isEnabled = !host.isDictating
+        if host.mainProgramConnected {
+            if state.canSwitchDirection {
+                add(menu, String(localized: "切换翻译方向"), #selector(switchOutputLanguage(_:))).isEnabled = !host.isDictating
+            }
+            add(menu, String(localized: "截屏翻译"), #selector(captureScreen(_:)))
+            if state.hasLastDictation {
+                add(menu, String(localized: "复制上一次听写"), #selector(copyLastDictation(_:)))
+            }
+        }
+        menu.addItem(.separator())
+        add(menu, String(localized: "打开 Rime 用户词库目录"), #selector(openRimeUserDirectory(_:)))
+        add(menu, String(localized: "Saylane 设置…"), #selector(showPreferences(_:)))
+        return menu
+    }
+
+    @MainActor @discardableResult
+    private func add(_ menu: NSMenu, _ title: String, _ action: Selector) -> NSMenuItem {
+        let item = menu.addItem(withTitle: title, action: action, keyEquivalent: "")
+        item.target = self
+        return item
     }
 
     override func showPreferences(_ sender: Any!) {
-        onMain { AppModel.shared.openSettings() }
+        onMain { IMEHost.shared.perform(.openSettings) }
     }
 
-    @objc private func showNoticeDestination(_ sender: Any!) {
-        onMain {
-            let model = AppModel.shared
-            model.openSettings(for: model.notice?.destination ?? .none)
-        }
+    @objc private func showNotice(_ sender: Any!) {
+        onMain { IMEHost.shared.perform(.showNotice) }
     }
 
     @objc private func switchOutputLanguage(_ sender: Any!) {
-        onMain { AppModel.shared.swapTranslationDirection() }
+        onMain { IMEHost.shared.perform(.switchDirection) }
     }
 
     @objc private func togglePinyinMode(_ sender: Any!) {
-        onMain { AppModel.shared.togglePinyinEnglishMode() }
+        onMain { IMEHost.shared.toggleEnglishMode() }
     }
 
     @objc private func captureScreen(_ sender: Any!) {
-        onMain { AppModel.shared.handleScreenCaptureHotkey() }
+        onMain { IMEHost.shared.perform(.screenCapture) }
     }
 
     @objc private func copyLastDictation(_ sender: Any!) {
-        onMain { AppModel.shared.copyLastDictation() }
+        onMain { IMEHost.shared.perform(.copyLastDictation) }
     }
 
     @objc private func openRimeUserDirectory(_ sender: Any!) {
@@ -174,7 +172,7 @@ final class SaylaneInputController: IMKInputController {
             if IMEManager.shared.isPerformingOwnedInsert(me, leaseID: leaseID) { return }
             // A client-side click must not submit a partially translated phrase:
             // while dictating, the preview is withdrawn and the dictation carries on.
-            if !AppModel.shared.isListening { AppModel.shared.commitPinyin() }
+            if !IMEHost.shared.isDictating { IMEHost.shared.commitPinyin() }
             // `commitComposition` is also how many hosts announce a focus move
             // within the same client. Pinyin writes again after the next key.
             IMEManager.shared.targetChanged(me, leaseID: leaseID)
@@ -198,10 +196,7 @@ final class SaylaneInputController: IMKInputController {
             // Without a receiver nothing can be written: let the application have the key.
             guard me.bind(callbackSender) else { return false }
             IMEManager.shared.attach(me)
-            if keyEvent.type == .flagsChanged {
-                InputDiagnostics.record("modifier-received", "key=\(keyEvent.keyCode) flags=\(keyEvent.modifierFlags.rawValue)")
-            }
-            return AppModel.shared.consumeIMEEvent(keyEvent)
+            return IMEHost.shared.handle(keyEvent)
         }
     }
 }

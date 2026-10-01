@@ -35,20 +35,12 @@ import Carbon.HIToolbox
     func cancel() async {}
 }
 
-@MainActor private final class Destination: CompositionTarget {
-    var isValid = true
-    var commits: [String] = []
-    func setMarked(_ text: String) {}
-    func commit(_ text: String) { commits.append(text) }
-    func cancelMarked() {}
-}
-
 @MainActor private final class Platform {
     var front: String? = "editor"
     var frontPID: pid_t? = 1234
     var trace: [String] = []
     var environment: VoiceInputEnvironment {
-        VoiceInputEnvironment(ownBundleID: "saylane",
+        VoiceInputEnvironment(
             frontmostBundleID: { self.front }, frontmostPID: { self.frontPID },
             trace: { self.trace.append("\($0) \($1)") })
     }
@@ -64,8 +56,11 @@ import Carbon.HIToolbox
     var pasted: [String] = []
     var copied: [String] = []
     var requestedBundles: [String?] = []
-    func sink(inFront bundleID: String?) -> VoiceTextSink {
+    var sessions: [UUID] = []
+    var ended: [UUID] = []
+    func sink(inFront bundleID: String?, session: UUID) -> VoiceTextSink {
         requestedBundles.append(bundleID)
+        sessions.append(session)
         return VoiceTextSink(
             setMarked: { text in
                 guard self.imkAttached else { return false }
@@ -80,20 +75,18 @@ import Carbon.HIToolbox
                 guard self.pasteAllowed else { return false }
                 self.pasted.append(text); return true
             },
-            copy: { self.copied.append($0) })
+            copy: { self.copied.append($0) },
+            end: { self.ended.append(session) })
     }
 }
 
 @MainActor private final class Host: VoiceSessionHost {
     var prefs = Preferences()
     var readinessState = Readiness()
-    var isVoiceTrialActive = false
     let writer = Writer()
-    let trialTarget = Destination()
     var speeches: [Speech] = []
     var notices: [UserNotice] = []
     var completions: [Bool] = []
-    var trialCaptures = 0
     var onState: (() -> Void)?
     var onEnd: (() -> Void)?
     init() {
@@ -108,12 +101,10 @@ import Carbon.HIToolbox
     func makeSpeechEngine() -> any SpeechRecognizing { let speech = Speech(); speeches.append(speech); return speech }
     func makeRefine() -> ((String) -> String)? { nil }
     func makePolish() -> ((String, String) async throws -> String)? { nil }
-    func textSink(inFront bundleID: String?) -> VoiceTextSink { writer.sink(inFront: bundleID) }
-    func settingsCaptureTarget() -> (any CompositionTarget)? { trialCaptures += 1; return trialTarget }
+    func textSink(inFront bundleID: String?, session: UUID) -> VoiceTextSink { writer.sink(inFront: bundleID, session: session) }
     func post(_ notice: UserNotice) { notices.append(notice) }
     func voiceSessionDidEnd(committed: Bool) { completions.append(committed); onEnd?() }
     func voiceSessionStateDidChange() { onState?() }
-    func commitPinyinBeforeVoice() {}
     func translate(_ text: String) async throws -> String { text }
 }
 
@@ -152,21 +143,23 @@ import Carbon.HIToolbox
 
     @MainActor static func main() async throws {
         var passed = 0
-        do { // An abandoned right-Command hold stops mic/preroll immediately.
+        do { // The talk key through the real router and its timers: a tap never opens
+             // the microphone, an abandoned hold closes it, a real hold dictates.
             let f = Fixture()
             let router = InputEventRouter()
-            router.updateContext { $0.trigger = .rightCommand; $0.globalEventsCanBeConsumed = true }
+            router.updateContext { $0.trigger = .rightCommand; $0.switchEnabled = false; $0.globalEventsCanBeConsumed = true }
             f.host.onState = { router.updateContext {
                 $0.isListening = f.voice.isListening
                 $0.voiceCapturing = f.voice.isCapturing
             } }
             router.onAction = { action in
                 switch action {
-                case .voice(.armHold), .voice(.armTap): f.voice.arm()
-                case .voice(.disarm): f.voice.disarm()
-                case .voice(.press): f.voice.press()
-                case .voice(.release): f.voice.release()
+                case .voice(.prewarm): f.voice.arm()
+                case .voice(.discard): f.voice.disarm()
+                case .voice(.start): f.voice.press()
+                case .voice(.stop): f.voice.release()
                 case .voice(.cancel): f.voice.cancel()
+                case .voice(.interrupt): f.voice.interrupt()
                 default: break
                 }
             }
@@ -175,16 +168,36 @@ import Carbon.HIToolbox
                       flags: down ? UInt64(NSEvent.ModifierFlags.command.rawValue) | PushToTalkHotkey.rightCommand.deviceMask : 0,
                       isRepeat: false, timestamp: ProcessInfo.processInfo.systemUptime)
             }
-            _ = router.feed(command(true)); f.audio.emit(7)
-            try await Task.sleep(for: .milliseconds(15))
+            // A tap: nothing at all.
+            _ = router.feed(command(true))
+            try await Task.sleep(for: .milliseconds(40))
             _ = router.feed(command(false))
-            precondition(!f.audio.running && f.host.speeches.isEmpty)
-            _ = router.feed(command(true)); f.audio.emit(2)
+            try await Task.sleep(for: .milliseconds(350))
+            precondition(f.audio.starts == 0 && f.host.speeches.isEmpty, "a tap opened the microphone")
+            // Held past the prewarm but released before it counts: the microphone closes, nothing is kept.
+            _ = router.feed(command(true))
+            try await settleUntil { f.audio.running }
+            f.audio.emit(7)
+            _ = router.feed(command(false))
+            precondition(!f.audio.running && f.host.speeches.isEmpty && !f.voice.isListening)
+            // ⌘C: the key arrives while the hold is pending. Still nothing.
+            _ = router.feed(command(true))
+            _ = router.feed(.init(source: .imk, type: .keyDown, keyCode: UInt16(kVK_ANSI_C),
+                                  flags: UInt64(NSEvent.ModifierFlags.command.rawValue), isRepeat: false,
+                                  timestamp: ProcessInfo.processInfo.systemUptime))
+            try await Task.sleep(for: .milliseconds(380))
+            _ = router.feed(command(false))
+            precondition(f.audio.starts == 1 && !f.voice.isListening, "a chord started a dictation")
+            // A real hold.
+            _ = router.feed(command(true))
+            try await settleUntil { f.audio.running }
+            f.audio.emit(2)
             try await settleUntil { f.voice.state == .listening }
             _ = router.feed(command(false))
             try await settleUntil { !f.voice.isListening }
             precondition(f.audio.starts == 2 && f.host.speeches.first?.feeds == 2,
-                         "a short earlier tap contaminated the next preroll")
+                         "an abandoned hold contaminated the next preroll")
+            precondition(f.writer.inserted == ["voice result"])
             passed += 1
         }
         do { // Attached IMK client: preview as marked text, final text inserted through it.
@@ -197,6 +210,9 @@ import Carbon.HIToolbox
             precondition(states.contains(.preparing) && states.contains(.listening) && states.last == .idle)
             precondition(f.host.completions == [true] && !f.audio.running && f.host.speeches[0].feeds == 4)
             precondition(f.writer.requestedBundles == ["editor"] && f.voice.lastDictation == "voice result")
+            precondition(f.writer.ended == f.writer.sessions && f.writer.sessions.count == 1,
+                         "the input method is told once that the dictation is over")
+            precondition(f.voice.sessionID == nil)
             passed += 1
         }
         do { // No IMK client (another input source, or an app that never attaches): paste, at once.
@@ -314,12 +330,35 @@ import Carbon.HIToolbox
             precondition(f.host.notices.count == 1 && f.host.completions == [false])
             passed += 1
         }
-        do { // Only the focused trial page may capture speech into the settings field.
+        do { // Our own windows are ordinary targets: the same routes, nothing special.
             let f = Fixture()
-            f.platform.front = "saylane"; f.host.isVoiceTrialActive = true; f.writer.imkAttached = false
+            f.platform.front = "saylane"
             try await dictate(f)
-            precondition(f.host.trialCaptures == 1 && f.writer.requestedBundles.isEmpty)
-            precondition(f.host.trialTarget.commits == ["voice result"] && f.writer.pasted.isEmpty)
+            precondition(f.writer.requestedBundles == ["saylane"] && f.writer.inserted == ["voice result"])
+            passed += 1
+        }
+        do { // A key or a click right after the start: the press was a shortcut. Nothing is written or kept.
+            let f = Fixture()
+            f.voice.press(); f.audio.emit(4)
+            try await settleUntil { f.voice.state == .listening }
+            f.voice.interrupt()
+            try await settleUntil { !f.voice.isListening }
+            precondition(f.writer.inserted.isEmpty && f.writer.pasted.isEmpty && f.writer.copied.isEmpty)
+            precondition(f.host.notices.isEmpty && f.host.completions == [false] && f.writer.ended.count == 1)
+            passed += 1
+        }
+        do { // The same slip well into a dictation: what was said is kept, but not written at a caret that may have moved.
+            let f = Fixture()
+            f.voice.policy.interruptGrace = 0.05
+            f.voice.press(); f.audio.emit(4)
+            try await settleUntil { f.voice.state == .listening }
+            try await Task.sleep(for: .milliseconds(90))
+            f.voice.interrupt()
+            precondition(!f.audio.running, "an interruption stops the microphone at once")
+            try await settleUntil { !f.voice.isListening }
+            precondition(f.writer.inserted.isEmpty && f.writer.pasted.isEmpty && f.writer.copied == ["voice result"])
+            precondition(f.host.notices.count == 1 && f.host.notices[0].level == .transient)
+            precondition(f.voice.lastDictation == "voice result")
             passed += 1
         }
         do { // Opening Saylane settings ends an editor session without writing into the settings window.
@@ -335,23 +374,22 @@ import Carbon.HIToolbox
         do { // Router + voice, with state updates exactly as the composition root wires them.
             let f = Fixture()
             let router = InputEventRouter()
-            router.updateContext { $0.trigger = .f20; $0.tapToTalk = true }
+            router.updateContext { $0.trigger = .f20; $0.tapToTalk = true; $0.globalEventsCanBeConsumed = true }
             f.host.onState = { router.updateContext {
                 $0.isListening = f.voice.isListening
                 $0.voiceCapturing = f.voice.isCapturing
-                $0.globalEventsCanBeConsumed = true
             } }
             f.host.onEnd = { router.reset(); router.updateContext { $0.isListening = false; $0.voiceCapturing = false } }
             router.onAction = { action in
                 switch action {
-                case .voice(.press): f.voice.press()
-                case .voice(.release): f.voice.release()
+                case .voice(.start): f.voice.press()
+                case .voice(.stop): f.voice.release()
                 case .voice(.cancel): f.voice.cancel()
                 default: break
                 }
             }
             func key(_ code: UInt16, _ type: NSEvent.EventType, _ time: Double) -> InputEvent {
-                .init(source: .imk, type: type, keyCode: code, flags: 0, isRepeat: false, timestamp: time)
+                .init(source: .tap, type: type, keyCode: code, flags: 0, isRepeat: false, timestamp: time)
             }
             _ = router.feed(key(UInt16(kVK_F20), .keyDown, 1))
             _ = router.feed(key(UInt16(kVK_F20), .keyUp, 1.05))
@@ -369,6 +407,6 @@ import Carbon.HIToolbox
             precondition(!f.audio.running && !router.context.isListening && f.writer.inserted.count == 1)
             passed += 1
         }
-        print("PASS: \(passed) voice-controller scenarios: IMK, paste and pasteboard delivery, lost and late clients, quick release, focus, trial routing, toggle/Esc")
+        print("PASS: \(passed) voice-controller scenarios: talk key through the router, input-method / paste / pasteboard delivery, lost and late clients, quick release, focus, interruptions, toggle/Esc")
     }
 }

@@ -8,7 +8,11 @@ enum AppDirectories {
     static let legacyProductName = "RTranslate"
 
     static var applicationSupport: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        // `SAYLANE_TEST_HOME`: see `TestHome`. Read here so this file stands alone.
+        if let test = ProcessInfo.processInfo.environment["SAYLANE_TEST_HOME"], !test.isEmpty {
+            return URL(fileURLWithPath: test, isDirectory: true)
+        }
+        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
     }
     static var root: URL { applicationSupport.appendingPathComponent(productName, isDirectory: true) }
     static var legacyRoot: URL { applicationSupport.appendingPathComponent(legacyProductName, isDirectory: true) }

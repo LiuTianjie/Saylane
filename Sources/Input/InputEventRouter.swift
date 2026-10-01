@@ -23,6 +23,7 @@ final class InputEventRouter {
     private let shared = SharedArbiter()
     private let tap: GlobalHotkeyMonitor
     private var voiceDeadline: Task<Void, Never>?
+    private var armedVoiceDeadline: TimeInterval?
     private var screenDeadline: Task<Void, Never>?
     private var pump: Task<Void, Never>?
     private let now: () -> TimeInterval
@@ -56,6 +57,7 @@ final class InputEventRouter {
 
     func reset() {
         voiceDeadline?.cancel(); voiceDeadline = nil
+        armedVoiceDeadline = nil
         screenDeadline?.cancel(); screenDeadline = nil
         shared.reset()
     }
@@ -101,6 +103,7 @@ final class InputEventRouter {
         let (earlier, result) = shared.feedFromMain(event, window: Self.dedupeWindow)
         for message in earlier { dispatch(message) }
         for action in result.actions { dispatch(action) }
+        armVoiceDeadline()
         return result.consume
     }
 
@@ -108,12 +111,6 @@ final class InputEventRouter {
 
     private func dispatch(_ action: InputAction) {
         switch action {
-        case .voice(.armHold):
-            armVoiceDeadline(after: InputShortcutHandler.holdDelay)
-        case .voice(.armTap):
-            armVoiceDeadline(after: InputShortcutHandler.doubleTapGap)
-        case .voice(.disarm), .voice(.press), .voice(.release), .voice(.cancel), .voice(.switchTarget):
-            voiceDeadline?.cancel(); voiceDeadline = nil
         case .screenHold(.armHold):
             screenDeadline?.cancel()
             screenDeadline = Task { [weak self] in
@@ -136,21 +133,45 @@ final class InputEventRouter {
         case .actions(let actions):
             for action in actions { dispatch(action) }
         case .interrupted(let actions, let capability):
-            voiceDeadline?.cancel(); voiceDeadline = nil
             screenDeadline?.cancel(); screenDeadline = nil
             onGlobalCapabilityChanged?(capability != .unavailable, capability == .filtering)
             for action in actions { dispatch(action) }
         }
+        armVoiceDeadline()
     }
 
-    private func armVoiceDeadline(after delay: TimeInterval) {
-        voiceDeadline?.cancel()
+    /// The talk key is physically up but its release was never delivered.
+    func voiceTriggerLost() {
+        let actions = shared.voiceTriggerLost(now: now())
+        for action in actions { dispatch(action) }
+        armVoiceDeadline()
+    }
+
+    /// The press in progress turned out to be a chord the arbiter could not see.
+    func abandonVoiceGesture() {
+        let actions = shared.withArbiter { $0.abandonVoice() }
+        for action in actions { dispatch(action) }
+        armVoiceDeadline()
+    }
+
+    /// One timer follows whatever the talk-key gesture is waiting for next.
+    private func armVoiceDeadline() {
+        let deadline = shared.withArbiter { $0.nextVoiceDeadline }
+        guard deadline != armedVoiceDeadline || (deadline != nil && voiceDeadline == nil) else { return }
+        voiceDeadline?.cancel(); voiceDeadline = nil
+        armedVoiceDeadline = deadline
+        guard let deadline else { return }
+        // Never spin when the clock stands still, and never sleep past a
+        // deadline because an event carried a timestamp from another clock.
+        let delay = min(1, max(0.005, deadline - now()))
         voiceDeadline = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(delay)) } catch { return }
             guard let self else { return }
-            if let next = self.shared.withArbiter({ $0.voiceDeadline(now: self.now()) }) {
-                self.dispatch(next)
-            }
+            self.voiceDeadline = nil
+            self.armedVoiceDeadline = nil
+            let actions = self.shared.withArbiter { $0.voiceDeadline(now: self.now()) }
+            for action in actions { self.dispatch(action) }
+            self.armVoiceDeadline()
         }
     }
 }
@@ -195,6 +216,11 @@ final class SharedArbiter: @unchecked Sendable {
         return body(&arbiter)
     }
 
+    func voiceTriggerLost(now: TimeInterval) -> [InputAction] {
+        lock.lock(); defer { lock.unlock() }
+        return arbiter.voiceTriggerLost(now: now, context: context)
+    }
+
     /// Preserve synchronous main-thread action semantics while draining every
     /// earlier tap message in the same critical section that advances state.
     fileprivate func feedFromMain(_ event: InputEvent, window: TimeInterval) -> ([InputRouterMessage], GestureArbiter.Result) {
@@ -207,8 +233,11 @@ final class SharedArbiter: @unchecked Sendable {
     /// Called on the tap thread. Returns whether the event should be swallowed.
     func feedFromTap(_ event: InputEvent) -> Bool {
         lock.lock()
+        let deadlineBefore = arbiter.nextVoiceDeadline
         let result = feedLocked(event, window: InputEventRouter.dedupeWindow)
-        let shouldWake = !result.actions.isEmpty
+        // A press that only starts waiting produces no action, but the main
+        // actor must still arm the timer for it.
+        let shouldWake = !result.actions.isEmpty || arbiter.nextVoiceDeadline != deadlineBefore
         if shouldWake { pendingMessages.append(.actions(result.actions)) }
         lock.unlock()
         if shouldWake { continuation?.yield(()) }
@@ -221,7 +250,7 @@ final class SharedArbiter: @unchecked Sendable {
     /// depends on keyboard continuity.
     func interruptFromTap(capability: GlobalHotkeyMonitor.KeyboardCapability) {
         lock.lock()
-        let cancelVoice = context.voiceCapturing || arbiter.isOwningGesture
+        let cancelVoice = context.voiceCapturing || arbiter.voiceGestureActive
         let cancelSelection = context.screenActive && !context.pinVisible
         context.globalEventsCanBeConsumed = capability == .filtering
         arbiter.reset()

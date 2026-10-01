@@ -2,28 +2,29 @@ import AppKit
 import Carbon
 import Foundation
 
-/// File placement, TIS discovery, enablement, and selection are distinct states.
-/// In particular, a mode's default-enabled flag is not proof its parent is enabled.
+/// The main program manages the input method's input source: file placement,
+/// TIS discovery, enablement, and selection are distinct states. In particular,
+/// a mode's default-enabled flag is not proof its parent is enabled.
 enum InputSourceInstall {
     /// Last failure text for the UI. TIS calls are made from the main thread only.
     nonisolated(unsafe) static var lastFailure: String?
-    static var bundleID: String { Bundle.main.bundleIdentifier ?? "com.rtranslate.inputmethod.rtranslate" }
+    static var bundleID: String { Bridge.imeBundleID }
     static var modeID: String { bundleID + ".voice" }
+    /// The input method bundle the installer puts in place.
+    static var bundleURL: URL { URL(fileURLWithPath: Bridge.imeBundlePath, isDirectory: true) }
     static var isInstalledLocation: Bool {
-        let parent = Bundle.main.bundleURL.deletingLastPathComponent().standardizedFileURL.resolvingSymlinksInPath()
-        let allowed = [URL(fileURLWithPath: "/Library/Input Methods"),
-                       FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Input Methods")]
-        return allowed.contains { $0.standardizedFileURL.resolvingSymlinksInPath() == parent }
+        guard let bundle = Bundle(url: bundleURL) else { return false }
+        return bundle.bundleIdentifier == bundleID
     }
     @discardableResult
     static func registerBundle() -> OSStatus {
         lastFailure = nil
         guard isInstalledLocation else {
-            lastFailure = String(localized: "当前是未安装的构建副本，不能注册为输入法。")
+            lastFailure = String(localized: "没有找到已安装的输入法组件，请先用安装包安装。")
             return OSStatus(paramErr)
         }
-        let status = TISRegisterInputSource(Bundle.main.bundleURL as CFURL)
-        NSLog("Saylane: register status=%d path=%@", status, Bundle.main.bundlePath)
+        let status = TISRegisterInputSource(bundleURL as CFURL)
+        NSLog("Saylane: register status=%d path=%@", status, bundleURL.path)
         if status != noErr { lastFailure = String(localized: "系统输入法注册失败（错误码 \(status)）。") }
         return status
     }

@@ -23,7 +23,7 @@ final class PermissionsController {
 
     var inputSource: Readiness.InputSource {
         Readiness.InputSource(installedLocation: InputSourceInstall.isInstalledLocation,
-                              installed: IMEManager.shared.isInstalled,
+                              installed: !InputSourceInstall.ours(includeDisabled: true).isEmpty,
                               enabled: InputSourceInstall.isEnabled,
                               selected: InputSourceInstall.isSelected)
     }

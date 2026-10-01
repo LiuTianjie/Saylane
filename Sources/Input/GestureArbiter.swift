@@ -13,34 +13,45 @@ struct GestureArbiter {
         var consume = false
     }
 
-    private var voice = InputShortcutHandler()
-    private var router = GlobalHotkeyRouter()
+    private var voice = VoiceGesture()
     private var screenHold = ScreenHoldHandler()
     private var rightCommandTap = RightCommandDoubleTap()
 
-    var isOwningGesture: Bool { router.owningGesture }
+    /// A talk-key press is in progress (pending, talking or void until released).
+    var voiceGestureActive: Bool { voice.isActive }
+    /// When `voiceDeadline(now:)` must be called next.
+    var nextVoiceDeadline: TimeInterval? { voice.nextDeadline }
 
     mutating func reset() {
         voice.reset()
-        router.reset()
         screenHold.reset()
         rightCommandTap.reset()
+    }
+
+    /// The owner found out that the current press is a chord after all.
+    mutating func abandonVoice() -> [InputAction] { voice.abandon().map(InputAction.voice) }
+
+    /// The talk key is physically up but its release never arrived.
+    mutating func voiceTriggerLost(now: TimeInterval, context c: InputContext) -> [InputAction] {
+        voice.trigger(down: false, alone: true, now: now, config: Self.config(c)).map(InputAction.voice)
     }
 
     mutating func noteEndedSelection() { screenHold.noteEndedSelection() }
     mutating func setPinVisible(_ visible: Bool) { screenHold.setPinVisible(visible) }
 
-    /// Timer callback for the voice hold/double-tap window.
-    mutating func voiceDeadline(now: TimeInterval) -> InputAction? {
-        let next = voice.holdDeadline(now: now)
-        router.note(next)
-        return next == .none ? nil : .voice(next)
+    /// Timer callback for the talk key.
+    mutating func voiceDeadline(now: TimeInterval) -> [InputAction] {
+        voice.deadline(now: now).map(InputAction.voice)
     }
 
     /// Timer callback for the left-Control screen hold.
     mutating func screenHoldDeadline(now: TimeInterval) -> InputAction? {
         let next = screenHold.holdDeadline(now: now)
         return next == .none ? nil : .screenHold(next)
+    }
+
+    private static func config(_ c: InputContext) -> VoiceGesture.Config {
+        VoiceGesture.Config(toggle: c.tapToTalk, doubleTapSwitches: c.switchEnabled && c.trigger == .rightCommand)
     }
 
     mutating func feed(_ event: InputEvent, context c: InputContext) -> Result {
@@ -85,7 +96,8 @@ struct GestureArbiter {
 
         // 3. Long-press left Control (opt-in) starts a selection.
         if c.screenActive || (c.screenHoldEnabled && !(c.voiceEnabled && c.trigger == .leftControl)) {
-            let action = screenHold.handle(type: event.type, keyCode: event.keyCode, flags: event.flags, now: now)
+            let action = screenHold.handle(type: event.type, keyCode: event.keyCode, flags: event.flags, now: now,
+                                           deliversKeyUp: event.source != .imk)
             if action != .none { result.actions.append(.screenHold(action)) }
         }
 
@@ -101,35 +113,83 @@ struct GestureArbiter {
             // A listen-only tap cannot swallow the chord; let IMK handle it when
             // our source is selected and otherwise leave the foreground app alone.
             if event.source == .tap && !c.globalEventsCanBeConsumed { return result }
+            // ⌥T with ⌥ as the talk key: the press was a chord, not a hold.
+            result.actions.append(contentsOf: voice.other(.key).map(InputAction.voice))
             result.actions.append(.screenCapture); result.consume = true
             return result
         }
 
-        // 6. Voice trigger, suppressed while a screen session is active. A click
-        //    or a key after the release is not a gesture: the result is written
-        //    wherever the caret is when it is ready.
+        // 6. Talk key, suppressed while a screen session is active.
         if c.screenActive || !c.voiceEnabled {
             voice.reset()
-            router.reset()
             if !c.voiceEnabled { rightCommandTap.reset() }
             return result
         }
-        // Function keys have visible system/app behavior. Never start from a
-        // listen-only tap; IMK has no key-up contract in Chromium clients.
-        if event.source == .tap, !c.globalEventsCanBeConsumed, !c.trigger.isModifier,
-           event.keyCode == UInt16(c.trigger.keyCode) { return result }
-        let interpret = router.shouldInterpret(isOursSelected: c.isOursSelected, keyCode: event.keyCode,
-                                               triggerKeyCode: UInt16(c.trigger.keyCode))
-            || (c.tapToTalk && c.voiceCapturing)
-        guard interpret else { return result }
-        let (action, consumed) = voice.handle(type: event.type, keyCode: event.keyCode, flags: event.flags,
-                                              repeatKey: event.isRepeat, trigger: c.trigger,
-                                              switchEnabled: c.switchEnabled, active: c.voiceCapturing,
-                                              now: now, tapToTalk: c.tapToTalk)
-        router.note(action)
-        if action != .none { result.actions.append(.voice(action)) }
-        if consumed { result.consume = true }
+        let config = Self.config(c)
+        var actions: [VoiceGesture.Action] = []
+        let isTrigger = event.keyCode == UInt16(c.trigger.keyCode)
+        switch event.type {
+        case .flagsChanged:
+            guard c.trigger.isModifier else { break }
+            if isTrigger {
+                let down = Self.isDown(c.trigger, flags: event.flags)
+                actions = voice.trigger(down: down, alone: Self.isAlone(c.trigger, flags: event.flags),
+                                        now: now, config: config)
+                // As before: the talk key's own press and release stay with us.
+                result.consume = true
+            } else if event.keyCode != UInt16(kVK_CapsLock), Self.otherModifierDown(c.trigger, flags: event.flags) {
+                actions = voice.other(.modifier)
+            }
+        case .keyDown:
+            if !c.trigger.isModifier, isTrigger {
+                // A function key has visible behaviour of its own and needs its
+                // key-up: only a listener that can swallow it may start from it.
+                guard c.globalEventsCanBeConsumed, event.source != .imk else { return result }
+                guard event.flags & Self.chordFlags == 0 else { break }
+                if !event.isRepeat { actions = voice.functionKey(down: true, config: config) }
+                result.consume = true
+            } else if event.keyCode == UInt16(kVK_Escape), c.voiceCapturing || voice.isTalking, !event.isRepeat {
+                // The session decides, not only the gesture: it may have been
+                // started from the settings window or outlived a reset.
+                let escaped = voice.escape()
+                actions = escaped.isEmpty ? [.cancel] : escaped
+                result.consume = true
+            } else if !event.isRepeat {
+                actions = voice.other(.key)
+            }
+        case .keyUp:
+            if !c.trigger.isModifier, isTrigger, c.globalEventsCanBeConsumed {
+                actions = voice.functionKey(down: false, config: config)
+                result.consume = true
+            }
+        case .leftMouseDown, .rightMouseDown:
+            actions = voice.other(.mouse)
+        default:
+            break
+        }
+        result.actions.append(contentsOf: actions.map(InputAction.voice))
         return result
+    }
+
+    private static let chordFlags = UInt64(NSEvent.ModifierFlags([.command, .option, .control, .shift]).rawValue)
+    private static let modifierClasses = UInt64(NSEvent.ModifierFlags([.command, .option, .control, .shift, .function]).rawValue)
+
+    /// Left and right are told apart by the device bits when the event carries
+    /// them (the event tap); InputMethodKit only reports the modifier class.
+    private static func isDown(_ trigger: PushToTalkHotkey, flags: UInt64) -> Bool {
+        if trigger.deviceMask != 0, flags & (trigger.deviceMask | trigger.siblingMask) != 0 {
+            return flags & trigger.deviceMask != 0
+        }
+        return flags & UInt64(trigger.nsModifierFlag.rawValue) != 0
+    }
+
+    private static func isAlone(_ trigger: PushToTalkHotkey, flags: UInt64) -> Bool {
+        flags & modifierClasses & ~UInt64(trigger.nsModifierFlag.rawValue) == 0 && flags & trigger.siblingMask == 0
+    }
+
+    /// Another modifier is held (as opposed to one having just been released).
+    private static func otherModifierDown(_ trigger: PushToTalkHotkey, flags: UInt64) -> Bool {
+        flags & modifierClasses & ~UInt64(trigger.nsModifierFlag.rawValue) != 0 || flags & trigger.siblingMask != 0
     }
 
     /// Key → pin action. While only a selection is in progress, just Esc applies.

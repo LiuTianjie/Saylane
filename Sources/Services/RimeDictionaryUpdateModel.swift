@@ -14,7 +14,8 @@ final class RimeDictionaryUpdateModel {
     private var task: Task<Void, Never>?
     private var generation = 0
 
-    init(resource: URL? = Bundle.main.resourceURL?.appendingPathComponent("Rime"),
+    /// The dictionaries ship inside the input method bundle.
+    init(resource: URL? = URL(fileURLWithPath: Bridge.imeBundlePath).appendingPathComponent("Contents/Resources/Rime"),
          checker: any RimeDictionaryChecking = RimeDictionaryUpdateService()) {
         self.resource = resource
         self.checker = checker

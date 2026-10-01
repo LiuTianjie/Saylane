@@ -10,20 +10,24 @@ enum VoiceDelivery: Equatable, Sendable {
     case copied
     /// Another application came to the front; the text is on the pasteboard.
     case copiedAfterAppSwitch
+    /// A key or a click cut the dictation short; the text is on the pasteboard.
+    case copiedAfterInterrupt
 }
 
-/// The ways a dictation can be written, as closures so tests need no IMK
-/// client, event posting or pasteboard.
+/// The ways a dictation can be written, as closures so tests need no input
+/// method, event posting or pasteboard.
 @MainActor
 struct VoiceTextSink {
-    /// Live preview in the attached IMK client. False when there is none.
+    /// Live preview at the caret, through the input method. False when it is not attached.
     var setMarked: (String) -> Bool
     var clearMarked: () -> Void
-    /// Insert through the attached IMK client. False when there is none.
+    /// Insert through the input method. False when it is not attached or did not answer.
     var insert: (String) -> Bool
     /// Paste at the caret. False when key events cannot be posted.
     var paste: (String) -> Bool
     var copy: (String) -> Void
+    /// The dictation is over, written or not: the input method stops waiting for it.
+    var end: () -> Void = {}
 }
 
 /// A dictation belongs to the application that was in front at the press, not
@@ -36,6 +40,9 @@ final class FocusedTextTarget: CompositionTarget {
     private let sink: VoiceTextSink
     private let stillInFront: () -> Bool
     private var showsMarked = false
+    /// The dictation was cut short by a key or a click: where the caret is now
+    /// is not where it was meant to go.
+    var interrupted = false
     var onDelivery: ((VoiceDelivery, String) -> Void)?
 
     init(sink: VoiceTextSink, stillInFront: @escaping () -> Bool) {
@@ -51,10 +58,10 @@ final class FocusedTextTarget: CompositionTarget {
     }
 
     func commit(_ text: String) {
-        guard stillInFront() else {
+        guard stillInFront(), !interrupted else {
             cancelMarked()
             sink.copy(text)
-            onDelivery?(.copiedAfterAppSwitch, text)
+            onDelivery?(interrupted ? .copiedAfterInterrupt : .copiedAfterAppSwitch, text)
             return
         }
         if sink.insert(text) {

@@ -7,14 +7,49 @@ root = Path(__file__).resolve().parents[1]
 def read(path):
     return (root / path).read_text()
 
-info = plistlib.loads((root / 'Sources/Info.plist').read_bytes())
-assert info['CFBundleDisplayName'] == 'Saylane'
-assert info['InputMethodServerControllerClass'] == 'SaylaneInputController'
-assert info['InputMethodServerDelegateClass'] == 'SaylaneInputController'
-assert info['TISInputSourceID'] == 'com.rtranslate.inputmethod.rtranslate'
+ime = plistlib.loads((root / 'Sources/IME/Info.plist').read_bytes())
+app = plistlib.loads((root / 'Sources/App/Info.plist').read_bytes())
+project = read('project.yml')
+
+# The input method keeps the identity users have enabled in System Settings.
+assert ime['CFBundleDisplayName'] == 'Saylane' and app['CFBundleDisplayName'] == 'Saylane'
+assert ime['InputMethodServerControllerClass'] == 'SaylaneInputController'
+assert ime['InputMethodServerDelegateClass'] == 'SaylaneInputController'
+assert ime['TISInputSourceID'] == 'com.rtranslate.inputmethod.rtranslate'
+assert ime['InputMethodConnectionName'] == '$(PRODUCT_BUNDLE_IDENTIFIER)_Connection', \
+    'macOS derives the connection name from the bundle identifier; any other value is refused'
 assert '@objc(SaylaneInputController)' in read('Sources/IME/SaylaneInputController.swift')
-assert 'PRODUCT_NAME: Saylane' in read('project.yml')
-assert 'PRODUCT_BUNDLE_IDENTIFIER: com.rtranslate.inputmethod.rtranslate' in read('project.yml')
+assert 'PRODUCT_NAME: SaylaneIME' in project and 'PRODUCT_NAME: Saylane\n' in project
+assert 'PRODUCT_BUNDLE_IDENTIFIER: com.rtranslate.inputmethod.rtranslate' in project
+assert 'PRODUCT_BUNDLE_IDENTIFIER: com.rtranslate.saylane' in project
+
+# Two processes with separate jobs (docs/DESIGN_0.3.md). The input method is a
+# background-only process that asks for nothing; everything that needs a
+# permission, a window or a model is the main program's.
+assert ime['LSBackgroundOnly'] is True and 'LSUIElement' not in ime
+assert app['LSUIElement'] is True and 'LSBackgroundOnly' not in app
+assert not [key for key in ime if key.endswith('UsageDescription')], 'the input method requests no permission'
+assert {'NSMicrophoneUsageDescription', 'NSSpeechRecognitionUsageDescription', 'NSScreenCaptureUsageDescription'} <= set(app)
+assert not [key for key in app if key.startswith('InputMethod') or key.startswith('ts') or key == 'ComponentInputModeDict'], \
+    'the main program is not an input method'
+ime_target = project[project.index('  SaylaneIME:'):project.index('  Saylane:\n')]
+assert 'MLXASR' not in ime_target and 'Vendor/FunASR' not in ime_target and 'CODE_SIGN_ENTITLEMENTS' not in ime_target
+forbidden = ('import AVFoundation', 'import AVFAudio', 'import Speech', 'import ScreenCaptureKit', 'import Translation',
+             'import CoreML', 'AppModel', 'AXIsProcessTrusted', 'CGEvent.tapCreate', 'URLSession')
+for swift in (root / 'Sources/IME').rglob('*.swift'):
+    text = swift.read_text()
+    for word in forbidden:
+        assert word not in text, f'{swift.name}: {word} belongs to the main program'
+for swift in list((root / 'Sources').rglob('*.swift')):
+    if 'Sources/IME/' in str(swift) or 'Sources/Shared/' in str(swift):
+        continue
+    text = swift.read_text()
+    assert 'import InputMethodKit' not in text, f'{swift}: InputMethodKit belongs to the input method'
+main = read('Sources/App/SaylaneMain.swift')
+assert 'IMKServer' not in main and '--register-input-source' in main
+assert '--register-input-source' not in read('Sources/IME/SaylaneIMEMain.swift'), \
+    'the input method is never run as a command: every exit of that process counts against it'
+
 keychain = read('Sources/Services/PolishKeychain.swift')
 assert 'legacyService = "com.rtranslate.final-polish"' in keychain, 'old keychain items must still be readable'
 assert 'service = "com.saylane.final-polish"' in keychain
@@ -25,9 +60,12 @@ assert 'AppDirectories.asrModels' in read('Sources/Models/SpeechModel.swift')
 assert 'AppDirectories.diagnostics' in read('Sources/Support/InputDiagnostics.swift')
 assert 'AppDirectories.glossaryFile' in read('Sources/Services/DictationGlossaryRemote.swift')
 assert 'AppDirectories.rime' in read('Sources/IME/Rime/RimeRuntime.swift')
-assert 'UserDefaults.standard' not in read('Sources/AppModel.swift'), 'preferences go through PreferencesStore'
+# Preferences stay in the input method's domain, so an upgrade keeps them; the
+# main program reaches them through the store, the input method reads its own.
+assert 'static let defaultsSuite = TestHome.isActive ? "local.saylane.test" : imeBundleID' in read('Sources/Shared/BridgeMessages.swift')
+assert 'UserDefaults(suiteName: Bridge.defaultsSuite)' in read('Sources/App/AppModel.swift')
 for swift in (root / 'Sources').rglob('*.swift'):
-    if swift.name in ('PreferencesStore.swift',):
+    if swift.name in ('PreferencesStore.swift', 'IMEHost.swift'):
         continue
     assert 'UserDefaults.standard' not in swift.read_text(), f'{swift} bypasses PreferencesStore'
     assert '@AppStorage' not in swift.read_text(), f'{swift} bypasses PreferencesStore'
@@ -35,12 +73,12 @@ preinstall = read('scripts/pkg/preinstall')
 postinstall = read('scripts/pkg/postinstall')
 uninstall = read('scripts/uninstall.sh')
 lifecycle = preinstall + postinstall + uninstall
-assert '/Library/Input Methods/Saylane.app' in lifecycle
+assert '/Library/Input Methods/Saylane.app' in lifecycle and '/Applications/Saylane.app' in lifecycle
 assert '/Library/Input Methods/RTranslate.app' in lifecycle
 assert 'Refusing' in lifecycle or 'Preserved unexpected bundle' in lifecycle
-assert '/Library/Input Methods/RTranslate.app' not in preinstall, 'legacy copies are removed only after payload publication'
-assert 'Contents/MacOS/Saylane' in read('scripts/pkg/postinstall')
-assert 'Sources/Saylane.entitlements' in read('scripts/package.sh')
+assert 'RTranslate.app' not in preinstall, 'legacy copies are removed only after payload publication'
+assert "APP='/Applications/Saylane.app'" in postinstall and 'APP_BIN="$APP/Contents/MacOS/Saylane"' in postinstall
+assert 'Sources/App/Saylane.entitlements' in read('scripts/stage-bundles.sh')
 settings = read('Sources/Services/SettingsController.swift')
 assert 'setActivationPolicy(.regular)' not in settings
 assert 'setActivationPolicy(.accessory)' in settings
@@ -83,4 +121,4 @@ assert page.telemetry == 1
 assert '<h1>Saylane</h1>' in html
 assert html.count('class="brand-name">Saylane</span>') == 2
 assert 'https://github.com/LiuTianjie/Saylane/releases/download/v0.2.75/Saylane-0.2.75.pkg' in html
-print('PASS: Saylane branding, stable identity/storage, upgrade paths, published links and single telemetry script')
+print('PASS: Saylane branding, stable identity/storage, two processes with separate jobs, upgrade paths, published links and single telemetry script')
