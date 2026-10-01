@@ -43,7 +43,7 @@ For example, with Chinese → English selected:
 
 ## Built around the text field
 
-- **Keep typing and speaking in one input method.** Rime handles Pinyin composition, candidate selection, mixed English, and user vocabulary learning. Voice input uses the same native text-input connection.
+- **Keep typing and speaking in one input method.** Rime handles Pinyin composition, candidate selection, mixed English, and user vocabulary learning; page keys, `;` `'` picks and Western punctuation are choices in Settings, and an optional 409 MB language model makes whole sentences come out right more often. Voice input uses the same native text-input connection.
 - **See a draft while you speak.** Recognition and translation update the current composition. Releasing the shortcut finalizes and commits once; `Esc` cancels the session.
 - **Choose dictation or translation.** Configure a language pair and switch between A → A, A → B, B → A, and B → B. Same-language dictation skips translation.
 - **Choose your local recognizer.** Start with Apple, or download Qwen3-ASR, SenseVoiceSmall, or Fun-ASR-Nano from Settings.
@@ -72,7 +72,7 @@ After the installation Saylane adds itself to the input sources and switches to 
 ### 2. Speak into a text field
 
 1. Focus a compatible text field and select **Saylane** as the input source.
-2. Check the speaking and output languages; the default is **Simplified Chinese → English**.
+2. Check the speaking and output languages. A new installation writes what you say (**Simplified Chinese dictation**); pick a translation direction in Settings or with a double tap of right ⌘.
 3. Hold **right Option (⌥)** and speak. A compact waveform shows recording activity while the draft appears in the field.
 4. Release to finalize. Press **Esc** to cancel the active session.
 
@@ -127,7 +127,7 @@ Local inference and network access are separate concerns:
 | Speech recognition | Apple on-device recognition or the selected local model; required assets may need downloading |
 | Translation and OCR | Apple Translation and Vision run locally once required language assets are available |
 | Optional AI editing | Sends text to your configured Chat Completions-compatible endpoint; off by default |
-| Terminology glossary | Enabled by default; periodically fetches public category terms from Chinese Wikipedia / Wiktionary, without sending dictation text |
+| Terminology glossary | Off by default; when on, periodically fetches public category terms from Chinese Wikipedia / Wiktionary, without sending dictation text |
 | Routine diagnostics | Session timing and status metadata; no audio or transcript content |
 
 For voice editing, the request includes the recognized text, languages, draft, and applicable vocabulary. It does not include microphone audio or unrelated text from the input field. Remote editing endpoints require HTTPS; loopback services may use HTTP. API keys are stored in macOS Keychain, keyed to the endpoint.

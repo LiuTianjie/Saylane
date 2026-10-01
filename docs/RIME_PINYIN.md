@@ -23,7 +23,7 @@ InputMethodKit / AppModel
 - `Vendor/Rime/dependencies.lock.json` 固定 librime 1.17.0 官方 macOS universal archive、雾凇词库和 rime-essay 的版本与 SHA-256。
 - 词库采用雾凇 `8105`、`base`、`ext`、`others` 四个表；不复制鼠须管前端，也不加载雾凇整套 Lua 配置。
 - `scripts/rime` 是 Saylane 自己的轻量 Rime 配置。标准/模糊音两套 prism 共用词典及 `saylane` 用户词库；模糊音在精确翻译器之外附加一条统一降权路径：任意模糊对（z/zh、an/ang、in/ing 等）都保持精确拼写的首选，模糊结果只作补充。中文权重 1.2、英文 1.1。能读成全拼的输入保留原生排序；非全拼的整段英文词可提前。原生能够覆盖整段的纠错/简拼候选优先于原始字母；无法覆盖的未知英文仍可直接选择原文。局部选词或移动光标后不插入整段原文候选。简拼、ü/v 转换和自动纠错直接用雾凇 `rime_ice.schema.yaml` 已启用的 speller algebra（不含其注释掉的模糊音和旧拼写）。合法音节之间的模糊音仍走开关。表情用雾凇 OpenCC `emoji.json`，作为候选注释显示。选词学习统一由 Rime 用户词库负责，不再读写前端 `first_is_best.json`。旧 JSON 文件保留原样；此前的原生用户词库继续使用，不清空、不重新训练。
-- 没有搭载额外神经语言模型、octagram、Lua、predict 插件。整句能力来自 Rime 的 script translator 和配套词典，不声称已接入这些扩展。
+- 安装包不带语言模型。整句能力默认来自 Rime 的 script translator 和配套词典。0.5.0 起随包带 octagram 插件，并可在设置里下载万象 LTS 语法模型（409 MB）：60 句日常句子的首选整句正确数从 35 升到 44。详见 `docs/ARCHITECTURE.md` §6a。没有 Lua、predict 插件。
 - 词后联想暂不支持，设置页已明确提示，不再展示无效开关。保留原联想偏好值，方便以后增加该能力。
 - 拼音运行不发送网络请求。首次源码构建会下载固定依赖，日常输入不下载或编译词库。
 - 原生 dylib 内部依赖检查只允许 macOS 系统库。app 内嵌 `@rpath/librime.1.dylib`，发布打包时先签嵌套 dylib，再签外层 app。

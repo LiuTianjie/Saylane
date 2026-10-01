@@ -2,6 +2,43 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.5.0 (local testing)
+
+A review of the installed 0.4.1 against Doubao produced eight items. This release does six of them and part of a seventh; what is left is listed at the end.
+
+### Speaking
+
+- The first words of the preview arrive in about half the time. Apple's `SpeechTranscriber` gives its first result roughly 1.05 s after you start to speak; `DictationTranscriber` gives one after about 0.54 s (measured on the same recordings, fed in real time). Both now listen to the same audio: the fast one fills the preview until the accurate one has spoken, and the final text always comes from the accurate one.
+- A new installation writes what you say: Chinese in, Chinese out. Translation is one choice away (Settings, or a double tap of right ⌘). Existing installations keep the direction they had.
+- A short sound when listening starts and another when it stops (Settings → Voice Input, on by default).
+- The microphone can be chosen (Settings → Voice Input). If the chosen one is unplugged, the system's default is used.
+- Two choices for how the text is written (Settings → Text Correction, both off by default): no full stop at the end, and a space between Chinese and Latin letters or digits.
+
+### Typing
+
+- Page keys are choices: `- =` and Tab (on), `, .` and `[ ]` (off). Page Up / Page Down always work.
+- `;` and `'` can pick the second and third candidate (off by default).
+- Western punctuation while typing Chinese (off by default).
+- An optional language model for whole sentences (Settings → Keyboard Input → Sentence language model). It is the Wanxiang LTS grammar, 409 MB, CC BY 4.0, downloaded from its GitHub release, checked against a pinned SHA-256 and kept on this Mac; the input method itself never goes online. On 60 everyday sentences the first candidate was the whole sentence 35 times without it and 44 times with it. Without the download nothing changes. The plugin that reads it (librime's octagram, BSD-3) ships in the package.
+
+### Program
+
+- "Quit Saylane" at the bottom of the settings sidebar. Typing keeps working; the input method starts the main program again when it is needed.
+
+### Corrections
+
+- The READMEs said the terminology glossary is on by default. It is off.
+
+Not done from the list, and said plainly:
+
+- A recorder for an arbitrary talk-key combination. The key is still chosen from a list.
+- Shuangpin (小鹤双拼).
+- ⌘Z to take back a proofreading, and learning from a correction made by hand.
+- Automatic updates and a signed, notarized installer. Deferred earlier; they need credentials that are not on the development Mac.
+- Accuracy with the optional model is better than before and still behind Doubao's, which uses a far larger model in the cloud.
+
+Verified on the development Mac: all tests and the three self-tests of the built programs. Not yet confirmed on device: the cue sounds, the microphone choice, the faster preview with a real voice, and the language-model download from Settings.
+
 ## 0.4.2 (local testing)
 
 - Installing no longer resets any privacy grant. 0.4.1's installer removed the grants held under the input method's identity, and on device macOS deleted the main program's microphone, screen recording and Accessibility grants along with them — the two identities are tied together. The microphone had to be allowed again and screen recording has to be allowed once more. Grants are now removed only by `scripts/uninstall.sh`.

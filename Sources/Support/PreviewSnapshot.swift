@@ -4,14 +4,19 @@ import AppKit
 #if DEBUG
 @MainActor
 enum PreviewSnapshot {
+    /// The window is 680 pt tall; a taller snapshot shows a whole page at once.
+    private static var height: CGFloat {
+        ProcessInfo.processInfo.environment["SAYLANE_SNAPSHOT_HEIGHT"].flatMap(Double.init).map { CGFloat($0) } ?? 680
+    }
+
     static func takeSnapshot(model: AppModel, path: String) {
-        write(SettingsView().environment(model).frame(width: 880, height: 680), to: path, label: "Settings")
+        write(SettingsView().environment(model).frame(width: 880, height: height), to: path, label: "Settings")
     }
 
     static func takeSetupSnapshot(model: AppModel, path: String) {
         model.isShowingSetup = true
         model.settingsTab = 0
-        write(SettingsView().environment(model).frame(width: 880, height: 680), to: path, label: "Setup")
+        write(SettingsView().environment(model).frame(width: 880, height: height), to: path, label: "Setup")
     }
 
     static func takeWaveformSnapshot(path: String) {

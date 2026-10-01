@@ -10,7 +10,8 @@ struct RimeDictionaryUpdateView: View {
                 Text(statusLine)
                     .font(.system(size: 12))
                     .foregroundStyle(isFailure ? Color.red : Color.secondary)
-                    .lineLimit(2)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.trailing)
                     .accessibilityIdentifier("dictionaryUpdateStatus")
                 if let result = model.result, result.hasUpdate {

@@ -1,6 +1,6 @@
 # Saylane 架构（当前实现）
 
-更新：2026-10-01（0.4.0）。本文描述仓库的实际结构。为什么拆成两个进程见 `docs/DESIGN_0.3.md`；更早的设计稿在 `docs/history/`。
+更新：2026-10-02（0.5.0）。本文描述仓库的实际结构。为什么拆成两个进程见 `docs/DESIGN_0.3.md`；更早的设计稿在 `docs/history/`。
 
 Saylane 提供三件事：按住快捷键说话并把识别 / 译文写进当前文本框、Rime 拼音打字、划区截屏翻译。识别与翻译全部在本机完成。
 
@@ -97,6 +97,10 @@ CGEvent tap（主程序，需辅助功能）────────────
 
 等终稿期间用户继续打字：输入法把可排队的按键（最多 64 个）排在终稿之后；超过 `userInputFence`（0.45 s）或遇到不能排队的键（回车、方向键、快捷键）则打字先行，终稿稍后照常写入。
 
+预览的头几个字：Apple 的 `SpeechTranscriber` 第一个结果大约在开口后 1.05 s 才来，`DictationTranscriber(.progressiveLongDictation)` 约 0.54 s。两个模块挂在同一个 `SpeechAnalyzer` 上，前者开口之前显示后者的结果，之后只用前者；终稿永远来自 `SpeechTranscriber`（`SpeechEngine.earlyModule`）。
+
+写入之前按偏好整理一次（`DictationFormat`）：去掉句末句号、中文与英文 / 数字之间加空格。两项默认都关。开始和结束各有一声提示音（`VoiceCue`，可关）；麦克风可以指定设备（`AudioCaptureService.preferredInputUID`），设备不在时退回系统默认。
+
 超时都在 `VoicePolicy`：准备 20 s、单句 180 s、润色 8 s、预录 3 s、打断宽限 1.5 s。
 
 ## 6. 状态从哪里来
@@ -105,6 +109,14 @@ CGEvent tap（主程序，需辅助功能）────────────
 - **就绪**：`Readiness` 值，只由 `ReadinessReducer` 产生。
 - **反馈**：`UserNotice`（`transient` / `actionable` / `diagnostic`）。任何路径都不会在用户按键时弹出设置窗口。
 - **数据**：`~/Library/Application Support/Saylane/`。诊断日志按进程分成 `Diagnostics/ime.json` 与 `Diagnostics/app.json`，只有阶段与状态，没有文字内容和打字的键码。
+
+## 6a. 拼音的选项与整句语言模型
+
+- 翻页键（`- =`、`, .`、`[ ]`、Tab）、`;` `'` 选第 2、3 个候选、中文状态下用英文标点：`PinyinKeyOptions`，存在偏好里，由主程序经桥推给输入法（`BridgePinyinPreferences.keys`），输入法启动时也自己读一次。
+- 整句语言模型是可选下载，不随安装包分发：万象 LTS（`wanxiang-lts-zh-hans.gram`，409 MB，CC BY 4.0），由主程序的 `PinyinLanguageModel` 从固定地址下载、校验 SHA-256 后放进 Rime 用户目录。输入法自己不联网。
+- 加载它的是 librime 官方发行包里的 octagram 插件（`Frameworks/rime-plugins/librime-octagram.dylib`，BSD-3），随安装包分发并签名；其它插件不带。
+- 方案各有一份带语法的副本（`saylane_pinyin_lm`、`saylane_pinyin_fuzzy_lm`，`scripts/prepare-rime.py` 生成）。模型文件在用户目录里时 `RimeRuntime.schema(fuzzy:)` 选带 `_lm` 的那份，否则和以前完全一样。用户词库是同一个。
+- 60 句日常句子的首选整句正确数：不带模型 35，带模型 44。另一个 41 MB 的模型（essay-bgw）只有 36–38，没有采用。
 
 ## 7. 安装
 
@@ -146,6 +158,8 @@ Swift 6 语言模式 + `strict-concurrency: complete`。UI 与编排在主 actor
 ## 11. 明确的限制
 
 - 安装包未签名、未公证，没有自动更新。
+- 触发键只能从列表里选（修饰键和功能键），不能录制任意组合。
+- 没有双拼。
 - 没有辅助功能权限时，触发键只在 Saylane 是当前输入法且光标在文本框里时有效。
 - 功能键作触发键需要辅助功能权限。
 - 一个应用如果在本次开机期间见过输入法进程异常退出（见 §1），需要重启该应用才会重新连接。
