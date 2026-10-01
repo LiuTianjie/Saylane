@@ -189,7 +189,8 @@ final class SaylaneInputController: IMKInputController {
         super.inputControllerWillClose()
     }
     override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
-        guard let event else { return false }
+        // Key accessors raise on any other kind of event.
+        guard let event, event.type == .keyDown || event.type == .flagsChanged else { return false }
         nonisolated(unsafe) let me = self
         nonisolated(unsafe) let keyEvent = event
         nonisolated(unsafe) let callbackSender = sender

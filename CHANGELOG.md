@@ -2,6 +2,10 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.2.81 (local testing)
+
+- Fixed every button in Saylane's own windows (onboarding, settings) ignoring clicks since 0.2.79. The mouse monitors added in 0.2.79 read `keyCode` from mouse events, which raises an exception; AppKit swallowed it together with the click. Found on device in 0.2.80, which was otherwise unverified.
+
 ## 0.2.80 (local testing)
 
 Reliability pass: typing and dictation must work in every text field before anything else is tuned.

@@ -178,6 +178,14 @@ import Carbon.HIToolbox
                                    flags: 0, isRepeat: false, timestamp: 600)
         let consumed = await Task.detached { shared.feedFromTap(rawLetter) }.value
         precondition(!consumed)
-        print("PASS: input event router dispatch, hold deadlines and context")
+        // A mouse NSEvent from the monitors must convert without touching key-only
+        // accessors; `keyCode` on a mouse event raises and the click is lost.
+        let click = NSEvent.mouseEvent(with: .leftMouseDown, location: .zero, modifierFlags: [.command], timestamp: 2,
+                                       windowNumber: 0, context: nil, eventNumber: 1, clickCount: 1, pressure: 1)!
+        let converted = InputEvent(click, source: .tap, timestamp: 700)
+        precondition(converted?.type == .leftMouseDown && converted?.keyCode == 0 && converted?.isRepeat == false)
+        precondition(converted?.flags == UInt64(NSEvent.ModifierFlags.command.rawValue))
+        precondition(!router.feed(converted!), "a click must never be swallowed")
+        print("PASS: input event router dispatch, hold deadlines, mouse conversion and context")
     }
 }

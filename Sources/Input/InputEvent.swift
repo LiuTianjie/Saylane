@@ -35,13 +35,18 @@ struct InputEvent: Equatable, Sendable {
     }
 
     init?(_ event: NSEvent, source: Source, timestamp: TimeInterval) {
+        let isKey: Bool
         switch event.type {
-        case .keyDown, .keyUp, .flagsChanged, .leftMouseDown, .rightMouseDown: break
+        case .keyDown, .keyUp, .flagsChanged: isKey = true
+        case .leftMouseDown, .rightMouseDown: isKey = false
         default: return nil
         }
-        self.init(source: source, type: event.type, keyCode: event.keyCode,
+        // `keyCode` and `isARepeat` raise an exception on a mouse event. Inside an
+        // NSEvent monitor that exception is swallowed by AppKit together with
+        // the click, so every button in our own windows stops working.
+        self.init(source: source, type: event.type, keyCode: isKey ? event.keyCode : 0,
                   flags: UInt64(event.modifierFlags.rawValue),
-                  isRepeat: event.type == .keyDown && event.isARepeat, timestamp: timestamp)
+                  isRepeat: isKey && event.type == .keyDown && event.isARepeat, timestamp: timestamp)
     }
 
     init?(cgType: CGEventType, event: CGEvent, timestamp: TimeInterval) {
