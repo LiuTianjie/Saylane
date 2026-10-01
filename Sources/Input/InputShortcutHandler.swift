@@ -1,10 +1,12 @@
 import AppKit
 
-/// Distinguish hold-to-talk from two short taps. An unconfirmed hold owns only
-/// preroll, which must be discarded immediately when the gesture is abandoned.
+/// Hold-to-talk on a modifier key starts only after the key has been held on
+/// its own for `holdDelay`: ⌘W, ⌥←, ⇧A or a modified click never start a
+/// dictation. An unconfirmed hold owns at most a preroll, which is discarded
+/// as soon as the gesture is abandoned.
 struct InputShortcutHandler {
     enum Action: Equatable { case none, armHold, armTap, disarm, press, release, cancel, switchTarget }
-    static let holdDelay: TimeInterval = 0.18
+    static let holdDelay: TimeInterval = 0.28
     static let doubleTapGap: TimeInterval = 0.32
     private var talk = PushToTalkHandler()
     private var language = PushToTalkHandler()
@@ -44,7 +46,8 @@ struct InputShortcutHandler {
         }
         // Never treat Command+C, another modifier chord, or a click as a tap/hold gesture.
         let chord = type == .keyDown || type == .leftMouseDown || type == .rightMouseDown
-            || (type == .flagsChanged && keyCode != UInt16(PushToTalkHotkey.rightCommand.keyCode))
+            || (type == .flagsChanged && keyCode != UInt16(PushToTalkHotkey.rightCommand.keyCode)
+                && keyCode != UInt16(trigger.keyCode))
         let abandonedHold = chord && pendingHoldAt != nil
         if chord {
             pressedAt = nil; firstTapReleasedAt = nil
@@ -78,7 +81,9 @@ struct InputShortcutHandler {
         }
         switch talkAction {
         case .press:
-            if switchEnabled && trigger == .rightCommand && !tapToTalk {
+            // A modifier is part of every shortcut; only a hold on its own is a
+            // request to talk. Function keys have no chords and start at once.
+            if trigger.isModifier && !tapToTalk {
                 pendingHoldAt = now
                 return (.armHold, true)
             }

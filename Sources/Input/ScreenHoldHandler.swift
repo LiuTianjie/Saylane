@@ -93,6 +93,9 @@ struct ScreenHoldHandler {
         let forbidden = UInt64(NSEvent.ModifierFlags([.option, .command, .shift, .function]).rawValue) | trigger.siblingMask
 
         if type == .leftMouseDown || type == .rightMouseDown {
+            // Before the hold completes a click means Control-click. Once the
+            // overlay is up, the drag is the selection itself.
+            if selecting { return .none }
             return abortGesture()
         }
 

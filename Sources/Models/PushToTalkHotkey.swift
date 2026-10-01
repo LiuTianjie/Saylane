@@ -28,6 +28,15 @@ enum PushToTalkHotkey: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
+    /// ⌘, ⌃ and ⇧ start most keyboard shortcuts and every capital letter, so a
+    /// press of one of them is far more often a chord than a request to talk.
+    var isChordModifier: Bool {
+        switch self {
+        case .rightCommand, .leftCommand, .rightControl, .leftControl, .rightShift, .leftShift: return true
+        default: return false
+        }
+    }
+
     var displayName: String {
         switch self {
         case .rightOption: return String(localized: "右 Option（⌥）")

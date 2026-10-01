@@ -19,13 +19,16 @@ import Carbon.HIToolbox
             InputEvent(source: source, type: .flagsChanged, keyCode: rightOption, flags: flags, isRepeat: false, timestamp: time)
         }
 
-        // One physical press delivered by IMK alone produces one press.
+        // One physical hold delivered by IMK alone produces one press, after the hold delay.
         precondition(router.feed(event(.imk, flags: option, at: clock)))
-        precondition(actions == [.voice(.press)])
+        precondition(actions == [.voice(.armHold)])
+        clock += 0.3
+        await settle(340)
+        precondition(actions == [.voice(.armHold), .voice(.press)], "\(actions)")
         router.updateContext { $0.isListening = true; $0.voiceCapturing = true }
         clock += 0.5
         precondition(router.feed(event(.imk, flags: 0, at: clock)))
-        precondition(actions == [.voice(.press), .voice(.release)])
+        precondition(actions == [.voice(.armHold), .voice(.press), .voice(.release)])
         router.updateContext { $0.isListening = false; $0.voiceCapturing = false }
         actions = []
 
@@ -38,8 +41,8 @@ import Carbon.HIToolbox
         precondition(actions == [.voice(.armHold)])
         await settle(90)
         precondition(actions == [.voice(.armHold)], "hold fired before its deadline")
-        clock += 0.25
-        await settle(180)
+        clock += 0.3
+        await settle(260)
         precondition(actions == [.voice(.armHold), .voice(.press)], "\(actions)")
         actions = []
         router.reset()
@@ -74,7 +77,7 @@ import Carbon.HIToolbox
         let laterTap = event(.tap, flags: option, at: 200.01)
         precondition(router.feed(first))
         precondition(router.feed(laterTap))
-        precondition(actions == [.voice(.press)], "reverse-order duplicate dispatched twice: \(actions)")
+        precondition(actions == [.voice(.armHold)], "reverse-order duplicate dispatched twice: \(actions)")
 
         // Mouse-only monitoring must never promote global keyboard readiness.
         precondition(GlobalHotkeyMonitor.keyboardStartPlan(canObserve: false, canFilter: false).isEmpty)
@@ -114,7 +117,7 @@ import Carbon.HIToolbox
         precondition(actions == [.voice(.armHold)])
         router.globalTapDidInterrupt(capability: .filtering)
         clock += 1
-        await settle(260)
+        await settle(340)
         precondition(actions == [.voice(.armHold), .voice(.cancel)], "tap interruption left stale work: \(actions)")
         precondition(router.context.globalEventsCanBeConsumed)
         precondition(capabilities == ["true-true"])

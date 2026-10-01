@@ -2,6 +2,12 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.2.83 (local testing)
+
+- The talk key is hold-to-talk on every modifier: it starts only after the key has been held on its own for about 0.3 s. ⌘W, ⌘C, ⌥←, ⇧A, a modified click or a second modifier never start a dictation, never open the microphone and never show the capsule. With ⌘, ⌃ or ⇧ as the talk key the microphone opens when the hold is confirmed, not on every key press.
+- Screen translation by holding left Control no longer exits the moment you start dragging: the click that draws the selection was being read as "cancel" (a 0.2.79 change that only took effect once 0.2.81 repaired the mouse monitor).
+- Focus and input-source changes no longer re-query every permission and retry the global key listener each time; the diagnostics file is no longer flooded with identical "global-tap failed" lines.
+
 ## 0.2.82 (local testing)
 
 - The bottom capsule shows only the waveform while you speak, as it did in 0.2.75. The state word, the language label and the recognized/translated text lines added in 0.2.76–0.2.79 are gone, together with the "show text in the hint" setting.

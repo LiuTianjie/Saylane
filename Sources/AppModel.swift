@@ -47,6 +47,9 @@ final class AppModel: VoiceSessionHost {
     var lastLanguageSwitch: String?
     var isActivatingInputSource: Bool { permissionsController.isActivatingInputSource }
     private var settingsCapture: SettingsCaptureTarget?
+    private var lastPermissionRefreshAt: TimeInterval = -.infinity
+    private var lastTapAttemptAt: TimeInterval = -.infinity
+    private var lastTapOutcome: String?
     private var noticeExpiry: Task<Void, Never>?
     private var workspaceObserver: NSObjectProtocol?
     private var inputSourceObserver: NSObjectProtocol?
@@ -134,7 +137,7 @@ final class AppModel: VoiceSessionHost {
             Task { @MainActor in
                 guard let self else { return }
                 self.voice.frontmostAppChanged(to: bundleID, pid: pid)
-                self.refreshInputSourceStatus()
+                self.refreshStatus(throttled: true)
             }
         }
         inputSourceObserver = DistributedNotificationCenter.default.addObserver(
@@ -143,8 +146,8 @@ final class AppModel: VoiceSessionHost {
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
-                self.refreshInputSourceStatus()
-                if !self.router.isGlobalTapListening { self.startGlobalHotkeyMonitor() }
+                self.refreshStatus(throttled: true)
+                self.retryGlobalHotkeyMonitor()
             }
         }
         startGlobalHotkeyMonitor()
@@ -154,13 +157,27 @@ final class AppModel: VoiceSessionHost {
     }
 
     private func startGlobalHotkeyMonitor() {
+        lastTapAttemptAt = ProcessInfo.processInfo.systemUptime
         syncRouterContext()
         let ok = router.startGlobalTap()
         reduce(.globalInvoke(available: router.isGlobalTapListening))
         // Filtering can change while availability stays true (listen-only →
         // consumable). Read it after the monitor has negotiated its backend.
         syncRouterContext()
-        InputDiagnostics.record("global-tap", ok ? (router.isGlobalTapFiltering ? "filter" : "listen") : "failed")
+        let outcome = ok ? (router.isGlobalTapFiltering ? "filter" : "listen") : "failed"
+        if outcome != lastTapOutcome {
+            lastTapOutcome = outcome
+            InputDiagnostics.record("global-tap", outcome)
+        }
+    }
+
+    /// Focus and input-source changes arrive many times a second. Each attempt
+    /// asks the privacy database several questions, so a missing permission is
+    /// re-checked at most every few seconds.
+    private func retryGlobalHotkeyMonitor() {
+        guard !router.isGlobalTapListening,
+              ProcessInfo.processInfo.systemUptime - lastTapAttemptAt > 5 else { return }
+        startGlobalHotkeyMonitor()
     }
 
     // MARK: - Readiness
@@ -177,19 +194,28 @@ final class AppModel: VoiceSessionHost {
         syncRouterContext()
     }
 
-    func refreshInputSourceStatus() {
-        let monitoringWasGranted = readinessState.permissions.inputMonitoring
-        permissionsController.refresh()
-        let currentPermissions = permissionsController.permissions
-        reduce(.permissions(currentPermissions))
-        reduce(.inputSource(permissionsController.inputSource))
-        // Returning from System Settings is the normal point at which an input
-        // monitoring grant becomes visible.  A listen-only fallback created
-        // before the grant does not upgrade itself, so rebuild the tap once on
-        // the permission transition.
-        if currentPermissions.inputMonitoring && !monitoringWasGranted {
-            startGlobalHotkeyMonitor()
+    func refreshInputSourceStatus() { refreshStatus(throttled: false) }
+
+    /// `throttled` is for focus and input-source notifications: the input
+    /// source is re-read every time, permissions at most every few seconds
+    /// unless the settings window is showing them.
+    private func refreshStatus(throttled: Bool) {
+        let now = ProcessInfo.processInfo.systemUptime
+        if !throttled || settingsWindow.isVisible || now - lastPermissionRefreshAt > 3 {
+            lastPermissionRefreshAt = now
+            let monitoringWasGranted = readinessState.permissions.inputMonitoring
+            permissionsController.refresh()
+            let currentPermissions = permissionsController.permissions
+            reduce(.permissions(currentPermissions))
+            // Returning from System Settings is the normal point at which an input
+            // monitoring grant becomes visible.  A listen-only fallback created
+            // before the grant does not upgrade itself, so rebuild the tap once on
+            // the permission transition.
+            if currentPermissions.inputMonitoring && !monitoringWasGranted {
+                startGlobalHotkeyMonitor()
+            }
         }
+        reduce(.inputSource(permissionsController.inputSource))
         reduce(.globalInvoke(available: router.isGlobalTapListening))
     }
 
@@ -406,7 +432,10 @@ final class AppModel: VoiceSessionHost {
             switch gesture {
             case .armHold, .armTap:
                 guard !screenTranslate.isActive else { return }
-                voice.arm()
+                // Opening the microphone on every ⌘/⌃/⇧ press would flash the
+                // recording indicator for ordinary shortcuts; those keys start
+                // capturing when the hold is confirmed.
+                if gesture == .armTap || !prefs.pushToTalk.isChordModifier { voice.arm() }
             case .disarm:
                 voice.disarm()
             case .press:
@@ -414,6 +443,13 @@ final class AppModel: VoiceSessionHost {
                 if !prefs.pushToTalk.isModifier && !router.isGlobalTapFiltering {
                     voice.disarm()
                     post(.actionable(String(localized: "功能键语音快捷键需要辅助功能权限，才能拦截按键并可靠收到松开事件。"), .permissions))
+                    return
+                }
+                if prefs.pushToTalk.isModifier, !prefs.tapToTalk, Self.keyWentDownDuringHold() {
+                    // Applications handle ⌘-shortcuts before the input method
+                    // sees the key, so the chord is read from the system instead.
+                    InputDiagnostics.record("hold-abandoned", "key pressed during hold")
+                    voice.disarm()
                     return
                 }
                 voice.press()
@@ -438,6 +474,12 @@ final class AppModel: VoiceSessionHost {
         case .recordedShortcut(let shortcut):
             screen.finishRecordingShortcut(shortcut)
         }
+    }
+
+    /// A key was pressed while the talk key was being held, as seen by the
+    /// window server. Needs no permission and works under any input source.
+    private static func keyWentDownDuringHold() -> Bool {
+        CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .keyDown) < InputShortcutHandler.holdDelay
     }
 
     private func cycleDirection() {
