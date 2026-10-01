@@ -144,12 +144,14 @@ check(
     not any("Saylane" in line or "rtranslate" in line.lower() for line in system_agents),
     "the system agents are named exactly and never match this product",
 )
-tcc = [line for line in post_lines if "tccutil" in line]
+# Found on device with 0.4.1: `tccutil reset All` for the input method's identity
+# also deleted the main program's microphone, screen recording and Accessibility
+# grants. An installation never resets a privacy grant.
 check(
-    len(tcc) == 2 and all("reset All com.rtranslate.inputmethod.rtranslate" in line for line in tcc)
-    and not any("com.rtranslate.saylane" in line for line in tcc),
-    "postinstall removes the grants of the input method's identity only, never the main program's",
+    not any("tccutil" in line for line in active_shell_lines(preinstall) + post_lines),
+    "an installation must not reset privacy grants; only the uninstaller does",
 )
+check("tccutil reset All" in read("scripts/uninstall.sh"), "the uninstaller removes the product's privacy grants")
 check(
     0 <= postinstall.find('pkill -TERM -f "^$APP_BIN"') < launch,
     "postinstall must make sure no main program from the previous files is left running before opening it",

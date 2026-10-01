@@ -46,6 +46,9 @@ final class InputMethodCore {
     private var lastMarkedSeq: UInt64 = 0
     /// A dictation whose text has been written or dropped; late previews are ignored.
     private var closedSession: UUID?
+    /// The last modifier change. Electron clients deliver each one twice
+    /// (seen on device: every talk-key edge arrived as a pair).
+    private var lastModifier: KeyMeta?
 
     /// A phase that outlives these was left behind by a main program that hung.
     static let listeningLimit: TimeInterval = 240
@@ -71,13 +74,16 @@ final class InputMethodCore {
         pinyin.ensureClient(manager.currentLeaseID)
         guard let meta = KeyMeta(event) else { return false }
         expireStalePhase()
-        if meta.kind == .flagsChanged, meta.keyCode == UInt16(trigger.keyCode) {
+        // The same event a second time is reported and forwarded once.
+        let repeated = meta.kind == .flagsChanged && meta == lastModifier
+        if meta.kind == .flagsChanged { lastModifier = meta }
+        if !repeated, meta.kind == .flagsChanged, meta.keyCode == UInt16(trigger.keyCode) {
             let down = meta.flags & UInt64(trigger.nsModifierFlag.rawValue) != 0
             // Whether InputMethodKit delivers the talk key in this application at all.
             trace("talk-key", "\(down ? "down" : "up") forwarded=\(!context.appOwnsKeys)")
             if down { send(.talkKey(bundleID: manager.clientBundleID, at: meta.timestamp)) }
         }
-        if !context.appOwnsKeys, forwards(meta) { send(.key(meta)) }
+        if !repeated, !context.appOwnsKeys, forwards(meta) { send(.key(meta)) }
         if consumesLocally(meta) { return true }
         switch context.phase {
         case .idle:

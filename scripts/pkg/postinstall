@@ -67,13 +67,12 @@ as_user() { /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -H -u "$CONSOLE_U
 #   would go on showing the old ones. They are the system's, are named exactly,
 #   and are started again by the system when needed. The last two ignore a
 #   polite request.
-# - The input method asks for no permission since 0.3: what earlier versions
-#   were granted under its identity (microphone, screen recording, …) is removed
-#   from the privacy lists. The main program's own grants are not touched.
+# Privacy grants are never reset here. On device (0.4.1) resetting the input
+# method's identity also deleted the main program's microphone, screen
+# recording and Accessibility grants: macOS ties the two together. Grants are
+# removed only by the uninstaller.
 as_user /usr/bin/killall TextInputMenuAgent 2>/dev/null || true
 as_user /usr/bin/killall -KILL TextInputSwitcher CursorUIViewService 2>/dev/null || true
-as_user /usr/bin/tccutil reset All com.rtranslate.inputmethod.rtranslate >/dev/null 2>&1 || true
-/usr/bin/tccutil reset All com.rtranslate.inputmethod.rtranslate >/dev/null 2>&1 || true
 # The previous input method may have started the main program again while the
 # files were being replaced. Whatever runs now must be the new version.
 /usr/bin/pkill -TERM -f "^$APP_BIN" 2>/dev/null || true

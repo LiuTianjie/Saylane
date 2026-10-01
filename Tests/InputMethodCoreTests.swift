@@ -111,6 +111,9 @@ final class Client: NSObject, IMKTextInput {
             precondition(!core.handle(modifier(kVK_Command, flags: .command)))
             precondition(!core.handle(key("w", kVK_ANSI_W, flags: .command)))
             precondition(events() == ["talkKey:test.editor@1", "key:flagsChanged:55", "key:keyDown:13"], "\(events())")
+            // Electron delivers every modifier change twice: the copy is not reported again.
+            precondition(!core.handle(modifier(kVK_Command, flags: .command)))
+            precondition(events().count == 3, "\(events())")
             // The screen shortcut is swallowed here and acted on by the main program.
             precondition(core.handle(key("†", kVK_ANSI_T, flags: .option)))
             precondition(events().last == "key:keyDown:17")

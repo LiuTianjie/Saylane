@@ -311,7 +311,12 @@ final class GlobalHotkeyMonitor: @unchecked Sendable {
     /// so they cannot affect `keyboardCapability`.
     private func installMouseMonitors(generation: UInt64) {
         let mask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown]
-        let global = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
+        // A build in a test home (`SAYLANE_TEST_HOME`, read here so this file
+        // stands alone) is driven by events posted to it. The clicks of the
+        // person using the Mac are not its business: they voided the talk key
+        // of the two-process self-test whenever someone was working meanwhile.
+        let scripted = ProcessInfo.processInfo.environment["SAYLANE_TEST_HOME"].map { !$0.isEmpty } ?? false
+        let global: Any? = scripted ? nil : NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
             self?.handleMouse(event, generation: generation)
         }
         let local = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in

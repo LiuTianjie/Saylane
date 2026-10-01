@@ -2,10 +2,17 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.4.2 (local testing)
+
+- Installing no longer resets any privacy grant. 0.4.1's installer removed the grants held under the input method's identity, and on device macOS deleted the main program's microphone, screen recording and Accessibility grants along with them — the two identities are tied together. The microphone had to be allowed again and screen recording has to be allowed once more. Grants are now removed only by `scripts/uninstall.sh`.
+- Electron applications deliver every modifier change to the input method twice (seen on device); the copy is no longer reported or forwarded.
+- A build running in a test home no longer listens to the mouse of the person using the Mac: their clicks were voiding the talk key of the two-process self-test.
+- Confirmed on device with 0.4.1: holding the talk key with the microphone not yet allowed raises the system's question on the spot, and allowing it takes effect at once; the installer's restart of the system's input-menu programs works.
+
 ## 0.4.1 (local testing)
 
 - The application icon is the original one again. 0.4.0 replaced it by mistake: only the input-source icon — the one in the menu bar and next to the caret when you switch — looked like another input method's, and only that one changes.
-- Installing now cleans up after the previous version. The system's own input-menu programs keep an input method's icon in memory until they restart, which is why the old icon was still shown after 0.4.0 was installed; the installer restarts those three programs (the system starts them again by itself). The privacy grants earlier versions held under the input method's identity are removed: it asks for nothing since 0.3. The main program's grants are not touched.
+- Installing now cleans up after the previous version. The system's own input-menu programs keep an input method's icon in memory until they restart, which is why the old icon was still shown after 0.4.0 was installed; the installer restarts those three programs (the system starts them again by itself). It also reset the privacy grants held under the input method's identity, which turned out to delete the main program's as well — withdrawn in 0.4.2.
 - The trace file of the one-process builds (`Diagnostics/input-session.json`) is deleted.
 - The input method starts the installed main program by its path, not whichever copy with the same identifier the system happens to know.
 - `scripts/uninstall.sh` leaves nothing in the session or the privacy lists; `--purge` also removes settings, the pinyin user dictionary, models and traces.
