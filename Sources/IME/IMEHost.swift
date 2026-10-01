@@ -22,7 +22,10 @@ final class IMEHost {
     private var watchedPID: Int32 = 0
     private(set) var pinyinPreferences = BridgePinyinPreferences()
     private var lastLaunchAttempt: TimeInterval = -.infinity
-    private let defaults = UserDefaults.standard
+    /// This process's own domain. A test home has its own: a self-test must
+    /// neither read nor change what the installed input method remembers.
+    private let defaults: UserDefaults = TestHome.isActive
+        ? UserDefaults(suiteName: Bridge.defaultsSuite) ?? .standard : .standard
 
     private enum Key {
         static let trigger = "pushToTalkHotkey"

@@ -8,6 +8,10 @@ cd "$(dirname "$0")/.."
 # SAYLANE_APP_BUNDLE points at another copy, for example the signed one staged for a package.
 BIN="${SAYLANE_APP_BUNDLE:-build/Build/Products/Release/Saylane.app}/Contents/MacOS/Saylane"
 [[ -x "$BIN" ]] || { echo 'Build first (make release).' >&2; exit 1; }
+source scripts/test-home.sh
+REAL_BEFORE="$(real_preferences)"
 HOME_DIR="$(mktemp -d /tmp/saylane-ui-test.XXXXXX)"
-trap 'rm -rf "$HOME_DIR"' EXIT
+trap 'rm -rf "$HOME_DIR"; reset_test_preferences' EXIT
+reset_test_preferences
 SAYLANE_TEST_HOME="$HOME_DIR" "$BIN" --ui-self-test "$@" 2>/dev/null
+assert_real_preferences_untouched "$REAL_BEFORE"

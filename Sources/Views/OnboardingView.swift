@@ -59,7 +59,7 @@ struct OnboardingView: View {
                     }
                     switch step {
                     case 0: welcome
-                    case 1: permissions
+                    case 1: permissions.selfTestAnchor("setup-permissions")
                     case 2: optional
                     default: trial
                     }

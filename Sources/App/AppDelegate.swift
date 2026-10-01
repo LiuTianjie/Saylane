@@ -67,14 +67,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else if arguments.contains("--installed") {
             // Just installed or upgraded: show the guide only if something is
             // still to be set up (a new permission, the input source).
-            if !AppModel.shared.setupCompleted || !AppModel.shared.readinessState.requiredSetupComplete {
-                AppModel.shared.beginSetup()
-            }
+            Self.showGuideIfNeeded { _ in }
         } else if arguments.contains("--settings") {
             AppModel.shared.openSettings()
         } else if !arguments.contains("--background"), !Self.launchedAsLoginItem {
             // Opened by hand: show something.
-            if AppModel.shared.setupCompleted { AppModel.shared.openSettings() } else { AppModel.shared.beginSetup() }
+            Self.showGuideIfNeeded { $0.openSettings() }
+        }
+    }
+
+    /// The guide while something required is missing; someone who finished it
+    /// before (an upgrade) starts at the permissions. Otherwise `otherwise`.
+    @MainActor static func showGuideIfNeeded(otherwise: (AppModel) -> Void) {
+        let model = AppModel.shared
+        if !model.setupCompleted {
+            model.beginSetup()
+        } else if !model.readinessState.requiredSetupComplete {
+            model.setupStartStep = 1
+            model.beginSetup()
+        } else {
+            otherwise(model)
         }
     }
 
@@ -89,12 +101,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainActor.assumeIsolated { AppModel.shared.openSettings() }
     }
 
+    /// Opened again while running. The installer's `open` arrives here when the
+    /// input method has already started the program in the background.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !AppModel.shared.setupCompleted {
-            AppModel.shared.beginSetup()
-        } else {
-            AppModel.shared.openSettings()
-        }
+        AppModel.shared.refreshInputSourceStatus()
+        Self.showGuideIfNeeded { $0.openSettings() }
         return true
     }
 

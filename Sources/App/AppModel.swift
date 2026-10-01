@@ -657,6 +657,7 @@ final class AppModel: VoiceSessionHost {
         settingsTab = destination
         voice.cancel()
         isShowingSetup = false
+        setupStartStep = 0
         preferences.update { $0.onboardingVersion = Preferences.currentOnboardingVersion }
     }
 
@@ -666,6 +667,7 @@ final class AppModel: VoiceSessionHost {
         settingsTab = destination
         voice.cancel()
         isShowingSetup = false
+        setupStartStep = 0
     }
 
     func openSettings(tab: Int? = nil) {

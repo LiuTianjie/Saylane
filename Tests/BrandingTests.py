@@ -64,6 +64,12 @@ assert 'AppDirectories.rime' in read('Sources/IME/Rime/RimeRuntime.swift')
 # main program reaches them through the store, the input method reads its own.
 assert 'static let defaultsSuite = TestHome.isActive ? "local.saylane.test" : imeBundleID' in read('Sources/Shared/BridgeMessages.swift')
 assert 'UserDefaults(suiteName: Bridge.defaultsSuite)' in read('Sources/App/AppModel.swift')
+# A self-test of the input method runs with the product's own bundle identifier:
+# in a test home it must use the test domain, never the installed product's.
+assert 'TestHome.isActive\n        ? UserDefaults(suiteName: Bridge.defaultsSuite) ?? .standard : .standard' in read('Sources/IME/IMEHost.swift')
+for script in ('test-ime.sh', 'test-duo.sh', 'test-ui.sh'):
+    text = read('scripts/' + script)
+    assert 'source scripts/test-home.sh' in text and 'assert_real_preferences_untouched "$REAL_BEFORE"' in text, script
 for swift in (root / 'Sources').rglob('*.swift'):
     if swift.name in ('PreferencesStore.swift', 'IMEHost.swift'):
         continue

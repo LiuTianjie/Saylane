@@ -12,6 +12,8 @@ PRODUCTS=build/Build/Products/Release
 IME="${SAYLANE_IME_BUNDLE:-$PRODUCTS/SaylaneIME.app}/Contents/MacOS/SaylaneIME"
 APP="${SAYLANE_APP_BUNDLE:-$PRODUCTS/Saylane.app}/Contents/MacOS/Saylane"
 [[ -x "$IME" && -x "$APP" ]] || { echo 'Build first (make release).' >&2; exit 1; }
+source scripts/test-home.sh
+REAL_BEFORE="$(real_preferences)"
 export SAYLANE_TEST_SPEECH='你好，世界。'
 
 # One run: the main program is told which application is in front.
@@ -22,6 +24,7 @@ stop_app() {
   wait "$APP_PID" 2>/dev/null || true
   APP_PID=''
   if [[ "${KEEP_TEST_HOME:-}" == 1 ]]; then echo "kept $SAYLANE_TEST_HOME"; else rm -rf "$SAYLANE_TEST_HOME"; fi
+  reset_test_preferences
 }
 trap stop_app EXIT
 
@@ -29,6 +32,7 @@ run() {
   export SAYLANE_TEST_HOME="$(mktemp -d /tmp/saylane-duo-test.XXXXXX)"
   export SAYLANE_TEST_FRONT="$1"
   local ime_pid status=0
+  reset_test_preferences
   "$APP" --background 2>/dev/null &
   APP_PID=$!
   "$IME" --self-test-duo 2>/dev/null &
@@ -52,3 +56,4 @@ run() {
 run 'local.saylane.selftest'
 # …and it is a panel over another one, as Spotlight or a launcher is.
 run 'local.saylane.another-application'
+assert_real_preferences_untouched "$REAL_BEFORE"

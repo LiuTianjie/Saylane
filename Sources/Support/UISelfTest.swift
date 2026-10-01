@@ -60,6 +60,27 @@ enum UISelfTest {
         }
         model.setupStartStep = 0
 
+        // An upgrade: the guide was finished before, but this program still
+        // lacks something required (to macOS it is a new application, so the
+        // microphone has to be allowed again). Opening Saylane — by hand, or
+        // by the installer once the input method has already started it —
+        // goes straight to the permissions.
+        model.finishSetup()
+        await settle()
+        check(model.setupCompleted && !model.isShowingSetup, "finishing the guide is remembered")
+        if model.readinessState.requiredSetupComplete {
+            print("skip the upgrade path: nothing required is missing here")
+        } else {
+            UISelfTestAnchors.frames["setup-permissions"] = nil
+            AppDelegate.showGuideIfNeeded { $0.openSettings() }
+            await settle()
+            check(model.isShowingSetup && UISelfTestAnchors.frames["setup-permissions"] != nil,
+                  "opened after an upgrade with a permission missing, the guide shows the permissions")
+            model.deferSetup()
+            await settle()
+            check(model.setupStartStep == 0, "leaving the guide resets where it starts next time")
+        }
+
         // 4. The talk-key gesture reaches the model from this window's own key
         //    monitor: hold alone starts, a chord does not.
         var actions: [String] = []

@@ -9,9 +9,12 @@ cd "$(dirname "$0")/.."
 # SAYLANE_IME_BUNDLE points at another copy, for example the signed one staged for a package.
 BIN="${SAYLANE_IME_BUNDLE:-build/Build/Products/Release/SaylaneIME.app}/Contents/MacOS/SaylaneIME"
 [[ -x "$BIN" ]] || { echo 'Build first (make release).' >&2; exit 1; }
+source scripts/test-home.sh
+REAL_BEFORE="$(real_preferences)"
 "$BIN" --pinyin-self-test
 HOME_DIR="$(mktemp -d /tmp/saylane-ime-test.XXXXXX)"
-trap 'rm -rf "$HOME_DIR"' EXIT
+trap 'rm -rf "$HOME_DIR"; reset_test_preferences' EXIT
+reset_test_preferences
 # An exception inside AppKit's event loop is swallowed and would leave the
 # process waiting for ever: give it a limit.
 SAYLANE_TEST_HOME="$HOME_DIR" "$BIN" --self-test 2>/dev/null &
@@ -26,3 +29,4 @@ if kill -0 "$PID" 2>/dev/null; then
   exit 1
 fi
 wait "$PID"
+assert_real_preferences_untouched "$REAL_BEFORE"
