@@ -27,6 +27,8 @@ final class RimePinyinSession {
     private var canRankWholeInput = false
     private var engineCoversInput = false
     var onModeChange: ((Bool) -> Void)?
+    /// Which keys page and pick, as chosen in the settings.
+    var keys = PinyinKeyOptions()
 
     init(runtime: RimeRuntime, englishMode: Bool = false, fuzzyEnabled: Bool = false) throws {
         native = try runtime.makeSession(fuzzy: fuzzyEnabled)
@@ -97,7 +99,7 @@ final class RimePinyinSession {
             commitRawInput()
             return true
         case kVK_Tab:
-            guard showsCandidates else { return false }
+            guard showsCandidates, keys.pageWithTab else { return false }
             pageCandidates(event.flags.contains(.shift) ? -1 : 1)
             return true
         case kVK_Space:
@@ -119,14 +121,20 @@ final class RimePinyinSession {
             return true
         }
         if showsCandidates {
-            // Default paging keys: minus/equal and PageUp/Down.
-            // Other punctuation always commits, then inserts.
-            if Int(event.keyCode) == kVK_PageDown || ["+", "="].contains(event.characters) {
-                pageCandidates(1)
+            // Page Up/Down always turn the page; the other pairs are the
+            // user's choice. Punctuation that pages nothing commits, then inserts.
+            var next = Int(event.keyCode) == kVK_PageDown, previous = Int(event.keyCode) == kVK_PageUp
+            if keys.pageWithMinusEqual { next = next || ["+", "="].contains(event.characters); previous = previous || event.characters == "-" }
+            if keys.pageWithCommaPeriod { next = next || event.characters == "."; previous = previous || event.characters == "," }
+            if keys.pageWithBrackets { next = next || event.characters == "]"; previous = previous || event.characters == "[" }
+            if next || previous {
+                pageCandidates(next ? 1 : -1)
                 return true
             }
-            if Int(event.keyCode) == kVK_PageUp || event.characters == "-" {
-                pageCandidates(-1)
+            // The second and third candidate under the right hand, without reaching for the digits.
+            if keys.pickWithSemicolonQuote, let offset = [";": 1, "'": 2][event.characters] {
+                let index = pageIndex * Self.pageSize + offset
+                if candidates.indices.contains(index) { selectCandidate(at: index) }
                 return true
             }
         }
@@ -371,6 +379,8 @@ final class RimePinyinSession {
     ]
 
     private func mappedPunctuation(_ raw: String) -> String? {
+        // Western punctuation while typing Chinese: nothing is mapped.
+        if keys.englishPunctuation { return nil }
         switch raw {
         case ",": return "，"
         case ".": return "。"

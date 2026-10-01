@@ -251,6 +251,16 @@
         }
       }
     },
+    "Page Up / Page Down 始终可以翻页。没有被选作翻页键的标点，会先上屏第一个候选再输入标点。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page Up / Page Down always turn the page. Punctuation that is not a page key commits the first candidate, then types itself."
+          }
+        }
+      }
+    },
     "Rime 拼音方案加载失败": {
       "localizations": {
         "en": {
@@ -517,6 +527,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Save"
+          }
+        }
+      }
+    },
+    "候选与标点": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Candidates and punctuation"
           }
         }
       }
@@ -2773,6 +2793,16 @@
         }
       }
     },
+    "用 ; 和 ' 选第 2、第 3 个候选": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick the 2nd and 3rd candidate with ; and '"
+          }
+        }
+      }
+    },
     "登录时启动": {
       "localizations": {
         "en": {
@@ -3133,6 +3163,16 @@
         }
       }
     },
+    "翻页键": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page keys"
+          }
+        }
+      }
+    },
     "联想": {
       "localizations": {
         "en": {
@@ -3469,6 +3509,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Accessibility"
+          }
+        }
+      }
+    },
+    "输入中文时用英文标点": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Western punctuation while typing Chinese"
           }
         }
       }

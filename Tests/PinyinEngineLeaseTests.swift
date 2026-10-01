@@ -4,6 +4,7 @@ struct BridgePinyinPreferences {
     var englishMode = false
     var fuzzy = true
     var barPreedit = false
+    var keys = PinyinKeyOptions()
 }
 
 enum PushToTalkHotkey { case leftShift, rightShift, other }
@@ -20,6 +21,7 @@ final class RimePinyinSession {
 
     var englishMode: Bool
     var fuzzyEnabled: Bool
+    var keys = PinyinKeyOptions()
     var isComposing = false
     var markedText = ""
     var markedCaret = 0

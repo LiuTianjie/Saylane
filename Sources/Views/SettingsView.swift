@@ -263,6 +263,24 @@ struct SettingsView: View {
             Text(String(localized: "空格确认，数字选词，Shift 切换中英文。每个窗口各自记住正在输入的拼音，切换窗口不会误提交。"))
         }
         .disabled(model.isListening)
+
+        SettingsSection {
+            LabeledContent(String(localized: "翻页键")) {
+                HStack(spacing: 14) {
+                    Toggle("− =", isOn: model.binding(\.pinyinKeys.pageWithMinusEqual))
+                    Toggle(", .", isOn: model.binding(\.pinyinKeys.pageWithCommaPeriod))
+                    Toggle("[ ]", isOn: model.binding(\.pinyinKeys.pageWithBrackets))
+                    Toggle("Tab", isOn: model.binding(\.pinyinKeys.pageWithTab))
+                }
+                .toggleStyle(.checkbox)
+            }
+            Toggle(String(localized: "用 ; 和 ' 选第 2、第 3 个候选"), isOn: model.binding(\.pinyinKeys.pickWithSemicolonQuote))
+            Toggle(String(localized: "输入中文时用英文标点"), isOn: model.binding(\.pinyinKeys.englishPunctuation))
+        } header: {
+            Text(String(localized: "候选与标点"))
+        } footer: {
+            Text(String(localized: "Page Up / Page Down 始终可以翻页。没有被选作翻页键的标点，会先上屏第一个候选再输入标点。"))
+        }
     }
 
     // MARK: - 截屏翻译

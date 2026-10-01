@@ -4,8 +4,11 @@ import Foundation
 /// `PreferencesStore` persists them and nothing else in the app touches `UserDefaults`.
 struct Preferences: Equatable, Sendable {
     // Languages
+    // A new installation writes what is said, in the language it is said in.
+    // Translating is a choice: pick another language to write, or double-tap
+    // right ⌘ to go round the pair below.
     var sourceLanguage: AppLanguage = .zhHans
-    var targetLanguage: AppLanguage = .en
+    var targetLanguage: AppLanguage = .zhHans
     var pairSource: AppLanguage = .zhHans
     var pairTarget: AppLanguage = .en
 
@@ -50,6 +53,7 @@ struct Preferences: Equatable, Sendable {
     var pinyinEnglishMode = false
     var pinyinBarPreeditEnabled = false
     var pinyinFuzzyEnabled = true
+    var pinyinKeys = PinyinKeyOptions()
 
     // The welcome page. Bump `Preferences.currentOnboardingVersion` only when
     // existing users should see it once more (2: the 0.4 page, where the

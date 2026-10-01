@@ -24,6 +24,7 @@ final class PinyinEngine: PinyinHandling {
     private var englishModePreference = false
     private(set) var fuzzyEnabled = true
     private(set) var barPreeditEnabled = false
+    private var keys = PinyinKeyOptions()
     var onEnglishModeChanged: ((Bool) -> Void)?
     private static let maxSessions = 12
 
@@ -51,6 +52,7 @@ final class PinyinEngine: PinyinHandling {
     func applyPreferences(_ p: BridgePinyinPreferences) {
         englishModePreference = p.englishMode
         barPreeditEnabled = p.barPreedit
+        keys = p.keys
         if fuzzyEnabled != p.fuzzy {
             fuzzyEnabled = p.fuzzy
         }
@@ -73,6 +75,7 @@ final class PinyinEngine: PinyinHandling {
         guard case .success(let runtime) = runtime else { activeKey = nil; return }
         do {
             let session = try RimePinyinSession(runtime: runtime, englishMode: englishModePreference, fuzzyEnabled: fuzzyEnabled)
+            session.keys = keys
             session.onModeChange = { [weak self] enabled in
                 self?.englishModePreference = enabled
                 self?.onEnglishModeChanged?(enabled)
@@ -131,6 +134,7 @@ final class PinyinEngine: PinyinHandling {
         if session.englishMode != englishModePreference {
             session.setEnglishMode(englishModePreference)
         }
+        session.keys = keys
     }
 
     func handle(_ event: NSEvent, pushToTalk: PushToTalkHotkey) -> Bool {

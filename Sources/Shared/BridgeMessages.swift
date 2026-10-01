@@ -4,7 +4,7 @@ import Foundation
 /// (`SaylaneIME`, typing and writing into the focused client) and the main
 /// program (`Saylane`, everything else). See `docs/DESIGN_0.3.md`.
 enum Bridge {
-    static let protocolVersion = 1
+    static let protocolVersion = 2
     /// The input method answers requests from the main program here.
     static let imePortName = "com.rtranslate.saylane.ime-bridge" + TestHome.suffix
     /// The main program receives events from the input method here.
@@ -93,6 +93,7 @@ struct BridgePinyinPreferences: Codable, Equatable, Sendable {
     var englishMode = false
     var fuzzy = true
     var barPreedit = false
+    var keys = PinyinKeyOptions()
 }
 
 struct BridgeIMEStatus: Codable, Equatable, Sendable {

@@ -8,7 +8,7 @@ swiftc() {
 
 cd "$(dirname "$0")/.."
 mkdir -p build/tests
-swiftc Sources/Shared/BridgeMessages.swift Sources/Shared/TestHome.swift Sources/Services/RimeDictionaryUpdateService.swift \
+swiftc Sources/Shared/PinyinKeyOptions.swift Sources/Shared/BridgeMessages.swift Sources/Shared/TestHome.swift Sources/Services/RimeDictionaryUpdateService.swift \
   Sources/Services/RimeDictionaryUpdateModel.swift Tests/RimeDictionaryUpdateTests.swift \
   -o build/tests/rime-updates
 build/tests/rime-updates "$@"

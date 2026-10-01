@@ -60,6 +60,13 @@ final class PreferencesStore {
         static let pinyinEnglishMode = "pinyinEnglishMode"
         static let pinyinBarPreeditEnabled = "pinyinBarPreeditEnabled"
         static let pinyinFuzzyEnabled = "pinyinFuzzyEnabled"
+        // Read by the input method at start as well: plain keys, one per choice.
+        static let pinyinPageMinusEqual = "pinyinPageWithMinusEqual"
+        static let pinyinPageCommaPeriod = "pinyinPageWithCommaPeriod"
+        static let pinyinPageBrackets = "pinyinPageWithBrackets"
+        static let pinyinPageTab = "pinyinPageWithTab"
+        static let pinyinPickSemicolonQuote = "pinyinPickWithSemicolonQuote"
+        static let pinyinEnglishPunctuation = "pinyinEnglishPunctuation"
         static let onboardingVersion = "onboardingVersion"
         static let quitByUser = "mainProgramQuitByUser"
         /// Settings of features that no longer exist (0.4: the Control long-press
@@ -74,6 +81,7 @@ final class PreferencesStore {
         self.backing = backing
         for key in Key.retired where backing.object(forKey: key) != nil { backing.removeObject(forKey: key) }
         Self.migrateLegacyDomain(backing)
+        Self.keepDirectionOfExistingInstall(backing)
         current = Self.load(backing)
         Self.migrateOnboardingFlag(backing, into: &current)
     }
@@ -104,6 +112,17 @@ final class PreferencesStore {
                 backing.set(value, forKey: key)
             }
         }
+    }
+
+    /// Until 0.4.2 the default was "speak Chinese, write English", and a
+    /// default is never stored. Someone who has used Saylane before and never
+    /// chose a language keeps what they had; only new installations get the
+    /// new default (write what is said).
+    private static func keepDirectionOfExistingInstall(_ backing: PreferencesBacking) {
+        let usedBefore = backing.object(forKey: Key.onboardingVersion) != nil
+            || backing.object(forKey: Key.legacySetupVerified) != nil
+        guard usedBefore, backing.object(forKey: Key.targetLanguage) == nil else { return }
+        backing.set(AppLanguage.en.rawValue, forKey: Key.targetLanguage)
     }
 
     private static func migrateOnboardingFlag(_ backing: PreferencesBacking, into preferences: inout Preferences) {
@@ -155,6 +174,12 @@ final class PreferencesStore {
         p.pinyinEnglishMode = bool(Key.pinyinEnglishMode, default: p.pinyinEnglishMode)
         p.pinyinBarPreeditEnabled = bool(Key.pinyinBarPreeditEnabled, default: p.pinyinBarPreeditEnabled)
         p.pinyinFuzzyEnabled = bool(Key.pinyinFuzzyEnabled, default: p.pinyinFuzzyEnabled)
+        p.pinyinKeys.pageWithMinusEqual = bool(Key.pinyinPageMinusEqual, default: p.pinyinKeys.pageWithMinusEqual)
+        p.pinyinKeys.pageWithCommaPeriod = bool(Key.pinyinPageCommaPeriod, default: p.pinyinKeys.pageWithCommaPeriod)
+        p.pinyinKeys.pageWithBrackets = bool(Key.pinyinPageBrackets, default: p.pinyinKeys.pageWithBrackets)
+        p.pinyinKeys.pageWithTab = bool(Key.pinyinPageTab, default: p.pinyinKeys.pageWithTab)
+        p.pinyinKeys.pickWithSemicolonQuote = bool(Key.pinyinPickSemicolonQuote, default: p.pinyinKeys.pickWithSemicolonQuote)
+        p.pinyinKeys.englishPunctuation = bool(Key.pinyinEnglishPunctuation, default: p.pinyinKeys.englishPunctuation)
         p.onboardingVersion = b.object(forKey: Key.onboardingVersion) as? Int ?? p.onboardingVersion
         return p
     }
@@ -196,6 +221,12 @@ final class PreferencesStore {
         put(p.pinyinEnglishMode, o.pinyinEnglishMode, Key.pinyinEnglishMode) { $0 }
         put(p.pinyinBarPreeditEnabled, o.pinyinBarPreeditEnabled, Key.pinyinBarPreeditEnabled) { $0 }
         put(p.pinyinFuzzyEnabled, o.pinyinFuzzyEnabled, Key.pinyinFuzzyEnabled) { $0 }
+        put(p.pinyinKeys.pageWithMinusEqual, o.pinyinKeys.pageWithMinusEqual, Key.pinyinPageMinusEqual) { $0 }
+        put(p.pinyinKeys.pageWithCommaPeriod, o.pinyinKeys.pageWithCommaPeriod, Key.pinyinPageCommaPeriod) { $0 }
+        put(p.pinyinKeys.pageWithBrackets, o.pinyinKeys.pageWithBrackets, Key.pinyinPageBrackets) { $0 }
+        put(p.pinyinKeys.pageWithTab, o.pinyinKeys.pageWithTab, Key.pinyinPageTab) { $0 }
+        put(p.pinyinKeys.pickWithSemicolonQuote, o.pinyinKeys.pickWithSemicolonQuote, Key.pinyinPickSemicolonQuote) { $0 }
+        put(p.pinyinKeys.englishPunctuation, o.pinyinKeys.englishPunctuation, Key.pinyinEnglishPunctuation) { $0 }
         put(p.onboardingVersion, o.onboardingVersion, Key.onboardingVersion) { $0 }
     }
 }

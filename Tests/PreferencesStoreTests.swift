@@ -14,6 +14,16 @@ import Carbon.HIToolbox
             precondition(!store.current.onboardingCompleted)
             precondition(backing.storage.isEmpty, "nothing is written until something changes")
         }
+        // The default direction changed in 0.4.2 (write what is said). A new
+        // installation gets it; someone who used Saylane before and never chose
+        // a language keeps "write English".
+        do {
+            precondition(Preferences().sourceLanguage == .zhHans && Preferences().targetLanguage == .zhHans && Preferences().translationIsPassthrough)
+            let existing = InMemoryPreferencesBacking(["onboardingVersion": 1])
+            precondition(PreferencesStore(backing: existing).current.targetLanguage == .en && existing.storage["targetLanguage"] as? String == "en")
+            let chosen = InMemoryPreferencesBacking(["onboardingVersion": 1, "targetLanguage": "ja"])
+            precondition(PreferencesStore(backing: chosen).current.targetLanguage == .ja)
+        }
         // A setting of a feature that is gone (the Control long-press) is removed from storage.
         do {
             let backing = InMemoryPreferencesBacking(["screenHoldEnabled": true, "sourceLanguage": "en"])
@@ -67,10 +77,10 @@ import Carbon.HIToolbox
             let backing = InMemoryPreferencesBacking()
             let store = PreferencesStore(backing: backing)
             store.update { $0.pairSource = .ja; $0.pairTarget = .en; $0.sourceLanguage = .ja; $0.targetLanguage = .en }
-            // Targets already equal their defaults: only the two changed keys are written.
-            precondition(Set(backing.storage.keys) == ["pairSourceLanguage", "sourceLanguage"])
+            // The pair's target already equals its default: only the three changed keys are written.
+            precondition(Set(backing.storage.keys) == ["pairSourceLanguage", "sourceLanguage", "targetLanguage"])
             store.update { $0.pairSource = .ja }
-            precondition(backing.storage.count == 2)
+            precondition(backing.storage.count == 3)
             store.update { $0.screenCaptureShortcut = ScreenCaptureShortcut(keyCode: UInt16(kVK_ANSI_S), modifierFlags: ScreenModifier.command | ScreenModifier.option) }
             precondition(backing.storage["screenCaptureKeyCode"] as? Int == Int(kVK_ANSI_S))
             store.update { $0.screenTranslateSource = .en }

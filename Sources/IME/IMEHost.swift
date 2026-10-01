@@ -55,10 +55,17 @@ final class IMEHost {
 
     func start() {
         InputDiagnostics.record("ime-start", "version=\(version) pid=\(getpid())")
+        func stored(_ key: String, _ fallback: Bool) -> Bool { defaults.object(forKey: key) as? Bool ?? fallback }
+        var keys = PinyinKeyOptions()
+        keys.pageWithMinusEqual = stored("pinyinPageWithMinusEqual", keys.pageWithMinusEqual)
+        keys.pageWithCommaPeriod = stored("pinyinPageWithCommaPeriod", keys.pageWithCommaPeriod)
+        keys.pageWithBrackets = stored("pinyinPageWithBrackets", keys.pageWithBrackets)
+        keys.pageWithTab = stored("pinyinPageWithTab", keys.pageWithTab)
+        keys.pickWithSemicolonQuote = stored("pinyinPickWithSemicolonQuote", keys.pickWithSemicolonQuote)
+        keys.englishPunctuation = stored("pinyinEnglishPunctuation", keys.englishPunctuation)
         pinyinPreferences = BridgePinyinPreferences(
-            englishMode: defaults.object(forKey: Key.englishMode) as? Bool ?? false,
-            fuzzy: defaults.object(forKey: Key.fuzzy) as? Bool ?? true,
-            barPreedit: defaults.object(forKey: Key.barPreedit) as? Bool ?? false)
+            englishMode: stored(Key.englishMode, false), fuzzy: stored(Key.fuzzy, true),
+            barPreedit: stored(Key.barPreedit, false), keys: keys)
         pinyin.applyPreferences(pinyinPreferences)
         InputDiagnostics.record(pinyin.initializationError == nil ? "pinyin-ready" : "pinyin-init-failed",
                                 pinyin.initializationError ?? "librime")

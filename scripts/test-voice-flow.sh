@@ -16,7 +16,7 @@ build/tests/voice-lifecycle
 swiftc -swift-version 6 -strict-concurrency=complete "${shared[@]}" \
   Sources/Models/AppLanguage.swift Sources/Models/PushToTalkHotkey.swift Sources/Models/SpeechModel.swift \
   Sources/Models/SetupReadiness.swift Sources/Models/SetupFlow.swift Sources/Screen/ScreenLayout.swift \
-  Sources/Core/AppDirectories.swift Sources/Core/Preferences.swift Sources/Core/Readiness.swift Sources/Core/UserNotice.swift \
+  Sources/Core/AppDirectories.swift Sources/Shared/PinyinKeyOptions.swift Sources/Core/Preferences.swift Sources/Core/Readiness.swift Sources/Core/UserNotice.swift \
   Sources/Input/InputEvent.swift Sources/Input/InputEventRouter.swift Sources/Input/GestureArbiter.swift \
   Sources/Input/GlobalHotkeyMonitor.swift Sources/Input/VoiceGesture.swift \
   Sources/Input/RightCommandDoubleTap.swift Sources/Input/ShortcutValidator.swift \

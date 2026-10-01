@@ -266,7 +266,7 @@ final class AppModel: VoiceSessionHost {
 
     private var pinyinPreferences: BridgePinyinPreferences {
         BridgePinyinPreferences(englishMode: prefs.pinyinEnglishMode, fuzzy: prefs.pinyinFuzzyEnabled,
-                                barPreedit: prefs.pinyinBarPreeditEnabled)
+                                barPreedit: prefs.pinyinBarPreeditEnabled, keys: prefs.pinyinKeys)
     }
 
     // MARK: - Notices
@@ -331,7 +331,7 @@ final class AppModel: VoiceSessionHost {
             Task { await DictationGlossaryStore.shared.refreshIfStale() }
         }
         if new.pinyinEnglishMode != old.pinyinEnglishMode || new.pinyinBarPreeditEnabled != old.pinyinBarPreeditEnabled
-            || new.pinyinFuzzyEnabled != old.pinyinFuzzyEnabled {
+            || new.pinyinFuzzyEnabled != old.pinyinFuzzyEnabled || new.pinyinKeys != old.pinyinKeys {
             ime.push(pinyin: pinyinPreferences)
         }
         if new.screenPinFreezesScreen != old.screenPinFreezesScreen || new.screenFontWeightExperiment != old.screenFontWeightExperiment {

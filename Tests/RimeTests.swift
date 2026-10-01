@@ -156,6 +156,38 @@ import Carbon.HIToolbox
         type("nihao")
         _ = session.handle(modifier(kVK_CapsLock, []), shiftToggleEnabled: true)
         precondition(session.takeCommit() == "nihao" && !session.isComposing, "Caps Lock must commit letters, not 你好")
+        // Keys chosen in the settings. By default a comma commits and types itself,
+        // and ; is punctuation; with the options on, they page and pick.
+        func press(_ text: String) -> Bool {
+            session.handle(PinyinKeyEvent(type: .keyDown, keyCode: 0, characters: text, letter: nil, flags: [], isRepeat: false),
+                           shiftToggleEnabled: true)
+        }
+        session.cancel(); _ = session.takeCommit()
+        type("shi")
+        precondition(press(".") && session.takeCommit() == "是。" && !session.isComposing, "a period commits the first candidate, then itself")
+        session.keys.pageWithCommaPeriod = true
+        type("shi")
+        precondition(press(".") && session.isComposing && session.pageIndex == 1, "with the option on, a period turns the page")
+        precondition(press(",") && session.pageIndex == 0)
+        session.keys.pageWithBrackets = true
+        precondition(press("]") && session.pageIndex == 1 && press("[") && session.pageIndex == 0)
+        session.keys.pageWithMinusEqual = false
+        precondition(press("=") && !session.isComposing, "= is no page key any more: it commits and types itself")
+        _ = session.takeCommit()
+        session.keys.pickWithSemicolonQuote = true
+        type("shi")
+        let second = session.candidates[1].word, third = session.candidates[2].word
+        precondition(press(";") && session.takeCommit() == second, "; picks the second candidate")
+        type("shi")
+        precondition(press("'") && session.takeCommit() == third, "' picks the third candidate")
+        session.keys.englishPunctuation = true
+        session.keys.pageWithCommaPeriod = false
+        type("shi")
+        precondition(press(",") && session.takeCommit() == "是,", "Western punctuation stays Western")
+        precondition(!press(","), "and outside a composition the key is the application's")
+        session.keys = PinyinKeyOptions()
+        session.cancel(); _ = session.takeCommit()
+
         let upper = PinyinKeyEvent(type: .keyDown, keyCode: UInt16(kVK_ANSI_A), characters: "A", letter: "a", flags: .capsLock, isRepeat: false)
         precondition(!session.handle(upper, shiftToggleEnabled: true))
         _ = session.handle(modifier(kVK_CapsLock, []), shiftToggleEnabled: true)
