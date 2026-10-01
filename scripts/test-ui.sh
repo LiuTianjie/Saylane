@@ -5,7 +5,8 @@
 set -euo pipefail
 export TZ=Asia/Shanghai
 cd "$(dirname "$0")/.."
-BIN=build/Build/Products/Release/Saylane.app/Contents/MacOS/Saylane
+# SAYLANE_APP_BUNDLE points at another copy, for example the signed one staged for a package.
+BIN="${SAYLANE_APP_BUNDLE:-build/Build/Products/Release/Saylane.app}/Contents/MacOS/Saylane"
 [[ -x "$BIN" ]] || { echo 'Build first (make release).' >&2; exit 1; }
 HOME_DIR="$(mktemp -d /tmp/saylane-ui-test.XXXXXX)"
 trap 'rm -rf "$HOME_DIR"' EXIT

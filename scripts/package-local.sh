@@ -22,6 +22,8 @@ if [[ -n "$IDENTITY" ]]; then
 else
   SIGNING="ad-hoc signed: macOS will ask for every permission again after each build"
 fi
+# The signed bundles are run through the self-tests before they are packaged.
+scripts/verify-staged.sh "$ROOT"
 COMPONENTS="$PWD/dist/components-$VERSION-local.plist"
 python3 scripts/component-plist.py "$ROOT" "$COMPONENTS" --allow-same-version
 OUTPUT="$PWD/dist/Saylane-$VERSION-$BUILD-local.pkg"

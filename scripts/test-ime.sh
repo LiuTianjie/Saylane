@@ -6,7 +6,8 @@
 set -euo pipefail
 export TZ=Asia/Shanghai
 cd "$(dirname "$0")/.."
-BIN=build/Build/Products/Release/SaylaneIME.app/Contents/MacOS/SaylaneIME
+# SAYLANE_IME_BUNDLE points at another copy, for example the signed one staged for a package.
+BIN="${SAYLANE_IME_BUNDLE:-build/Build/Products/Release/SaylaneIME.app}/Contents/MacOS/SaylaneIME"
 [[ -x "$BIN" ]] || { echo 'Build first (make release).' >&2; exit 1; }
 "$BIN" --pinyin-self-test
 HOME_DIR="$(mktemp -d /tmp/saylane-ime-test.XXXXXX)"
