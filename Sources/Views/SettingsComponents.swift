@@ -105,18 +105,11 @@ struct SaylaneBrand: View {
     var large = false
     var body: some View {
         HStack(spacing: 10) {
-            // The application icon in small: a white bubble on a dark tile,
-            // the cursor showing through in the brand's coral.
             SaylaneMark()
                 .fill(.white, style: FillStyle(eoFill: true))
-                .background {
-                    // Inside the bubble, behind the cut-out cursor.
-                    let side: CGFloat = large ? 34 : 20
-                    Theme.brandCoral.padding(EdgeInsets(top: side * 0.2, leading: side * 0.3, bottom: side * 0.3, trailing: side * 0.3))
-                }
                 .frame(width: large ? 34 : 20, height: large ? 34 : 20)
                 .frame(width: large ? 60 : 34, height: large ? 60 : 34)
-                .background(Theme.brandTile, in: RoundedRectangle(cornerRadius: large ? 18 : 11, style: .continuous))
+                .background(Theme.accent, in: RoundedRectangle(cornerRadius: large ? 18 : 11))
             if !large { Text("Saylane").font(.system(size: 20, weight: .semibold)) }
         }
         .accessibilityLabel("Saylane")

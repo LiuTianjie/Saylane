@@ -15,10 +15,6 @@ enum Theme {
             ? NSColor(calibratedWhite: 0.17, alpha: 1) : .white
     })
 
-    /// The application icon's colours: a charcoal tile and a coral cursor.
-    static let brandTile = Color(red: 0.12, green: 0.125, blue: 0.145)
-    static let brandCoral = Color(red: 0.914, green: 0.439, blue: 0.357)
-
     static let radiusHUD: CGFloat = 20
     static let radiusCard: CGFloat = 16
     static let radiusSmall: CGFloat = 10
