@@ -16,6 +16,11 @@ fi
 VERSION="$(awk -F '"' '/MARKETING_VERSION:/ {print $2; exit}' project.yml)"
 BUILD="$(awk -F '"' '/CURRENT_PROJECT_VERSION:/ {print $2; exit}' project.yml)"
 ROOT="$PWD/dist/pkgroot-$VERSION-local"
+# Staging folders of earlier versions are whole copies of both programs with
+# the product's own identifiers: do not leave them lying around.
+for old in "$PWD"/dist/pkgroot-*-local "$PWD"/dist/components-*-local.plist; do
+  [[ -e "$old" && "$old" != "$ROOT" && "$old" != "$PWD/dist/components-$VERSION-local.plist" ]] && rm -rf -- "$old"
+done
 scripts/stage-bundles.sh "$ROOT" "$IDENTITY" >/dev/null
 if [[ -n "$IDENTITY" ]]; then
   SIGNING="signed with a stable identity"

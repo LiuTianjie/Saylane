@@ -128,9 +128,27 @@ check(
     '"$APP_BIN" --register-input-source' in postinstall,
     "registration must run from the main program's binary, never from the input method's",
 )
+# Besides the main program, postinstall may restart exactly three programs of
+# the system's own — the ones that keep an input method's icon in memory — by
+# their exact names. Nothing that could match either of this product's processes.
+system_agents = [
+    "as_user /usr/bin/killall TextInputMenuAgent 2>/dev/null || true",
+    "as_user /usr/bin/killall -KILL TextInputSwitcher CursorUIViewService 2>/dev/null || true",
+]
+stops = [line for line in post_lines if "pkill" in line or "killall" in line]
 check(
-    not any(("pkill" in line or "killall" in line) and "$APP_BIN" not in line for line in post_lines),
+    all("$APP_BIN" in line or line in system_agents for line in stops) and all(line in post_lines for line in system_agents),
     "postinstall must stop the input method only by the pids it found before registering",
+)
+check(
+    not any("Saylane" in line or "rtranslate" in line.lower() for line in system_agents),
+    "the system agents are named exactly and never match this product",
+)
+tcc = [line for line in post_lines if "tccutil" in line]
+check(
+    len(tcc) == 2 and all("reset All com.rtranslate.inputmethod.rtranslate" in line for line in tcc)
+    and not any("com.rtranslate.saylane" in line for line in tcc),
+    "postinstall removes the grants of the input method's identity only, never the main program's",
 )
 check(
     0 <= postinstall.find('pkill -TERM -f "^$APP_BIN"') < launch,
@@ -142,7 +160,7 @@ check(
     "postinstall must send exactly one TERM, to a pid that was running the previous version",
 )
 check(
-    "launchctl asuser" in logical_shell(postinstall) and "--args --installed" in logical_shell(postinstall),
+    "launchctl asuser" in logical_shell(postinstall) and 'as_user /usr/bin/open "$APP" --args --installed' in logical_shell(postinstall),
     "postinstall must open the main program in the console user's session",
 )
 for script_name, script in (("preinstall", preinstall), ("postinstall", postinstall)):

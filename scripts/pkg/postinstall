@@ -59,6 +59,21 @@ if [[ "$CONSOLE_USER" == root || "$CONSOLE_USER" == loginwindow || -z "$CONSOLE_
   exit 0
 fi
 CONSOLE_UID="$(/usr/bin/id -u "$CONSOLE_USER")"
+as_user() { /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -H -u "$CONSOLE_USER" "$@"; }
+
+# Leave nothing of the previous version behind in the session.
+# - The system's own input-menu programs keep an input method's icon and name
+#   in memory until they restart; the menu bar and the indicator at the caret
+#   would go on showing the old ones. They are the system's, are named exactly,
+#   and are started again by the system when needed. The last two ignore a
+#   polite request.
+# - The input method asks for no permission since 0.3: what earlier versions
+#   were granted under its identity (microphone, screen recording, …) is removed
+#   from the privacy lists. The main program's own grants are not touched.
+as_user /usr/bin/killall TextInputMenuAgent 2>/dev/null || true
+as_user /usr/bin/killall -KILL TextInputSwitcher CursorUIViewService 2>/dev/null || true
+as_user /usr/bin/tccutil reset All com.rtranslate.inputmethod.rtranslate >/dev/null 2>&1 || true
+/usr/bin/tccutil reset All com.rtranslate.inputmethod.rtranslate >/dev/null 2>&1 || true
 # The previous input method may have started the main program again while the
 # files were being replaced. Whatever runs now must be the new version.
 /usr/bin/pkill -TERM -f "^$APP_BIN" 2>/dev/null || true
@@ -67,8 +82,7 @@ for _ in {1..30}; do
   /bin/sleep 0.1
 done
 # `--installed`: the app shows its guide only if something is still to be set up.
-if ! /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -H -u "$CONSOLE_USER" \
-  /usr/bin/open "$APP" --args --installed; then
+if ! as_user /usr/bin/open "$APP" --args --installed; then
   echo 'Saylane was installed, but could not be opened automatically.' >&2
 fi
 # Installer success means files installed. The app separately verifies activation.

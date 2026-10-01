@@ -69,4 +69,28 @@ for path in \
   remove_bundle "$path"
 done
 /usr/sbin/pkgutil --forget com.rtranslate.app >/dev/null 2>&1 || true
-echo 'Saylane uninstalled. Preferences and downloaded models preserved.'
+
+# 4. Nothing of it stays in the session or in the privacy lists: the system's
+#    own input-menu programs forget its icon when they restart (the system
+#    starts them again by itself), and every grant given to either program goes.
+as_user /usr/bin/killall TextInputMenuAgent 2>/dev/null || true
+as_user /usr/bin/killall -KILL TextInputSwitcher CursorUIViewService 2>/dev/null || true
+for identity in com.rtranslate.inputmethod.rtranslate com.rtranslate.saylane com.rtranslate.app; do
+  as_user /usr/bin/tccutil reset All "$identity" >/dev/null 2>&1 || true
+  /usr/bin/tccutil reset All "$identity" >/dev/null 2>&1 || true
+done
+
+# 5. `--purge` also removes what the user made with it: settings, the pinyin
+#    user dictionary, downloaded models, traces. Without it they are kept.
+if [[ "${1:-}" == --purge ]]; then
+  for domain in com.rtranslate.inputmethod.rtranslate com.rtranslate.saylane com.rtranslate.app; do
+    as_user /usr/bin/defaults delete "$domain" >/dev/null 2>&1 || true
+    /bin/rm -f -- "$USER_HOME/Library/Preferences/$domain.plist"
+  done
+  for data in "$USER_HOME/Library/Application Support/Saylane" "$USER_HOME/Library/Application Support/RTranslate"; do
+    [[ -d "$data" ]] && /bin/rm -rf -- "$data" && echo "Removed: $data"
+  done
+  echo 'Saylane uninstalled, with its settings, user dictionary, models and traces.'
+else
+  echo 'Saylane uninstalled. Preferences and downloaded models preserved (run with --purge to remove them too).'
+fi

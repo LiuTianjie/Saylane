@@ -2,6 +2,15 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.4.1 (local testing)
+
+- The application icon is the original one again. 0.4.0 replaced it by mistake: only the input-source icon — the one in the menu bar and next to the caret when you switch — looked like another input method's, and only that one changes.
+- Installing now cleans up after the previous version. The system's own input-menu programs keep an input method's icon in memory until they restart, which is why the old icon was still shown after 0.4.0 was installed; the installer restarts those three programs (the system starts them again by itself). The privacy grants earlier versions held under the input method's identity are removed: it asks for nothing since 0.3. The main program's grants are not touched.
+- The trace file of the one-process builds (`Diagnostics/input-session.json`) is deleted.
+- The input method starts the installed main program by its path, not whichever copy with the same identifier the system happens to know.
+- `scripts/uninstall.sh` leaves nothing in the session or the privacy lists; `--purge` also removes settings, the pinyin user dictionary, models and traces.
+- Packaging removes the staging folders of earlier versions.
+
 ## 0.4.0 (local testing)
 
 The part of Saylane you see was carried over unchanged by the 0.3 rewrite. This release redoes it, measured against how mature input methods behave (Doubao's installer registers, enables and selects its input source by itself, and it has no permission wizard).
@@ -15,7 +24,7 @@ The part of Saylane you see was carried over unchanged by the 0.3 rewrite. This 
 
 ### Icon
 
-- The input-menu icon looked like another input method's: a black disc with five white bars. It is now Saylane's own mark, a speech bubble with a text cursor cut out of it. The settings header uses the same mark. Six generations of unused experimental icon files no longer ship in the input method.
+- The input-menu icon looked like another input method's: a black disc with five white bars. It is now Saylane's own mark, a speech bubble with a text cursor cut out of it. Six generations of unused experimental icon files no longer ship in the input method.
 
 ### Typing
 

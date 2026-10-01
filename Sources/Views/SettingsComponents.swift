@@ -75,39 +75,13 @@ struct SettingsNavigationButton: View {
     }
 }
 
-/// Saylane's mark: a speech bubble with a text cursor cut out of it — what is
-/// said lands at the caret. The same geometry as the input-menu icon
-/// (`scripts/generate-input-icon.swift`): a 16-unit grid, filled even-odd.
-struct SaylaneMark: Shape {
-    func path(in rect: CGRect) -> Path {
-        let unit = min(rect.width, rect.height) / 16
-        let left = rect.midX - 8 * unit, top = rect.midY - 8 * unit
-        // The icon's coordinates have y pointing up.
-        func point(_ x: Double, _ y: Double) -> CGPoint { CGPoint(x: left + x * unit, y: top + (16 - y) * unit) }
-        var path = Path()
-        path.addRoundedRect(in: CGRect(origin: point(1, 15), size: CGSize(width: 14 * unit, height: 10.75 * unit)),
-                            cornerSize: CGSize(width: 3.5 * unit, height: 3.5 * unit))
-        path.addLines([point(3.75, 4.25), point(3.25, 1.5), point(7.25, 4.25)])
-        path.closeSubpath()
-        let stem = 0.75, serif = 2.125, thickness = 1.25, high = 12.5, low = 6.75
-        path.addLines([
-            point(8 - serif, high), point(8 + serif, high), point(8 + serif, high - thickness), point(8 + stem, high - thickness),
-            point(8 + stem, low + thickness), point(8 + serif, low + thickness), point(8 + serif, low), point(8 - serif, low),
-            point(8 - serif, low + thickness), point(8 - stem, low + thickness), point(8 - stem, high - thickness),
-            point(8 - serif, high - thickness),
-        ])
-        path.closeSubpath()
-        return path
-    }
-}
-
 struct SaylaneBrand: View {
     var large = false
     var body: some View {
         HStack(spacing: 10) {
-            SaylaneMark()
-                .fill(.white, style: FillStyle(eoFill: true))
-                .frame(width: large ? 34 : 20, height: large ? 34 : 20)
+            Image(systemName: "waveform")
+                .font(.system(size: large ? 28 : 18, weight: .semibold))
+                .foregroundStyle(.white)
                 .frame(width: large ? 60 : 34, height: large ? 60 : 34)
                 .background(Theme.accent, in: RoundedRectangle(cornerRadius: large ? 18 : 11))
             if !large { Text("Saylane").font(.system(size: 20, weight: .semibold)) }

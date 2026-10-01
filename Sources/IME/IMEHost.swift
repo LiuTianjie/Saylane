@@ -177,9 +177,11 @@ final class IMEHost {
         guard !mainProgramRunning else { return }
         guard force || !defaults.bool(forKey: Key.quitByUser) else { return }
         lastLaunchAttempt = now
-        let fallback = URL(fileURLWithPath: "/Applications/Saylane.app")
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Bridge.appBundleID)
-                ?? (FileManager.default.fileExists(atPath: fallback.path) ? fallback : nil) else {
+        // The installed copy first: LaunchServices also knows every build and
+        // staging copy with the same identifier on a developer's Mac.
+        let installed = URL(fileURLWithPath: "/Applications/Saylane.app")
+        guard let url = (FileManager.default.fileExists(atPath: installed.path) ? installed : nil)
+                ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: Bridge.appBundleID) else {
             InputDiagnostics.record("main-program", "not installed")
             return
         }

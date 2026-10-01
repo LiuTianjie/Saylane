@@ -74,6 +74,8 @@ final class AppModel: VoiceSessionHost {
 
     private init() {
         AppDirectories.migrateLegacyLayout()
+        // The one-process builds kept a single trace file; nothing writes it any more.
+        try? FileManager.default.removeItem(at: AppDirectories.diagnostics.appendingPathComponent("input-session.json"))
         // The input method's domain, so an upgrade from the one-process
         // builds keeps every setting.
         preferences = PreferencesStore(backing: UserDefaults(suiteName: Bridge.defaultsSuite) ?? .standard)
