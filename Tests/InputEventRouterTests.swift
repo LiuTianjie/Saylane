@@ -171,17 +171,13 @@ import Carbon.HIToolbox
         precondition(!router.feed(tapFunction))
         precondition(!router.feed(imkFunction))
         precondition(actions.isEmpty, "passive function-key echo started voice: \(actions)")
-        // The tap invalidates an AX typing snapshot synchronously, even while
-        // its cancellation action is waiting to be delivered on MainActor.
+        // Typing while a result is being finalized is neither consumed nor a gesture.
         let shared = SharedArbiter()
-        shared.updateContext {
-            $0.isListening = true; $0.voiceCapturing = false; $0.accessibilityTarget = true
-        }
-        let revision = shared.deliveredKeyboardRevision
+        shared.updateContext { $0.isListening = true; $0.voiceCapturing = false }
         let rawLetter = InputEvent(source: .tap, type: .keyDown, keyCode: UInt16(kVK_ANSI_A),
                                    flags: 0, isRepeat: false, timestamp: 600)
         let consumed = await Task.detached { shared.feedFromTap(rawLetter) }.value
-        precondition(!consumed && shared.deliveredKeyboardRevision != revision)
+        precondition(!consumed)
         print("PASS: input event router dispatch, hold deadlines and context")
     }
 }

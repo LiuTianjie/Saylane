@@ -11,14 +11,6 @@ import Carbon.HIToolbox
     var textInputClient: (any IMKTextInput)?
     init(_ client: any IMKTextInput) { textInputClient = client }
 }
-@MainActor protocol CompositionTarget: AnyObject {
-    var isValid: Bool { get }
-    func setMarked(_ text: String)
-    func commit(_ text: String) throws
-    func cancelMarked()
-}
-enum SessionFailure: Error { case targetLost }
-
 final class Client: NSObject, IMKTextInput {
     var inserted: [String] = []
     var marked: [String] = []
@@ -40,7 +32,8 @@ final class Client: NSObject, IMKTextInput {
     func overrideKeyboard(withKeyboardNamed keyboardUniqueName: String!) {}
     func selectMode(_ modeIdentifier: String!) {}
     func supportsUnicode() -> Bool { true }
-    func bundleIdentifier() -> String! { "test.editor" }
+    var bundle = "test.editor"
+    func bundleIdentifier() -> String! { bundle }
     func windowLevel() -> CGWindowLevel { 0 }
     func supportsProperty(_ property: TSMDocumentPropertyTag) -> Bool { false }
     func uniqueClientIdentifierString() -> String! { "test-client" }
@@ -50,12 +43,12 @@ final class Client: NSObject, IMKTextInput {
 
 @main struct IMEManagerTests {
     @MainActor static func main() throws {
-        let manager = IMEManager(inputSourceSelected: { true })
+        var selected = true
+        let manager = IMEManager(inputSourceSelected: { selected })
         let a = Client(), b = Client()
         let controllerA = SaylaneInputController(a), controllerB = SaylaneInputController(b)
         manager.attach(controllerA)
         let snapshot = manager.deferredInputSnapshot!
-        let target = manager.captureTarget()!
         // Simulate an IMK client that calls commitComposition synchronously from
         // insertText. Owned insertion must not become a phantom focus change.
         a.onInsert = {
@@ -65,8 +58,8 @@ final class Client: NSObject, IMKTextInput {
                 }
             }
         }
-        target.setMarked("voice preview")
-        try target.commit("authoritative final tail")
+        precondition(manager.setVoiceMarked("voice preview", inFront: "test.editor"))
+        precondition(manager.insertVoiceText("authoritative final tail", inFront: "test.editor"))
         precondition(manager.matchesDeferredInput(leaseID: snapshot.leaseID, generation: snapshot.generation))
         precondition(manager.insertDeferredText("A9", leaseID: snapshot.leaseID, generation: snapshot.generation))
         precondition(a.inserted == ["authoritative final tail", "A9"])
@@ -80,14 +73,38 @@ final class Client: NSObject, IMKTextInput {
         precondition(!manager.matchesDeferredInput(leaseID: snapshot.leaseID, generation: snapshot.generation))
         precondition(a.inserted.count == 2)
 
-        let currentTarget = manager.captureTarget()!
-        currentTarget.setMarked("owned preview")
+        // A dictation preview is withdrawn from the client that showed it when
+        // another client takes over, and never appears in the new one.
+        precondition(manager.setVoiceMarked("owned preview", inFront: "test.editor"))
         manager.attach(controllerB)
-        precondition(!currentTarget.isValid)
-        currentTarget.cancelMarked()
-        precondition(b.marked.isEmpty && b.inserted.isEmpty)
+        precondition(a.marked.last == "" && b.marked.isEmpty && b.inserted.isEmpty)
+        manager.clearVoiceMarked()
+        precondition(b.marked.isEmpty)
         precondition(!manager.detach(controllerA, leaseID: snapshot.leaseID))
         precondition(manager.controller === controllerB && manager.hasClient)
+
+        // Voice writes follow attachment, not key freshness: after the client
+        // resolved its composition (a click), the preview stays in the HUD but
+        // the final text is still inserted at the new caret.
+        let leaseB = manager.currentLeaseID!
+        precondition(manager.setVoiceMarked("live", inFront: "test.editor") && b.marked.last == "live")
+        manager.targetChanged(controllerB, leaseID: leaseB)
+        precondition(b.marked.last == "", "the client's commitComposition must withdraw the preview")
+        precondition(!manager.setVoiceMarked("more", inFront: "test.editor") && b.marked.last == "")
+        precondition(manager.insertVoiceText("final", inFront: "test.editor") && b.inserted == ["final"])
+        // Never through a client of another application, a detached client, or
+        // while another input source is selected.
+        precondition(!manager.canWriteVoice(inFront: "other.app")
+                     && !manager.insertVoiceText("x", inFront: "other.app"))
+        selected = false
+        precondition(!manager.insertVoiceText("x", inFront: "test.editor"))
+        selected = true
+        manager.attach(controllerB)
+        precondition(manager.setVoiceMarked("again", inFront: "test.editor"))
+        precondition(manager.detach(controllerB, leaseID: leaseB) && b.marked.last == "")
+        precondition(!manager.canWriteVoice(inFront: "test.editor")
+                     && !manager.insertVoiceText("x", inFront: "test.editor") && b.inserted == ["final"])
+        manager.attach(controllerB)
 
         // The deferred path accepts only printable text that has a faithful
         // insertText fallback. Commands remain on the original IMK callback.
@@ -103,6 +120,17 @@ final class Client: NSObject, IMKTextInput {
                      key(kVK_Delete, "\u{7f}"), key(kVK_LeftArrow, "\u{F702}"), key(kVK_F1, "\u{F704}")] {
             precondition(!item.canDeferForVoiceFinalization)
         }
-        print("PASS: exact IME epochs, owned final insertion, stale-focus rejection, deferred text/command boundary")
+        // IMK may hand over another receiver object within one activation. It is
+        // the same lease: no focus epoch change, and writes use the newest object.
+        let c1 = Client(), c2 = Client()
+        let controllerC = SaylaneInputController(c1)
+        manager.attach(controllerC)
+        let epoch = manager.clientGeneration
+        controllerC.textInputClient = c2
+        manager.attach(controllerC)
+        precondition(manager.clientGeneration == epoch)
+        precondition(manager.insertPinyin("x", leaseID: controllerC.sessionID!)
+                     && c2.inserted == ["x"] && c1.inserted.isEmpty)
+        print("PASS: exact IME epochs, owned final insertion, stale-focus rejection, voice writes by attachment, deferred text/command boundary")
     }
 }

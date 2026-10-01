@@ -13,7 +13,11 @@ final class IMEManager {
     private(set) var controller: SaylaneInputController?
     private var attachedClient: (any IMKTextInput)?
     private var attachedLeaseID: UUID?
+    /// Read once per attachment; asking the proxy is a round trip to the client.
+    private var attachedBundleID: String?
     private var clientFresh = false
+    /// The lease whose client currently shows a dictation preview.
+    private var voiceMarkedLeaseID: UUID?
     /// Client callbacks caused synchronously by our own `insertText` are not a
     /// focus change. Without this guard the final voice commit invalidates the
     /// exact lease before queued user text can be replayed.
@@ -22,11 +26,11 @@ final class IMEManager {
     /// Monotonic focus/client epoch used by voice and captured composition targets.
     private(set) var clientGeneration = 0
     private var lastCaretRects: [UUID: NSRect] = [:]
-    var onTargetLost: (() -> Void)?
     var hasClient: Bool { clientFresh && controller?.textInputClient != nil }
     var isInstalled: Bool { !InputSourceInstall.ours(includeDisabled: true).isEmpty }
     var isOursSelected: Bool { selected() }
-    var clientBundleID: String? { hasClient ? controller?.textInputClient?.bundleIdentifier() : nil }
+    /// Application of the attached client, fresh or not.
+    var clientBundleID: String? { attachedBundleID }
     var currentLeaseID: UUID? { attachedLeaseID }
     var deferredInputSnapshot: (leaseID: UUID, generation: Int)? {
         guard clientFresh, let leaseID = attachedLeaseID,
@@ -48,47 +52,57 @@ final class IMEManager {
             suspendCurrentClient()
             return
         }
-        let sameLease = controller === next && attachedClient === nextClient && attachedLeaseID == nextLeaseID
-        guard !sameLease || !clientFresh else { return }
+        let sameLease = controller === next && attachedLeaseID == nextLeaseID
+        guard !sameLease || !clientFresh else {
+            // The receiver object may differ between callbacks of one activation.
+            attachedClient = nextClient
+            return
+        }
+        if !sameLease { clearVoiceMarked() }
         clientGeneration += 1
         controller = next
         attachedClient = nextClient
         attachedLeaseID = nextLeaseID
         clientFresh = true
         if !sameLease {
-            onTargetLost?()
+            attachedBundleID = nextClient.bundleIdentifier()
             onWillSwitchClient?(next)
         }
     }
     @discardableResult
     func detach(_ old: SaylaneInputController, leaseID: UUID) -> Bool {
         guard isCurrent(old, leaseID: leaseID) else { return false }
+        clearVoiceMarked()
         clientGeneration += 1
         lastCaretRects.removeValue(forKey: leaseID)
         controller = nil
         attachedClient = nil
         attachedLeaseID = nil
+        attachedBundleID = nil
         clientFresh = false
-        onTargetLost?()
         onWillSwitchClient?(nil)
         return true
     }
+    /// The client resolved its composition (a click, a focus move inside the
+    /// same proxy). Pinyin needs a new key callback before it writes again; a
+    /// dictation preview is withdrawn and continues in the HUD.
     func targetChanged(_ old: SaylaneInputController, leaseID: UUID) {
         guard isCurrent(old, leaseID: leaseID) else { return }
+        clearVoiceMarked()
         clientGeneration += 1
         clientFresh = false
-        onTargetLost?()
     }
 
     private func suspendCurrentClient() {
         guard controller != nil || attachedClient != nil || attachedLeaseID != nil else { return }
+        clearVoiceMarked()
         clientGeneration += 1
         if let attachedLeaseID { lastCaretRects.removeValue(forKey: attachedLeaseID) }
         controller = nil
         attachedClient = nil
         attachedLeaseID = nil
+        attachedBundleID = nil
         clientFresh = false
-        onTargetLost?()
         onWillSwitchClient?(nil)
     }
 
@@ -105,6 +119,11 @@ final class IMEManager {
         guard !text.isEmpty, isCurrentLease(leaseID),
               generation == nil || clientGeneration == generation,
               let client = attachedClient else { return false }
+        ownedInsert(text, into: client, leaseID: leaseID)
+        return true
+    }
+
+    private func ownedInsert(_ text: String, into client: any IMKTextInput, leaseID: UUID) {
         let previous = ownedInsertLeaseID
         ownedInsertLeaseID = leaseID
         ownedInsertDepth += 1
@@ -113,34 +132,53 @@ final class IMEManager {
             if ownedInsertDepth == 0 { ownedInsertLeaseID = previous }
         }
         client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
-        return true
     }
 
     func insertDeferredText(_ text: String, leaseID: UUID, generation: Int) -> Bool {
         performOwnedInsert(text, leaseID: leaseID, generation: generation)
     }
 
-    func captureTarget() -> (any CompositionTarget)? {
-        guard clientFresh, isOursSelected, let controller, let client = controller.textInputClient,
+    // MARK: - Voice
+
+    /// Dictation writes need our source selected and a client of the application
+    /// in front that is still attached. Unlike pinyin they do not need a fresh
+    /// key callback: after a click inside the same client the text belongs at
+    /// the new caret. Anything else is written without IMK by the caller.
+    private func voiceClient(inFront bundleID: String?) -> (client: any IMKTextInput, leaseID: UUID)? {
+        guard isOursSelected, let controller, let client = attachedClient,
               let leaseID = attachedLeaseID, controller.sessionID == leaseID else { return nil }
-        let token = clientGeneration
-        return CapturedComposition(
-            valid: { [weak self, weak controller] in
-                guard let self, let controller else { return false }
-                return self.clientGeneration == token && self.controller === controller
-                    && self.attachedLeaseID == leaseID && self.attachedClient === client
-                    && self.isOursSelected
-            },
-            marked: { text in
-                IMEManager.applyMarkedText(text, caret: (text as NSString).length, highlight: NSRange(location: 0, length: 0), to: client)
-            },
-            insert: { [weak self] text in
-                guard let self,
-                      self.performOwnedInsert(text, leaseID: leaseID, generation: token) else {
-                    throw SessionFailure.targetLost
-                }
-            }
-        )
+        if let bundleID, attachedBundleID != bundleID { return nil }
+        return (client, leaseID)
+    }
+
+    func canWriteVoice(inFront bundleID: String?) -> Bool { voiceClient(inFront: bundleID) != nil }
+
+    /// Show a dictation preview as marked text. False when no client accepts it.
+    @discardableResult
+    func setVoiceMarked(_ text: String, inFront bundleID: String?) -> Bool {
+        // A preview withdrawn by the client stays in the HUD until a key or a
+        // new activation proves where the caret is.
+        guard clientFresh, let target = voiceClient(inFront: bundleID) else { return false }
+        Self.applyMarkedText(text, caret: (text as NSString).length, highlight: NSRange(location: 0, length: 0), to: target.client)
+        voiceMarkedLeaseID = text.isEmpty ? nil : target.leaseID
+        return !text.isEmpty
+    }
+
+    /// Insert the final dictation. False when no client accepts it.
+    @discardableResult
+    func insertVoiceText(_ text: String, inFront bundleID: String?) -> Bool {
+        guard !text.isEmpty, let target = voiceClient(inFront: bundleID) else { return false }
+        voiceMarkedLeaseID = nil
+        ownedInsert(text, into: target.client, leaseID: target.leaseID)
+        return true
+    }
+
+    /// Withdraw the preview from the client that shows it, if it is still attached.
+    func clearVoiceMarked() {
+        guard let leaseID = voiceMarkedLeaseID else { return }
+        voiceMarkedLeaseID = nil
+        guard leaseID == attachedLeaseID, let client = attachedClient else { return }
+        Self.applyMarkedText("", caret: 0, highlight: NSRange(location: 0, length: 0), to: client)
     }
 
     @discardableResult
@@ -196,33 +234,5 @@ final class IMEManager {
             return rect
         }
         return lastCaretRects[leaseID]
-    }
-}
-
-@MainActor
-private final class CapturedComposition: CompositionTarget {
-    let valid: () -> Bool
-    let marked: (String) -> Void
-    let insert: (String) throws -> Void
-    private var ownsMarkedText = false
-    init(valid: @escaping () -> Bool, marked: @escaping (String) -> Void, insert: @escaping (String) throws -> Void) {
-        self.valid = valid; self.marked = marked; self.insert = insert
-    }
-    var isValid: Bool { valid() }
-    func setMarked(_ text: String) {
-        guard isValid else { return }
-        ownsMarkedText = true
-        marked(text)
-    }
-    func commit(_ text: String) throws {
-        guard isValid else { throw SessionFailure.targetLost }
-        ownsMarkedText = false
-        try insert(text)
-    }
-    func cancelMarked() {
-        guard ownsMarkedText else { return }
-        ownsMarkedText = false
-        guard isValid else { return }
-        marked("")
     }
 }

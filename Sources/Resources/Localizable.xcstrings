@@ -291,26 +291,6 @@
         }
       }
     },
-    "Saylane 尚未成为当前输入法，请手动选中后重试。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saylane is not the active input source. Select it manually and try again."
-          }
-        }
-      }
-    },
-    "Saylane 没有在限定时间内接入当前输入框，请点进输入框后重试。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saylane could not connect to this text field in time. Click in the field and try again."
-          }
-        }
-      }
-    },
     "Saylane 设置…": {
       "localizations": {
         "en": {
@@ -391,6 +371,16 @@
         }
       }
     },
+    "上一次听写已复制到剪贴板。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The last dictation is on the clipboard."
+          }
+        }
+      }
+    },
     "上一步": {
       "localizations": {
         "en": {
@@ -447,16 +437,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Saved keys are not shown"
-          }
-        }
-      }
-    },
-    "不支持组字的应用改用粘贴写入": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Paste into apps that cannot compose text"
           }
         }
       }
@@ -1263,22 +1243,12 @@
         }
       }
     },
-    "在其它输入法下按快捷键说话时，说完自动切回去。": {
+    "在其它输入法下、终端和部分网页应用里，把语音结果直接写到光标处；不开启时只能复制到剪贴板。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When you press the shortcut under another input method, switch back to it afterwards."
-          }
-        }
-      }
-    },
-    "在终端等不支持输入法组字的应用里，说完把文字粘贴进去。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In terminals and other apps that cannot compose text, paste the result when you finish."
+            "value": "Writes dictation at the cursor under other input methods, in terminals and in some web apps. Without it the text can only be copied to the clipboard."
           }
         }
       }
@@ -1309,6 +1279,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copy"
+          }
+        }
+      }
+    },
+    "复制上一次听写": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Last Dictation"
           }
         }
       }
@@ -1573,6 +1553,16 @@
         }
       }
     },
+    "已切换到其它应用，这次听写没有写入，文字已复制到剪贴板。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You switched to another app, so this dictation was not written. The text is on the clipboard."
+          }
+        }
+      }
+    },
     "已删除": {
       "localizations": {
         "en": {
@@ -1583,12 +1573,12 @@
         }
       }
     },
-    "已启用，按快捷键会自动选中": {
+    "已启用，其它输入法下也能按快捷键说话": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enabled; the shortcut selects it automatically"
+            "value": "Enabled; the shortcut also works under other input methods"
           }
         }
       }
@@ -1843,16 +1833,6 @@
         }
       }
     },
-    "当前应用没有可输入的文本框，或它不支持输入法组字。请点进文本框后重试。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The current app has no text field, or it does not support input-method composing. Click into a text field and try again."
-          }
-        }
-      }
-    },
     "当前是未安装的构建副本，不能注册为输入法。": {
       "localizations": {
         "en": {
@@ -1883,12 +1863,12 @@
         }
       }
     },
-    "当前没有选中 Saylane。若已允许输入监控，按住说话会自动切过来；否则请先手动切到 Saylane。": {
+    "当前没有选中 Saylane。允许输入监控后，在其它输入法下也能按住说话；否则请先手动切到 Saylane。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Saylane is not selected. With Input Monitoring allowed, holding the key switches automatically; otherwise switch to Saylane first."
+            "value": "Saylane is not selected. With Input Monitoring allowed, hold-to-talk also works under other input methods; otherwise switch to Saylane first."
           }
         }
       }
@@ -2299,16 +2279,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Text Correction"
-          }
-        }
-      }
-    },
-    "无法切换到 Saylane 输入法，请先手动选中后重试。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not switch to Saylane. Select it manually and try again."
           }
         }
       }
@@ -2884,16 +2854,6 @@
         }
       }
     },
-    "正在连接输入框…": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connecting to the text field…"
-          }
-        }
-      }
-    },
     "正常": {
       "localizations": {
         "en": {
@@ -2940,6 +2900,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No speech was recognized. Check the microphone and try again."
+          }
+        }
+      }
+    },
+    "没能直接写入，文字已复制到剪贴板，按 ⌘V 粘贴。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not write the text directly. It is on the clipboard: press ⌘V to paste."
           }
         }
       }
@@ -3420,16 +3390,6 @@
         }
       }
     },
-    "终端等应用不接受输入法组字时，说完用辅助功能把文字粘贴进去。需要辅助功能权限。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When terminals and similar apps reject input-method composing, paste the text through Accessibility when you finish. Needs the Accessibility permission."
-          }
-        }
-      }
-    },
     "结合周边文字修正划选区域的译文": {
       "localizations": {
         "en": {
@@ -3760,16 +3720,6 @@
         }
       }
     },
-    "说完后回到原来的输入法": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Return to the previous input method afterwards"
-          }
-        }
-      }
-    },
     "说话": {
       "localizations": {
         "en": {
@@ -3990,12 +3940,22 @@
         }
       }
     },
-    "还没有允许输入监控。允许后，在其它输入法下按住快捷键就会切到 Saylane 并开始语音。": {
+    "还没有允许辅助功能：在其它输入法下，或在不接受输入法写入的应用里，语音结果只能复制到剪贴板。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Input Monitoring is not allowed yet. Once allowed, holding the shortcut under another input method switches to Saylane and starts listening."
+            "value": "Accessibility is not allowed yet: under another input method, or in apps that do not accept input-method text, dictation can only be copied to the clipboard."
+          }
+        }
+      }
+    },
+    "还没有允许输入监控。允许后，在其它输入法下按住快捷键也能开始语音。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Input Monitoring is not allowed yet. Once allowed, holding the shortcut also starts dictation under other input methods."
           }
         }
       }
@@ -4006,16 +3966,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "The microphone is not allowed yet. Grant access, then return to the text field and hold the shortcut again."
-          }
-        }
-      }
-    },
-    "这个应用不支持组字，说完后会以粘贴方式写入。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This app cannot compose text; the result will be pasted when you finish."
           }
         }
       }
@@ -4046,6 +3996,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "This is an uninstalled build copy. Install with the package first."
+          }
+        }
+      }
+    },
+    "这里无法通过输入法写入，文字已复制到剪贴板，按 ⌘V 粘贴。允许“辅助功能”后会自动写入。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The input method cannot write here. The text is on the clipboard: press ⌘V to paste. Allow Accessibility to have it written automatically."
           }
         }
       }

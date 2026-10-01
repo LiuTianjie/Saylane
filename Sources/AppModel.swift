@@ -56,6 +56,9 @@ final class AppModel: VoiceSessionHost {
         let clientGeneration: Int
     }
     private var deferredIMEInput: [DeferredIMEInput] = []
+    /// The user typed on while a result was still being finalized: keys are no
+    /// longer held back for the rest of this dictation.
+    private var typingResumedDuringFinalization = false
     private let deferredInputDeadline = InputDeferralDeadline()
     private struct DeferredSettingsInput {
         let event: NSEvent
@@ -118,7 +121,6 @@ final class AppModel: VoiceSessionHost {
         wireScreen()
 
         IMEManager.shared.onWillSwitchClient = { [weak self] controller in self?.pinyin.switchClient(to: controller?.sessionID) }
-        IMEManager.shared.onTargetLost = { [weak self] in self?.voice.targetLost() }
         // IMK may activate before applicationDidFinishLaunching wires these
         // observers. Synchronize an already attached client as well.
         pinyin.switchClient(to: IMEManager.shared.controller?.sessionID)
@@ -142,7 +144,6 @@ final class AppModel: VoiceSessionHost {
             Task { @MainActor in
                 guard let self else { return }
                 self.refreshInputSourceStatus()
-                self.voice.inputSourceChanged()
                 if !self.router.isGlobalTapListening { self.startGlobalHotkeyMonitor() }
             }
         }
@@ -201,9 +202,8 @@ final class AppModel: VoiceSessionHost {
             $0.trigger = p.pushToTalk
             $0.switchEnabled = p.languageSwitchEnabled
             $0.tapToTalk = p.tapToTalk
-            $0.isListening = isListening || voice.isWaking
+            $0.isListening = isListening
             $0.voiceCapturing = voice.isCapturing
-            $0.accessibilityTarget = voice.usesAccessibilityTarget
             $0.voiceEnabled = readinessState.inputSource.enabled || isVoiceTrialActive
             $0.isOursSelected = readinessState.inputSource.selected
             $0.globalEventsCanBeConsumed = globalEventsCanBeConsumed
@@ -342,27 +342,23 @@ final class AppModel: VoiceSessionHost {
 
     /// IMK delivered a key while Saylane is the selected input source.
     func consumeIMEEvent(_ event: NSEvent) -> Bool {
+        pinyin.ensureClient(IMEManager.shared.currentLeaseID)
         if router.feed(event, source: .imk) { return true }
-        if event.type == .keyDown { voice.userResumedTyping() }
         // Optional polish never blocks typing: the ordinary result is already
         // complete and can be committed before handling this same event.
         if voice.state == .polishing {
             _ = voice.commitCompletedOutputForUserInput()
         }
         if voice.state == .finalizing {
-            let key = PinyinKeyEvent(event)
-            guard key.canDeferForVoiceFinalization,
+            // A bare modifier is not typing.
+            guard event.type == .keyDown else { return pinyin.handle(event, pushToTalk: prefs.pushToTalk) }
+            guard !typingResumedDuringFinalization, deferredIMEInput.count < 64,
+                  PinyinKeyEvent(event).canDeferForVoiceFinalization,
                   let snapshot = IMEManager.shared.deferredInputSnapshot else {
-                // Commands cannot be reconstructed through IMKTextInput. Clear
-                // marked voice text synchronously, then let the original IMK
-                // callback return false if Pinyin also declines it.
-                voice.cancel()
-                replayDeferredIMEInput()
-                return pinyin.handle(event, pushToTalk: prefs.pushToTalk)
-            }
-            guard deferredIMEInput.count < 64 else {
-                voice.cancel()
-                replayDeferredIMEInput()
+                // Commands cannot be reconstructed through IMKTextInput, so they
+                // stay on this callback. The dictation is not discarded: its
+                // preview is withdrawn and the result is written when it is ready.
+                resumeTypingDuringFinalization()
                 return pinyin.handle(event, pushToTalk: prefs.pushToTalk)
             }
             deferredIMEInput.append(DeferredIMEInput(event: event, leaseID: snapshot.leaseID,
@@ -406,9 +402,6 @@ final class AppModel: VoiceSessionHost {
     private func perform(_ action: InputAction) {
         InputDiagnostics.record("input-action", String(describing: action))
         switch action {
-        case .resumeKeyboardInput:
-            voice.cancel()
-            post(.transient(String(localized: "已继续键盘输入，本次听写已取消。")))
         case .voice(let gesture):
             switch gesture {
             case .armHold, .armTap:
@@ -504,11 +497,29 @@ final class AppModel: VoiceSessionHost {
     }
 
     func translate(_ text: String) async throws -> String { try await translation.translate(text) }
-    func captureTarget() -> (any CompositionTarget)? { IMEManager.shared.captureTarget() }
-    var hasIMKClient: Bool { IMEManager.shared.hasClient }
-    var clientBundleID: String? { IMEManager.shared.clientBundleID }
-    var clientGeneration: Int { IMEManager.shared.clientGeneration }
-    var keyboardInputRevision: UInt64 { router.deliveredKeyboardRevision }
+
+    func textSink(inFront bundleID: String?) -> VoiceTextSink {
+        let ime = IMEManager.shared
+        InputDiagnostics.record("voice-target", "imk=\(ime.canWriteVoice(inFront: bundleID)) client=\(ime.clientBundleID ?? "none") paste=\(AccessibilityInserter.isTrusted)")
+        return VoiceTextSink(
+            setMarked: { ime.setVoiceMarked($0, inFront: bundleID) },
+            clearMarked: { ime.clearVoiceMarked() },
+            insert: { [weak self] text in
+                guard ime.canWriteVoice(inFront: bundleID) else { return false }
+                // `insertText` would replace a pinyin composition typed meanwhile.
+                if self?.pinyin.isComposing == true { self?.pinyin.commit() }
+                return ime.insertVoiceText(text, inFront: bundleID)
+            },
+            paste: { AccessibilityInserter.paste($0) },
+            copy: { AccessibilityInserter.copy($0) })
+    }
+
+    /// Put the most recent dictation on the pasteboard (input-method menu).
+    func copyLastDictation() {
+        guard let text = voice.lastDictation else { return }
+        AccessibilityInserter.copy(text)
+        post(.transient(String(localized: "上一次听写已复制到剪贴板。")))
+    }
 
     func voiceSessionStateDidChange() { syncRouterContext() }
 
@@ -554,9 +565,18 @@ final class AppModel: VoiceSessionHost {
         }
         router.reset()
         syncRouterContext()
+        typingResumedDuringFinalization = false
         deferredInputDeadline.cancel()
         replayDeferredIMEInput()
         replayDeferredSettingsInput()
+    }
+
+    /// Typing wins over the wait for a recognizer tail, but never at the price
+    /// of the dictation: queued keys are written now, the result when it is ready.
+    private func resumeTypingDuringFinalization() {
+        typingResumedDuringFinalization = true
+        IMEManager.shared.clearVoiceMarked()
+        replayDeferredIMEInput()
     }
 
     private func armDeferredIMEFence() {
@@ -565,8 +585,13 @@ final class AppModel: VoiceSessionHost {
             if self.voice.state == .polishing {
                 _ = self.voice.commitCompletedOutputForUserInput()
             } else if self.voice.state == .finalizing {
-                self.voice.cancel()
-                self.post(.transient(String(localized: "已继续键盘输入，本次听写已取消。")))
+                if self.deferredSettingsInput.isEmpty {
+                    self.resumeTypingDuringFinalization()
+                } else {
+                    // The trial field has no way to order a late result after typed text.
+                    self.voice.cancel()
+                    self.post(.transient(String(localized: "已继续键盘输入，本次听写已取消。")))
+                }
             }
             self.replayDeferredIMEInput()
             self.replayDeferredSettingsInput()
@@ -673,7 +698,7 @@ final class AppModel: VoiceSessionHost {
         if router.isGlobalTapListening {
             notice = nil
         } else if !permissions.inputMonitoringGranted {
-            post(.actionable(String(localized: "还没有允许输入监控。允许后，在其它输入法下按住快捷键就会切到 Saylane 并开始语音。"), .permissions))
+            post(.actionable(String(localized: "还没有允许输入监控。允许后，在其它输入法下按住快捷键也能开始语音。"), .permissions))
         } else {
             post(.actionable(String(localized: "输入监控已允许，但全局按键监听没有成功。请再试一次，或先手动切到 Saylane。"), .permissions))
         }

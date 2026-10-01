@@ -17,13 +17,13 @@ private func onMain<T: Sendable>(_ work: @MainActor () -> T) -> T {
 
 @objc(SaylaneInputController)
 final class SaylaneInputController: IMKInputController {
-    /// Changes whenever this controller starts serving a different IMK client or
-    /// a new activation. Pinyin sessions and text writes are scoped to this lease.
+    /// Identifies one activation of this controller's client. Pinyin sessions
+    /// and text writes are scoped to it. IMK creates one controller per client,
+    /// so the lease follows activation and never the identity of a proxy
+    /// object: a key always reaches the session of the activation it belongs to.
     private(set) var sessionID: UUID?
-    private var lease = IMEClientLeaseState()
-    private var ownedSessionIDs: Set<UUID> = []
-    /// The receiver supplied by IMK for this activation. Keep it with the
-    /// controller until deactivation; all marked text and commits use this one.
+    /// The receiver IMK named in the most recent callback of this activation.
+    /// All marked text and commits use this one.
     private(set) var textInputClient: (any IMKTextInput)?
     /// The Latin layout is bound once per client, not on every key event.
     private var keyboardBound = false
@@ -31,61 +31,35 @@ final class SaylaneInputController: IMKInputController {
     override init!(server: IMKServer!, delegate: Any!, client: Any!) {
         textInputClient = client as? IMKTextInput
         super.init(server: server, delegate: delegate, client: client)
-        if let textInputClient {
-            let binding = lease.bind(textInputClient, renew: true)
-            sessionID = binding.id
-            ownedSessionIDs.insert(binding.id)
-        }
     }
 
+    /// Adopt the receiver of this callback and make sure a lease exists. Keys
+    /// may arrive without a preceding activation (Chromium), so `handle` binds too.
     @MainActor @discardableResult
-    private func bindLatinKeyboard(_ sender: Any?, renewLease: Bool = false) -> Bool {
-        let next = (sender as? IMKTextInput) ?? textInputClient ?? client()
-        guard let next else { return false }
-        let binding = lease.bind(next, renew: renewLease)
-        if binding.changed { keyboardBound = false }
-        sessionID = binding.id
-        ownedSessionIDs.insert(binding.id)
+    private func bind(_ sender: Any?, newActivation: Bool = false) -> Bool {
+        guard let next = (sender as? IMKTextInput) ?? textInputClient ?? client() else { return false }
+        if newActivation, let previous = sessionID { retire(previous) }
+        if (textInputClient as AnyObject?) !== (next as AnyObject) { keyboardBound = false }
         textInputClient = next
+        if sessionID == nil { sessionID = UUID() }
         guard !keyboardBound else { return true }
         next.overrideKeyboard(withKeyboardNamed: latinKeyboardLayout)
         keyboardBound = true
         return true
     }
 
+    /// End a lease: resolve its composition and drop everything scoped to it.
     @MainActor
-    private func callbackLease(_ sender: Any?) -> UUID? {
-        if let callback = sender as? IMKTextInput {
-            return lease.lease(matching: callback)
-        }
-        // IMK normally supplies the text client as sender. Retain a narrow
-        // fallback for hosts that only expose it through `client()`.
-        return lease.lease(matching: client())
-    }
-
-    @MainActor
-    private func invalidateLease(_ expected: UUID? = nil) {
-        if let expected {
-            let wasCurrent = sessionID == expected
-            guard lease.invalidate(expected) else { return }
-            guard wasCurrent else { return }
-        } else {
-            lease.invalidate()
-        }
-        sessionID = nil
-        textInputClient = nil
-        keyboardBound = false
-    }
-
-    @MainActor
-    private func resolveCurrentLeaseBeforeLosingClient() {
-        if let leaseID = sessionID, IMEManager.shared.isCurrent(self, leaseID: leaseID) {
+    private func retire(_ leaseID: UUID) {
+        if IMEManager.shared.isCurrent(self, leaseID: leaseID) {
+            // IMK expects the composition to be resolved when the client goes away.
             AppModel.shared.commitPinyin()
             IMEManager.shared.detach(self, leaseID: leaseID)
-            AppModel.shared.pinyin.forgetClient(leaseID)
-            ownedSessionIDs.remove(leaseID)
         }
-        invalidateLease()
+        AppModel.shared.pinyin.forgetClient(leaseID)
+        guard sessionID == leaseID else { return }
+        sessionID = nil
+        keyboardBound = false
     }
 
     override func menu() -> NSMenu! {
@@ -118,6 +92,10 @@ final class SaylaneInputController: IMKInputController {
             }
             let screen = menu.addItem(withTitle: String(localized: "截屏翻译"), action: #selector(captureScreen(_:)), keyEquivalent: "")
             screen.target = self
+            if model.voice.lastDictation != nil {
+                let copy = menu.addItem(withTitle: String(localized: "复制上一次听写"), action: #selector(copyLastDictation(_:)), keyEquivalent: "")
+                copy.target = self
+            }
             menu.addItem(.separator())
             let redeploy = menu.addItem(withTitle: String(localized: "打开 Rime 用户词库目录"), action: #selector(openRimeUserDirectory(_:)), keyEquivalent: "")
             redeploy.target = self
@@ -150,6 +128,10 @@ final class SaylaneInputController: IMKInputController {
         onMain { AppModel.shared.handleScreenCaptureHotkey() }
     }
 
+    @objc private func copyLastDictation(_ sender: Any!) {
+        onMain { AppModel.shared.copyLastDictation() }
+    }
+
     @objc private func openRimeUserDirectory(_ sender: Any!) {
         NSWorkspace.shared.open(AppDirectories.rime)
     }
@@ -164,74 +146,45 @@ final class SaylaneInputController: IMKInputController {
         nonisolated(unsafe) let me = self
         nonisolated(unsafe) let callbackSender = sender
         onMain {
-            guard me.bindLatinKeyboard(callbackSender, renewLease: true) else {
-                me.resolveCurrentLeaseBeforeLosingClient()
+            guard me.bind(callbackSender, newActivation: true) else {
                 InputDiagnostics.record("ime-activated", "client=false")
                 return
             }
-            let id = me.textInputClient?.bundleIdentifier() ?? ""
-            InputDiagnostics.record("ime-activated", "bundle=\(id) client=\(me.textInputClient != nil)")
+            InputDiagnostics.record("ime-activated", "bundle=\(me.textInputClient?.bundleIdentifier() ?? "unknown")")
             IMEManager.shared.attach(me)
         }
     }
     override func deactivateServer(_ sender: Any!) {
         nonisolated(unsafe) let me = self
-        nonisolated(unsafe) let callbackSender = sender
         onMain {
-            guard let leaseID = me.callbackLease(callbackSender) else {
-                InputDiagnostics.record("ime-deactivated", "stale-client")
+            guard let leaseID = me.sessionID else {
+                InputDiagnostics.record("ime-deactivated", "inactive")
                 return
             }
-            let current = IMEManager.shared.isCurrent(me, leaseID: leaseID)
-            InputDiagnostics.record("ime-deactivated", "current=\(current) bundle=\(me.textInputClient?.bundleIdentifier() ?? "unknown")")
-            guard current else {
-                AppModel.shared.pinyin.forgetClient(leaseID)
-                me.ownedSessionIDs.remove(leaseID)
-                me.invalidateLease(leaseID)
-                return
-            }
-            // IMK expects the composition to be resolved when the client goes away.
-            AppModel.shared.commitPinyin()
-            IMEManager.shared.detach(me, leaseID: leaseID)
-            AppModel.shared.pinyin.forgetClient(leaseID)
-            me.ownedSessionIDs.remove(leaseID)
-            me.invalidateLease(leaseID)
+            InputDiagnostics.record("ime-deactivated", "current=\(IMEManager.shared.isCurrent(me, leaseID: leaseID)) bundle=\(IMEManager.shared.clientBundleID ?? "unknown")")
+            me.retire(leaseID)
         }
         super.deactivateServer(sender)
     }
     override func commitComposition(_ sender: Any!) {
         nonisolated(unsafe) let me = self
-        nonisolated(unsafe) let callbackSender = sender
         onMain {
-            guard let leaseID = me.callbackLease(callbackSender),
-                  IMEManager.shared.isCurrent(me, leaseID: leaseID) else { return }
-            if IMEManager.shared.isPerformingOwnedInsert(me, leaseID: leaseID) {
-                return
-            }
-            if AppModel.shared.isListening {
-                // A client-side click must not submit a partially translated phrase.
-                IMEManager.shared.targetChanged(me, leaseID: leaseID)
-            } else {
-                AppModel.shared.commitPinyin()
-                // `commitComposition` is also how many hosts announce a focus
-                // move within the same app/proxy. Require a subsequent handle
-                // or activation before voice may capture this receiver again.
-                IMEManager.shared.targetChanged(me, leaseID: leaseID)
-            }
+            guard let leaseID = me.sessionID, IMEManager.shared.isCurrent(me, leaseID: leaseID) else { return }
+            // Our own `insertText` makes some clients call back synchronously.
+            if IMEManager.shared.isPerformingOwnedInsert(me, leaseID: leaseID) { return }
+            // A client-side click must not submit a partially translated phrase:
+            // while dictating, the preview is withdrawn and the dictation carries on.
+            if !AppModel.shared.isListening { AppModel.shared.commitPinyin() }
+            // `commitComposition` is also how many hosts announce a focus move
+            // within the same client. Pinyin writes again after the next key.
+            IMEManager.shared.targetChanged(me, leaseID: leaseID)
         }
     }
     override func inputControllerWillClose() {
         nonisolated(unsafe) let me = self
         onMain {
-            if let leaseID = me.sessionID, IMEManager.shared.isCurrent(me, leaseID: leaseID) {
-                AppModel.shared.commitPinyin()
-                IMEManager.shared.detach(me, leaseID: leaseID)
-            }
-            for leaseID in me.ownedSessionIDs {
-                AppModel.shared.pinyin.forgetClient(leaseID)
-            }
-            me.ownedSessionIDs.removeAll()
-            me.invalidateLease()
+            if let leaseID = me.sessionID { me.retire(leaseID) }
+            me.textInputClient = nil
         }
         super.inputControllerWillClose()
     }
@@ -241,10 +194,8 @@ final class SaylaneInputController: IMKInputController {
         nonisolated(unsafe) let keyEvent = event
         nonisolated(unsafe) let callbackSender = sender
         return onMain {
-            guard me.bindLatinKeyboard(callbackSender) else {
-                me.resolveCurrentLeaseBeforeLosingClient()
-                return false
-            }
+            // Without a receiver nothing can be written: let the application have the key.
+            guard me.bind(callbackSender) else { return false }
             IMEManager.shared.attach(me)
             if keyEvent.type == .flagsChanged {
                 InputDiagnostics.record("modifier-received", "key=\(keyEvent.keyCode) flags=\(keyEvent.modifierFlags.rawValue)")

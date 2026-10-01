@@ -203,8 +203,6 @@ struct SettingsView: View {
                 }
             }
             Toggle(String(localized: "双击右 ⌘ 切换方向"), isOn: model.binding(\.languageSwitchEnabled))
-            Toggle(String(localized: "说完后回到原来的输入法"), isOn: model.binding(\.restoreInputSourceAfterSession))
-                .help(String(localized: "在其它输入法下按快捷键说话时，说完自动切回去。"))
         } header: {
             Text(String(localized: "说话"))
         } footer: {
@@ -218,10 +216,13 @@ struct SettingsView: View {
             Toggle(String(localized: "提示里显示识别和译文"), isOn: model.binding(\.overlayShowsText))
                 .disabled(!p.overlayEnabled)
                 .help(String(localized: "在不显示组字的应用（终端、部分网页）里也能看到识别结果。"))
-            Toggle(String(localized: "不支持组字的应用改用粘贴写入"), isOn: model.binding(\.accessibilityFallbackEnabled))
-                .help(String(localized: "终端等应用不接受输入法组字时，说完用辅助功能把文字粘贴进去。需要辅助功能权限。"))
-            if p.accessibilityFallbackEnabled && !model.readinessState.permissions.accessibility {
-                LabeledContent(String(localized: "辅助功能")) {
+            if !model.readinessState.permissions.accessibility {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Label(String(localized: "还没有允许辅助功能：在其它输入法下，或在不接受输入法写入的应用里，语音结果只能复制到剪贴板。"),
+                          systemImage: "exclamationmark.triangle")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.orange)
+                    Spacer(minLength: 8)
                     Button(String(localized: "去开通")) { model.requestAccessibility() }.controlSize(.small)
                 }
             }

@@ -21,6 +21,10 @@ struct InputEvent: Equatable, Sendable {
     /// `ProcessInfo.systemUptime` at receipt.
     var timestamp: TimeInterval
 
+    /// `eventSourceUserData` of the key events Saylane posts itself (the ⌘V of a
+    /// pasted dictation). The event tap lets them through without interpreting them.
+    static let syntheticUserData: Int64 = 0x5341_594C
+
     init(source: Source, type: NSEvent.EventType, keyCode: UInt16, flags: UInt64, isRepeat: Bool, timestamp: TimeInterval) {
         self.source = source
         self.type = type
@@ -94,9 +98,6 @@ struct InputContext: Equatable, Sendable {
     /// The microphone still accepts a stop/cancel gesture. Finalization keeps the
     /// session busy but must not treat ordinary typing as a recording gesture.
     var voiceCapturing = false
-    /// AX fallback has no IMK key callback. Resuming keyboard input cancels the
-    /// pending voice write before it can use a later cursor position.
-    var accessibilityTarget = false
 }
 
 /// Keys the router owns while a screen pin is on screen.
@@ -107,7 +108,6 @@ enum ScreenPinKey: Equatable, Sendable {
 /// Everything the arbiter can ask the app to do.
 enum InputAction: Equatable, Sendable {
     case voice(InputShortcutHandler.Action)
-    case resumeKeyboardInput
     case switchDirection
     case screenCapture
     case screenHold(ScreenHoldHandler.Action)

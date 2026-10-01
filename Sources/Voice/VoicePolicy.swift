@@ -11,8 +11,6 @@ struct VoicePolicy: Equatable, Sendable {
     /// Ordinary typing may wait this long for an authoritative recognizer tail.
     /// This is deliberately independent of the recognizer/model timeout.
     var userInputFence: TimeInterval = 0.45
-    /// After a global wake, wait at most this long for the target app to attach an IMK client.
-    var clientWait: TimeInterval = 2.0
     /// Audio captured from the press until the recognizer is ready is kept up to this long.
     var prerollLimit: TimeInterval = 3.0
 

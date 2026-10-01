@@ -76,13 +76,6 @@ struct GestureArbiter {
             result.actions.append(.voice(.cancel)); result.consume = true
             return result
         }
-        if c.isListening, (event.type == .leftMouseDown || event.type == .rightMouseDown) {
-            voice.reset(); router.reset(); rightCommandTap.reset()
-            result.actions.append(.voice(.cancel))
-            // Preserve the click; cancellation prevents the final result from
-            // being committed into the newly focused field.
-            return result
-        }
 
         // Ordinary Command shortcuts or a click invalidate a right-Command tap
         // candidate. Two quick ⌘C/⌘V sequences must never switch direction.
@@ -112,12 +105,9 @@ struct GestureArbiter {
             return result
         }
 
-        // 6. Voice trigger, suppressed while a screen session is active.
-        if c.accessibilityTarget, c.isListening, !c.voiceCapturing, event.type == .keyDown {
-            voice.reset(); router.reset(); rightCommandTap.reset()
-            result.actions.append(.resumeKeyboardInput)
-            return result
-        }
+        // 6. Voice trigger, suppressed while a screen session is active. A click
+        //    or a key after the release is not a gesture: the result is written
+        //    wherever the caret is when it is ready.
         if c.screenActive || !c.voiceEnabled {
             voice.reset()
             router.reset()

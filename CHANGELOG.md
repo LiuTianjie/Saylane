@@ -2,6 +2,33 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.2.80 (local testing)
+
+Reliability pass: typing and dictation must work in every text field before anything else is tuned.
+
+### Dictation reaches every application
+
+- A press starts recording at once in any application and under any input source. Saylane no longer switches the input source, waits for the application to attach, or switches back; the whole wake/reconnect/restore state machine is gone. On-device traces showed that Electron applications (Codex, Claude) often never activate a newly selected input method, so that wait could not succeed there.
+- The finished text is written at the caret of the application the dictation started in, through the first route that works: the attached input-method client; otherwise a paste (⌘V, after which the previous clipboard contents are restored; needs Accessibility); otherwise it is left on the clipboard with a notice saying so. A dictation is never dropped because "there is no text field".
+- A click or a focus move inside the application during a dictation no longer cancels it. The inline preview is withdrawn and continues in the HUD; the result lands where the caret is when it is ready. Switching to another application stops the recording; the result is never written into the other application and is left on the clipboard unless you come back before it is ready.
+- Typing after the key is released no longer discards the dictation. A bare modifier (Shift, ⌘…) is not typing; Return, arrows, shortcuts and text typed on past the 450 ms wait go to the application at once, and the result is written when it is ready. Previously each of these cancelled the dictation, most of them without a notice.
+- "Copy Last Dictation" in the input-method menu retrieves the most recent result.
+- Removed the settings "说完后回到原来的输入法" and "不支持组字的应用改用粘贴写入": neither choice exists any more. Accessibility is listed first among the optional permissions, with what it is for.
+
+### Typing
+
+- The pinyin session is bound to the activation of an input-method controller, not to the identity of the proxy object IMK passes with each callback, and every key first makes sure the session of its own client is the active one. A key can no longer reach an engine without a session because of callback order or a different proxy object.
+- A key that cannot be handled (no receiver) is passed to the application instead of being swallowed.
+
+### Engineering
+
+- `VoiceSessionController` is about 300 lines (was 785); `FocusedTextTarget` holds the write routes and is tested without IMK, event posting or the pasteboard.
+- Saylane's own pasted ⌘V is tagged and ignored by its event tap. The paste key follows the active keyboard layout. Two pastes in quick succession restore the user's own clipboard, not the first dictation.
+- `make pkg-local` builds `dist/Saylane-<version>-local.pkg` for testing on this Mac (unsigned package). `make pkg` remains the signed and notarized release path.
+- The diagnostic trace keeps 300 entries and records the write route of each dictation (`voice-target`, `delivery`).
+
+Not yet verified on device.
+
 ## 0.2.79 (source audit; local validation)
 
 - Keep IMK writes and deferred typing bound to the exact client lease and focus generation. An insert callback caused by Saylane's own final commit no longer invalidates the next Pinyin keystroke; stale callbacks cannot write into a newly focused field.

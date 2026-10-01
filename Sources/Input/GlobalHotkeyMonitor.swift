@@ -262,6 +262,10 @@ final class GlobalHotkeyMonitor: @unchecked Sendable {
             }
             return Unmanaged.passUnretained(event)
         }
+        // Our own pasted ⌘V is not user input.
+        if event.getIntegerValueField(.eventSourceUserData) == InputEvent.syntheticUserData {
+            return Unmanaged.passUnretained(event)
+        }
         let hardwareTime = TimeInterval(event.timestamp) / 1_000_000_000
         guard let converted = InputEvent(cgType: type, event: event, timestamp: hardwareTime) else {
             return Unmanaged.passUnretained(event)

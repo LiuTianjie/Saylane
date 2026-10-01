@@ -68,6 +68,17 @@ struct PermissionsSettingsView: View {
         if !requiredOnly {
             SettingsSection {
                 permissionRow(
+                    symbol: "accessibility",
+                    title: String(localized: "辅助功能"),
+                    detail: accessibilityDetail,
+                    why: accessibilityWhy,
+                    ready: accessibilityReady,
+                    optional: !selectedHotkeyNeedsFiltering,
+                    actionTitle: String(localized: "去开通")
+                ) {
+                    model.requestAccessibility()
+                }
+                permissionRow(
                     symbol: "hand.raised.fill",
                     title: String(localized: "输入监控"),
                     detail: monitoringDetail,
@@ -102,17 +113,6 @@ struct PermissionsSettingsView: View {
                 ) {
                     model.requestScreenCapturePermission()
                 }
-                permissionRow(
-                    symbol: "accessibility",
-                    title: String(localized: "辅助功能"),
-                    detail: accessibilityDetail,
-                    why: accessibilityWhy,
-                    ready: accessibilityReady,
-                    optional: !selectedHotkeyNeedsFiltering,
-                    actionTitle: String(localized: "去开通")
-                ) {
-                    model.requestAccessibility()
-                }
             } header: {
                 Text(selectedHotkeyNeedsFiltering ? String(localized: "增强与当前快捷键") : String(localized: "可选"))
             } footer: {
@@ -125,7 +125,7 @@ struct PermissionsSettingsView: View {
         if !model.readinessState.inputSource.installedLocation { return String(localized: "请先用安装包安装") }
         if imeReady {
             if model.readinessState.inputSource.selected { return String(localized: "已选中 Saylane") }
-            if globalTriggerUsable { return String(localized: "已启用，按快捷键会自动选中") }
+            if globalTriggerUsable { return String(localized: "已启用，其它输入法下也能按快捷键说话") }
             return String(localized: "已启用；请先手动选中 Saylane")
         }
         if model.readinessState.inputSource.installed { return String(localized: "系统设置 → 键盘 → 输入法") }
@@ -163,7 +163,7 @@ struct PermissionsSettingsView: View {
         if selectedHotkeyNeedsFiltering {
             return String(localized: "当前功能键需要辅助功能权限，才能拦截按键并可靠收到松开事件；也可以改用 Option、Command、Control、Shift 或 fn。")
         }
-        return String(localized: "在终端等不支持输入法组字的应用里，说完把文字粘贴进去。")
+        return String(localized: "在其它输入法下、终端和部分网页应用里，把语音结果直接写到光标处；不开启时只能复制到剪贴板。")
     }
 
     private var accessibilityDetail: String {

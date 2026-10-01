@@ -50,7 +50,7 @@ For example, with Chinese → English selected:
 - **Separate previews from final editing.** Local cleanup and terminology corrections run at the final stage. Optional AI editing can refine the finished draft without processing every partial result.
 - **Read text on screen, too.** Capture a region and view translated text over the pinned screenshot, using local Vision OCR and Apple Translation.
 
-Text is composed through **InputMethodKit**, without clipboard-based insertion. Compatibility depends on the target application's support for native text input.
+When the focused field has attached an input-method client, text is composed and committed through **InputMethodKit**. Under another input source, or in applications that never attach a client (terminals, some Electron apps), the finished text is pasted at the caret and the previous clipboard contents are restored; this route needs the **Accessibility** permission, and without it the text stays on the clipboard.
 
 ## Get started
 
@@ -75,7 +75,7 @@ The installer opens the setup guide. Enable Saylane under **System Settings → 
 3. Hold **right Option (⌥)** and speak. A compact waveform shows recording activity while the draft appears in the field.
 4. Release to finalize. Press **Esc** to cancel the active session.
 
-The hold-to-talk key is configurable. To invoke Saylane while another input source is selected, enable **Input Monitoring** in Settings.
+The hold-to-talk key is configurable. To dictate while another input source is selected, enable **Input Monitoring** and **Accessibility** in Settings; Saylane leaves your input source as it is.
 
 ### 3. Switch language modes
 

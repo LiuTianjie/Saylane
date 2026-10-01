@@ -95,39 +95,10 @@ final class IMEManager {
 struct PinyinEngineLeaseTests {
     @MainActor
     static func main() {
-        leaseIdentity()
         pendingCommitAndClientIsolation()
         preferenceSynchronization()
         composingSessionsAreNotEvicted()
-        print("PASS: IME client leases, pending commit acknowledgement, client isolation, preference sync")
-    }
-
-    static func leaseIdentity() {
-        let a = NSObject()
-        let b = NSObject()
-        var state = IMEClientLeaseState()
-
-        let first = state.bind(a)
-        precondition(first.changed && state.lease(matching: a) == first.id)
-        let same = state.bind(a)
-        precondition(!same.changed && same.id == first.id)
-        let renewed = state.bind(a, renew: true)
-        precondition(renewed.changed && renewed.id != first.id)
-        let second = state.bind(b)
-        precondition(second.changed && state.lease(matching: a) == renewed.id)
-        precondition(state.lease(matching: b) == second.id)
-        let returned = state.bind(a)
-        precondition(returned.changed && returned.id == renewed.id,
-                     "returning to a live client must resume its own session")
-        _ = state.bind(b)
-        precondition(state.invalidate(renewed.id), "the stale client's own lease should close")
-        precondition(state.id == second.id && state.lease(matching: b) == second.id,
-                     "closing stale A must not invalidate current B")
-        let resumed = state.bind(a)
-        precondition(resumed.changed && resumed.id != renewed.id,
-                     "a client invalidated by deactivation must receive a fresh lease")
-        _ = state.bind(b)
-        precondition(state.invalidate(second.id) && state.id == nil)
+        print("PASS: pinyin sessions per IME lease, missing-session recovery, pending commit acknowledgement, client isolation, preference sync")
     }
 
     @MainActor
@@ -164,6 +135,19 @@ struct PinyinEngineLeaseTests {
         precondition(manager.inserted.count == 1 && manager.inserted[0].0 == a && manager.inserted[0].1 == "alpha")
         engine.switchClient(to: a)
         precondition(manager.inserted.count == 1, "an acknowledged commit must not be inserted twice")
+
+        // A key from a client whose activation the engine never saw (IMK attached
+        // before the app finished launching) still gets a session of its own.
+        let c = UUID()
+        manager.currentLease = c
+        let before = RimePinyinSession.created.count
+        engine.ensureClient(c)
+        precondition(RimePinyinSession.created.count == before + 1, "a key must create the missing session")
+        engine.ensureClient(c)
+        precondition(RimePinyinSession.created.count == before + 1, "an existing session is reused")
+        engine.forgetClient(c)
+        engine.ensureClient(c)
+        precondition(RimePinyinSession.created.count == before + 2, "a forgotten client is recreated on its next key")
     }
 
     @MainActor

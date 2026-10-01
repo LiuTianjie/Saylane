@@ -26,12 +26,13 @@ Sources/
                              手势识别器（保留原有测试）
     ShortcutValidator.swift  快捷键录制规则（Wispr Flow 规则 + Apple 听写冲突提示）
   Voice/                   语音功能
-    VoiceSessionController   按下 → 预录 → 全局唤起 → 会话 → 恢复输入法；HUD 接线
+    VoiceSessionController   按下 → 预录 → 会话 → 写入；HUD 接线。不切换输入法
+    VoiceTarget.swift        FocusedTextTarget：按「IMK 客户端 → 粘贴 → 剪贴板」写入前台应用的光标处
     PrerollCapture.swift     按下即开麦的环形缓冲，之后回灌给会话
     SessionCoordinator.swift 一次会话的状态机（识别、预览翻译、终稿、润色、提交）
     VoicePolicy.swift        所有超时常量
     ModelCoordinator.swift   语音 / 翻译模型的检查、下载、加载、卸载
-    AccessibilityInserter    无 IMK 客户端时的辅助功能粘贴退路
+    AccessibilityInserter    无 IMK 客户端时粘贴写入（⌘V，随后恢复剪贴板）
     OverlayController.swift  底部 HUD 面板
     MicrophoneLevelMeter     引导页麦克风电平
   Screen/                  截屏翻译

@@ -21,7 +21,7 @@ swiftc -swift-version 6 -strict-concurrency=complete "${shared[@]}" \
   Sources/Input/GlobalHotkeyMonitor.swift Sources/Input/GlobalHotkeyRouter.swift Sources/Input/InputShortcutHandler.swift \
   Sources/Input/PushToTalkHandler.swift Sources/Input/ScreenHoldHandler.swift Sources/Input/ShortcutValidator.swift \
   Sources/Voice/OverlayController.swift Sources/Views/OverlayView.swift Sources/Voice/AccessibilityInserter.swift \
-  Sources/Voice/VoiceInputEnvironment.swift Sources/Voice/VoiceSessionController.swift \
+  Sources/Voice/VoiceInputEnvironment.swift Sources/Voice/VoiceTarget.swift Sources/Voice/VoiceSessionController.swift \
   Sources/IME/InputSourceInstall.swift Sources/Support/InputDiagnostics.swift \
   Tests/VoiceSessionControllerTests.swift -o build/tests/voice-controller
 build/tests/voice-controller

@@ -1,54 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// A small, UI-independent identity state machine shared by the IMK controller
-/// and its tests. Object identity says which IMK proxy owns the lease; the UUID
-/// also distinguishes two activations that reuse the same proxy object.
-struct IMEClientLeaseState {
-    private(set) var id: UUID?
-    private(set) var identity: ObjectIdentifier?
-    private var leases: [ObjectIdentifier: (client: AnyObject, id: UUID)] = [:]
-
-    @discardableResult
-    mutating func bind(_ client: AnyObject, renew: Bool = false) -> (id: UUID, changed: Bool) {
-        let nextIdentity = ObjectIdentifier(client)
-        let changed = renew || id == nil || identity != nextIdentity
-        let nextID: UUID
-        if renew || leases[nextIdentity] == nil {
-            nextID = UUID()
-            leases[nextIdentity] = (client, nextID)
-        } else {
-            nextID = leases[nextIdentity]!.id
-        }
-        id = nextID
-        identity = nextIdentity
-        return (nextID, changed)
-    }
-
-    func lease(matching client: AnyObject?) -> UUID? {
-        guard let client else { return nil }
-        guard let entry = leases[ObjectIdentifier(client)], entry.client === client else { return nil }
-        return entry.id
-    }
-
-    @discardableResult
-    mutating func invalidate(_ lease: UUID) -> Bool {
-        guard let entry = leases.first(where: { $0.value.id == lease }) else { return false }
-        leases.removeValue(forKey: entry.key)
-        if id == lease {
-            id = nil
-            identity = nil
-        }
-        return true
-    }
-
-    mutating func invalidate() {
-        id = nil
-        identity = nil
-        leases.removeAll()
-    }
-}
-
 /// Pinyin front end. Like Squirrel, every IMK client gets its own Rime session so
 /// switching windows never commits one client's composition into another; the
 /// candidate window is shared. Preferences arrive from the store, never from defaults.
@@ -134,6 +86,13 @@ final class PinyinEngine {
             initializationError = error.localizedDescription
             activeKey = nil
         }
+    }
+
+    /// Typing must never depend on the order of earlier callbacks: before a key
+    /// is handled, the session of the client that delivered it is the active one.
+    func ensureClient(_ key: UUID?) {
+        guard activeKey != key || active == nil else { return }
+        switchClient(to: key)
     }
 
     /// The controller is going away for good.

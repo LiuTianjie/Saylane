@@ -49,7 +49,6 @@ final class InputEventRouter {
     // MARK: - Context
 
     var context: InputContext { shared.snapshotContext() }
-    var deliveredKeyboardRevision: UInt64 { shared.deliveredKeyboardRevision }
 
     func updateContext(_ mutate: (inout InputContext) -> Void) {
         shared.updateContext(mutate)
@@ -167,13 +166,7 @@ final class SharedArbiter: @unchecked Sendable {
     /// exactly one action.
     private var recent: [(event: InputEvent, consumed: Bool)] = []
     private var pendingMessages: [InputRouterMessage] = []
-    private var keyboardRevision: UInt64 = 0
     var continuation: AsyncStream<Void>.Continuation?
-
-    var deliveredKeyboardRevision: UInt64 {
-        lock.lock(); defer { lock.unlock() }
-        return keyboardRevision
-    }
 
     func snapshotContext() -> InputContext {
         lock.lock(); defer { lock.unlock() }
@@ -231,7 +224,6 @@ final class SharedArbiter: @unchecked Sendable {
         let cancelVoice = context.voiceCapturing || arbiter.isOwningGesture
         let cancelSelection = context.screenActive && !context.pinVisible
         context.globalEventsCanBeConsumed = capability == .filtering
-        keyboardRevision &+= 1
         arbiter.reset()
         recent.removeAll(keepingCapacity: true)
         var actions: [InputAction] = []
@@ -254,10 +246,6 @@ final class SharedArbiter: @unchecked Sendable {
             return GestureArbiter.Result(actions: [], consume: duplicate.consumed)
         }
         let result = arbiter.feed(event, context: context)
-        // This happens on the tap thread before the event is returned to the
-        // foreground app. An AX target reads this revision before committing,
-        // so queued MainActor cancellation cannot lose a race to final output.
-        if event.type == .keyDown && !result.consume { keyboardRevision &+= 1 }
         // A passive tap deliberately defers the screen chord to IMK so the local
         // path can consume it. Do not let that empty observation suppress the
         // later local copy. Other passive observations (notably function-key

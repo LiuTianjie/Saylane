@@ -118,12 +118,23 @@ import Carbon.HIToolbox
             precondition(esc.actions == [.recordedShortcut(nil)])
             passed += 1
         }
-        do { // Clicking while finalizing cancels without swallowing the user's click.
+        do { // A click while the result is being finalized moves the caret; it does not discard the dictation.
             var arbiter = GestureArbiter()
             var finalizing = context; finalizing.isListening = true; finalizing.voiceCapturing = false
             let click = InputEvent(source: .tap, type: .leftMouseDown, keyCode: 0,
                                    flags: 0, isRepeat: false, timestamp: 10.91)
             let result = arbiter.feed(click, context: finalizing)
+            precondition(result.actions.isEmpty && !result.consume)
+            passed += 1
+        }
+        do { // While the key is still held, a click is a chord and abandons the recording.
+            var arbiter = GestureArbiter()
+            let press = arbiter.feed(flags(rightOption, option | 0x40, 10.0), context: context)
+            precondition(press.actions == [.voice(.press)])
+            var holding = context; holding.isListening = true; holding.voiceCapturing = true
+            let click = InputEvent(source: .tap, type: .leftMouseDown, keyCode: 0,
+                                   flags: option | 0x40, isRepeat: false, timestamp: 10.5)
+            let result = arbiter.feed(click, context: holding)
             precondition(result.actions == [.voice(.cancel)] && !result.consume)
             passed += 1
         }
@@ -177,14 +188,6 @@ import Carbon.HIToolbox
             precondition(letter.actions.isEmpty && !letter.consume)
             let esc = arbiter.feed(key(UInt16(kVK_Escape), 0, 10.9), context: finalizing)
             precondition(esc.actions == [.voice(.cancel)] && esc.consume)
-            passed += 1
-        }
-        do { // AX has no IMK ordering boundary: keyboard input cancels its pending write.
-            var arbiter = GestureArbiter()
-            var fallback = context
-            fallback.isListening = true; fallback.voiceCapturing = false; fallback.accessibilityTarget = true
-            let typed = arbiter.feed(key(UInt16(kVK_ANSI_A), 0, 10.93), context: fallback)
-            precondition(typed.actions == [.resumeKeyboardInput] && !typed.consume)
             passed += 1
         }
         do { // Listen-only taps never leak a screen chord/function trigger while acting on it.

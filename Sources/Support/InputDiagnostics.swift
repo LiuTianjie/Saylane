@@ -10,7 +10,7 @@ enum InputDiagnostics {
 
     static func record(_ stage: String, _ detail: String = "") {
         entries.append(["time": formatter.string(from: Date()), "stage": stage, "detail": detail])
-        entries = Array(entries.suffix(60))
+        entries = Array(entries.suffix(300))
         guard pendingWrite == nil else { return }
         // Bound write frequency and keep file I/O off the IME/ASR main actor.
         pendingWrite = Task {

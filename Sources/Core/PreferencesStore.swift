@@ -39,8 +39,6 @@ final class PreferencesStore {
         static let pushToTalk = "pushToTalkHotkey"
         static let tapToTalk = "tapToTalk"
         static let languageSwitchEnabled = "languageSwitchEnabled"
-        static let restoreInputSource = "restoreInputSourceAfterSession"
-        static let accessibilityFallback = "accessibilityFallbackEnabled"
         static let overlayEnabled = "overlayEnabled"
         static let overlayShowsText = "overlayShowsText"
         static let speechModel = "speechModel"
@@ -121,8 +119,6 @@ final class PreferencesStore {
         p.pushToTalk = string(Key.pushToTalk).flatMap(PushToTalkHotkey.init(rawValue:)) ?? p.pushToTalk
         p.tapToTalk = bool(Key.tapToTalk, default: p.tapToTalk)
         p.languageSwitchEnabled = bool(Key.languageSwitchEnabled, default: p.languageSwitchEnabled)
-        p.restoreInputSourceAfterSession = bool(Key.restoreInputSource, default: p.restoreInputSourceAfterSession)
-        p.accessibilityFallbackEnabled = bool(Key.accessibilityFallback, default: p.accessibilityFallbackEnabled)
         p.overlayEnabled = bool(Key.overlayEnabled, default: p.overlayEnabled)
         p.overlayShowsText = bool(Key.overlayShowsText, default: p.overlayShowsText)
         p.speechModel = string(Key.speechModel).flatMap(SpeechModel.init(rawValue:)) ?? p.speechModel
@@ -167,8 +163,6 @@ final class PreferencesStore {
         put(p.pushToTalk, o.pushToTalk, Key.pushToTalk) { $0.rawValue }
         put(p.tapToTalk, o.tapToTalk, Key.tapToTalk) { $0 }
         put(p.languageSwitchEnabled, o.languageSwitchEnabled, Key.languageSwitchEnabled) { $0 }
-        put(p.restoreInputSourceAfterSession, o.restoreInputSourceAfterSession, Key.restoreInputSource) { $0 }
-        put(p.accessibilityFallbackEnabled, o.accessibilityFallbackEnabled, Key.accessibilityFallback) { $0 }
         put(p.overlayEnabled, o.overlayEnabled, Key.overlayEnabled) { $0 }
         put(p.overlayShowsText, o.overlayShowsText, Key.overlayShowsText) { $0 }
         put(p.speechModel, o.speechModel, Key.speechModel) { $0.rawValue }

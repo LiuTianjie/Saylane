@@ -13,12 +13,6 @@ struct Preferences: Equatable, Sendable {
     var pushToTalk: PushToTalkHotkey = .rightOption
     var tapToTalk = false
     var languageSwitchEnabled = true
-    /// After a global wake (pressing the key while another input source was
-    /// active), switch back to that input source when the utterance ends.
-    var restoreInputSourceAfterSession = true
-    /// When the focused app never attaches an IMK client, insert the final text
-    /// through Accessibility (paste) instead of failing. Needs the Accessibility permission.
-    var accessibilityFallbackEnabled = false
 
     // HUD
     var overlayEnabled = true
