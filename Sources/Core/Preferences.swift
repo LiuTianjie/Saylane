@@ -14,6 +14,10 @@ struct Preferences: Equatable, Sendable {
     var tapToTalk = false
     var languageSwitchEnabled = true
 
+    /// Start the main program at login, so the talk key works under any input
+    /// method without switching to Saylane first. Applies once Accessibility is allowed.
+    var launchAtLogin = true
+
     // HUD
     var overlayEnabled = true
 

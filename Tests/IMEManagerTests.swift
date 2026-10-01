@@ -2,7 +2,7 @@ import AppKit
 import InputMethodKit
 import Carbon.HIToolbox
 
-@MainActor final class SaylaneInputController {
+final class SaylaneInputController: InputClientController {
     var sessionID: UUID? = UUID()
     var textInputClient: (any IMKTextInput)?
     init(_ client: any IMKTextInput) { textInputClient = client }

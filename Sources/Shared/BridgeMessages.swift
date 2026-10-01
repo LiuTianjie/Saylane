@@ -68,6 +68,8 @@ struct BridgeContext: Codable, Equatable, Sendable {
     var screenSelecting = false
     var screenShortcutKeyCode: UInt16?
     var screenShortcutFlags: UInt64?
+    /// Hands-free dictation: a typed key ends the utterance, so it waits for the text.
+    var keysEndDictation = false
     /// How long typed keys wait for the final text before typing wins.
     var userInputFence: TimeInterval = 0.6
     var menu = BridgeMenuState()

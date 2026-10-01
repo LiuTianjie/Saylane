@@ -82,6 +82,20 @@ import Foundation
         precondition(ready, "did not reconnect after the peer restarted")
         precondition(ask("log") == "", "a restarted peer starts empty")
         server.terminate(); server.waitUntilExit()
-        print("PASS: bridge ports between two processes: absent peer, order, replies, slow peer, name collision, restart")
+
+        // A listener on its own queue keeps draining while the main thread is busy.
+        let busy = "\(name).queue"
+        let received = DispatchSemaphore(value: 0)
+        let queued = BridgeListener(name: busy, queue: DispatchQueue(label: "test.receive")) { _ in
+            received.signal()
+            return nil
+        }
+        precondition(queued != nil)
+        let toBusy = BridgeSender(name: busy)
+        for index in 0..<40 { toBusy.post(Data("post:\(index)".utf8)) }
+        // The main thread never runs its run loop here; all forty must still arrive.
+        for _ in 0..<40 { precondition(received.wait(timeout: .now() + 2) == .success, "a post was dropped") }
+        withExtendedLifetime(queued) {}
+        print("PASS: bridge ports between two processes: absent peer, order, replies, slow peer, name collision, restart, a busy receiver")
     }
 }

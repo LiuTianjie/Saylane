@@ -135,6 +135,7 @@ final class AppModel: VoiceSessionHost {
         }
         startGlobalHotkeyMonitor()
         refreshInputSourceStatus()
+        syncLoginItem()
         models.apply(prefs)
         refreshGlossaryIfNeeded()
     }
@@ -196,6 +197,7 @@ final class AppModel: VoiceSessionHost {
                 || (currentPermissions.inputMonitoring && !before.inputMonitoring) {
                 startGlobalHotkeyMonitor()
             }
+            if currentPermissions.accessibility != before.accessibility { syncLoginItem() }
         }
         reduce(.inputSource(permissionsController.inputSource))
         reduce(.globalInvoke(available: router.isGlobalTapListening))
@@ -246,6 +248,7 @@ final class AppModel: VoiceSessionHost {
             $0.screenSelecting = screenTranslate.isActive && !screenTranslate.isPinVisible
             $0.screenShortcutKeyCode = p.screenCaptureShortcut.keyCode
             $0.screenShortcutFlags = p.screenCaptureShortcut.normalizedFlags
+            $0.keysEndDictation = p.tapToTalk
             $0.userInputFence = voice.policy.userInputFence
             $0.menu = BridgeMenuState(directionTitle: direction,
                                       canSwitchDirection: p.languageSwitchEnabled && !isPreparingModels,
@@ -316,6 +319,7 @@ final class AppModel: VoiceSessionHost {
             voice.cancel(); router.reset()
             voice.overlay.setHotkeyLabel(new.pushToTalk.shortLabel)
         }
+        if new.launchAtLogin != old.launchAtLogin { syncLoginItem() }
         if new.dictationGlossaryEnabled && !old.dictationGlossaryEnabled {
             Task { await DictationGlossaryStore.shared.refreshIfStale() }
         }
@@ -477,7 +481,12 @@ final class AppModel: VoiceSessionHost {
     /// server saw it. Needs no permission and works under any input source.
     private func chordDuringHold(since interval: TimeInterval) -> Bool {
         guard prefs.pushToTalk.isModifier else { return false }
-        return CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .keyDown) < interval
+        // The hardware state: not changed by our own listener swallowing the
+        // talk key. Our own ⌘V from the previous dictation is not a chord.
+        let since = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .keyDown)
+        guard since < interval else { return false }
+        let keyAt = ProcessInfo.processInfo.systemUptime - since
+        return abs(keyAt - AccessibilityInserter.lastPasteAt) > 0.08
     }
 
     private func abandonHold() {
@@ -495,7 +504,7 @@ final class AppModel: VoiceSessionHost {
         let trigger = prefs.pushToTalk
         guard trigger.isModifier, let flag = trigger.modifierFlag else { return }
         // If the system does not show the key as held now, it cannot tell us when it is up.
-        guard CGEventSource.flagsState(.combinedSessionState).contains(flag) else {
+        guard CGEventSource.flagsState(.hidSystemState).contains(flag) else {
             InputDiagnostics.record("release-watchdog", "modifier state unavailable")
             return
         }
@@ -504,7 +513,7 @@ final class AppModel: VoiceSessionHost {
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .milliseconds(150)) } catch { return }
                 guard let self, self.voice.isCapturing else { return }
-                up = CGEventSource.flagsState(.combinedSessionState).contains(flag) ? 0 : up + 1
+                up = CGEventSource.flagsState(.hidSystemState).contains(flag) ? 0 : up + 1
                 if up >= 3 {
                     InputDiagnostics.record("release-watchdog", "talk key is up; its release was not delivered")
                     self.router.voiceTriggerLost()
@@ -669,6 +678,19 @@ final class AppModel: VoiceSessionHost {
         let granted = await permissionsController.requestMicrophone()
         if !granted, !settingsWindow.isVisible {
             post(.actionable(SetupReadiness.Blocker.microphoneDenied.message, .permissions))
+        }
+    }
+
+    /// The global talk key needs the main program to be running after a login
+    /// even when another input method is selected. Without Accessibility there
+    /// is no global talk key, and the input method starts us when it is used.
+    private func syncLoginItem() {
+        guard !TestHome.isActive, Bundle.main.bundlePath.hasPrefix("/Applications/") else { return }
+        let wanted = prefs.launchAtLogin && readinessState.permissions.accessibility
+        if let failure = LoginItem.set(wanted) {
+            InputDiagnostics.record("login-item", "failed: \(failure)")
+        } else {
+            InputDiagnostics.record("login-item", wanted ? "on" : "off")
         }
     }
 

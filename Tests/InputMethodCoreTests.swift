@@ -2,7 +2,7 @@ import AppKit
 import InputMethodKit
 import Carbon.HIToolbox
 
-@MainActor final class SaylaneInputController {
+final class SaylaneInputController: InputClientController {
     var sessionID: UUID? = UUID()
     var textInputClient: (any IMKTextInput)?
     init(_ client: any IMKTextInput) { textInputClient = client }
@@ -71,15 +71,6 @@ final class Client: NSObject, IMKTextInput {
     @MainActor static func modifier(_ code: Int, flags: NSEvent.ModifierFlags) -> NSEvent {
         NSEvent.keyEvent(with: .flagsChanged, location: .zero, modifierFlags: flags, timestamp: 1, windowNumber: 0,
                          context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: UInt16(code))!
-    }
-
-    @MainActor struct Rig {
-        let manager = IMEManager(inputSourceSelected: { true })
-        let client = Client()
-        let pinyin = FakePinyin()
-        let fence = Fence()
-        var events: [BridgeEvent] = []
-        var clock: TimeInterval = 100
     }
 
     @MainActor static func main() async {
@@ -219,6 +210,20 @@ final class Client: NSObject, IMKTextInput {
             precondition(core.voiceInsert(session: session, text: "in time", deadline: 250))
             precondition(!core.voiceInsert(session: session, text: "twice", deadline: 250), "one dictation is written once")
             precondition(client.inserted == ["in time"])
+            passed += 1
+        }
+        do { // Hands-free: the key that ends the utterance is what the user types next, so it lands after the text.
+            let (core, _, client, pinyin, _, events, _) = make()
+            let session = UUID()
+            var listening = context(1, .listening, session: session); listening.keysEndDictation = true
+            core.apply(listening)
+            precondition(core.handle(key("a", a)) && pinyin.handled.isEmpty, "the key waits")
+            precondition(events().contains("key:keyDown:0"), "and is still reported, so the utterance ends")
+            precondition(!core.handle(key("\r", kVK_Return)), "a command cannot wait and passes through")
+            var finalizing = context(2, .finalizing, session: session); finalizing.keysEndDictation = true
+            core.apply(finalizing)
+            precondition(core.voiceInsert(session: session, text: "said", deadline: 1_000))
+            precondition(client.inserted == ["said"] && pinyin.handled == ["a"], "\(client.inserted) \(pinyin.handled)")
             passed += 1
         }
         do { // The main program dies mid-dictation: typing is released at once.

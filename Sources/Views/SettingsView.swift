@@ -215,6 +215,10 @@ struct SettingsView: View {
 
         SettingsSection {
             Toggle(String(localized: "说话时显示底部提示"), isOn: model.binding(\.overlayEnabled))
+            if model.readinessState.permissions.accessibility {
+                Toggle(String(localized: "登录时启动"), isOn: model.binding(\.launchAtLogin))
+                    .help(String(localized: "开机后不用先切到 Saylane，在任何输入法下都能按键说话。"))
+            }
             if !model.readinessState.permissions.accessibility {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Label(String(localized: "还没有允许辅助功能：只有 Saylane 是当前输入法时才能按键说话；在其它输入法下不会触发，也无法直接写入。"),

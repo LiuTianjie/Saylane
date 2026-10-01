@@ -75,29 +75,36 @@ final class InputMethodCore {
         case .idle:
             return pinyin.handle(event, pushToTalk: trigger)
         case .listening:
-            // The microphone is open: a key is a chord or an interruption, not
-            // typing. The application gets it untouched.
-            return false
+            // The microphone is open. While the talk key is held, a key is a
+            // chord or a slip and the application gets it untouched. In
+            // hands-free dictation it ends the utterance: it is what the user
+            // types next, so it waits for the text it follows.
+            guard context.keysEndDictation, meta.kind == .keyDown, !typingResumed else { return false }
+            return hold(event) ?? false
         case .finalizing, .polishing:
             // A bare modifier is not typing.
             guard meta.kind == .keyDown else { return pinyin.handle(event, pushToTalk: trigger) }
-            guard !typingResumed, deferred.count < 64, PinyinKeyEvent(event).canDeferForVoiceFinalization,
-                  let snapshot = manager.deferredInputSnapshot else {
-                // Commands cannot be rebuilt through IMKTextInput, so they stay
-                // on this callback. The dictation is not lost: its preview is
-                // withdrawn and the text is written when it is ready.
-                resumeTyping()
-                return pinyin.handle(event, pushToTalk: trigger)
-            }
-            deferred.append(DeferredKey(event: event, leaseID: snapshot.leaseID, generation: snapshot.generation))
-            if !announcedTyping, let session = context.session {
-                // A finished result that is only being polished can be written now.
-                announcedTyping = true
-                send(.userTyped(session: session))
-            }
-            fence.arm(after: context.userInputFence) { [weak self] in self?.fenceExpired() }
-            return true
+            if !typingResumed, let held = hold(event) { return held }
+            // Commands cannot be rebuilt through IMKTextInput, so they stay on
+            // this callback. The dictation is not lost: its preview is
+            // withdrawn and the text is written when it is ready.
+            resumeTyping()
+            return pinyin.handle(event, pushToTalk: trigger)
         }
+    }
+
+    /// Queue a key behind the pending text. Nil when this key cannot wait.
+    private func hold(_ event: NSEvent) -> Bool? {
+        guard deferred.count < 64, PinyinKeyEvent(event).canDeferForVoiceFinalization,
+              let snapshot = manager.deferredInputSnapshot else { return nil }
+        deferred.append(DeferredKey(event: event, leaseID: snapshot.leaseID, generation: snapshot.generation))
+        if !announcedTyping, let session = context.session {
+            // A finished result that is only being polished can be written now.
+            announcedTyping = true
+            send(.userTyped(session: session))
+        }
+        fence.arm(after: context.userInputFence) { [weak self] in self?.fenceExpired() }
+        return true
     }
 
     /// Gestures are recognised in the main program, and only what a gesture can
@@ -204,7 +211,7 @@ final class InputMethodCore {
     }
 
     private func fenceExpired() {
-        guard context.phase == .finalizing || context.phase == .polishing, !deferred.isEmpty else { return }
+        guard context.phase != .idle, !deferred.isEmpty else { return }
         resumeTyping()
     }
 

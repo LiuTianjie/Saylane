@@ -129,8 +129,12 @@ check(
     "registration must run from the main program's binary, never from the input method's",
 )
 check(
-    not any("pkill" in line or "killall" in line for line in post_lines),
-    "postinstall must stop only the processes it found before registering, by pid",
+    not any(("pkill" in line or "killall" in line) and "$APP_BIN" not in line for line in post_lines),
+    "postinstall must stop the input method only by the pids it found before registering",
+)
+check(
+    0 <= postinstall.find('pkill -TERM -f "^$APP_BIN"') < launch,
+    "postinstall must make sure no main program from the previous files is left running before opening it",
 )
 kill_lines = [line for line in post_lines if re.search(r"/bin/kill\s+-TERM", line)]
 check(

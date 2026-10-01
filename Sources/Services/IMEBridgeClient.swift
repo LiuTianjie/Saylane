@@ -13,6 +13,7 @@ final class IMEBridgeClient {
     private(set) var attachedBundleID: String?
     @ObservationIgnored private let sender = BridgeSender(name: Bridge.imePortName)
     @ObservationIgnored private var listener: BridgeListener?
+    @ObservationIgnored private let receiveQueue = DispatchQueue(label: "saylane.bridge.receive", qos: .userInteractive)
     @ObservationIgnored private var context = BridgeContext()
     @ObservationIgnored private var pinyin: BridgePinyinPreferences?
     @ObservationIgnored private var watch: DispatchSourceProcess?
@@ -29,8 +30,10 @@ final class IMEBridgeClient {
     static let insertTimeout: TimeInterval = 1.5
 
     func start() {
-        listener = BridgeListener(name: Bridge.appPortName) { [weak self] data in
-            MainActor.assumeIsolated { self?.receive(data) }
+        // Events are taken off the port at once and handled in order on the
+        // main actor: a busy main thread must not fill the input method's port.
+        listener = BridgeListener(name: Bridge.appPortName, queue: receiveQueue) { [weak self] data in
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.receive(data) } }
             return nil
         }
         if listener == nil { InputDiagnostics.record("bridge-port-taken", Bridge.appPortName) }

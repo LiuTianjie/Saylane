@@ -59,6 +59,13 @@ if [[ "$CONSOLE_USER" == root || "$CONSOLE_USER" == loginwindow || -z "$CONSOLE_
   exit 0
 fi
 CONSOLE_UID="$(/usr/bin/id -u "$CONSOLE_USER")"
+# The previous input method may have started the main program again while the
+# files were being replaced. Whatever runs now must be the new version.
+/usr/bin/pkill -TERM -f "^$APP_BIN" 2>/dev/null || true
+for _ in {1..30}; do
+  /usr/bin/pgrep -f "^$APP_BIN" >/dev/null 2>&1 || break
+  /bin/sleep 0.1
+done
 # `--installed`: the app shows its guide only if something is still to be set up.
 if ! /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -H -u "$CONSOLE_USER" \
   /usr/bin/open "$APP" --args --installed; then

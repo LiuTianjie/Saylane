@@ -46,7 +46,6 @@ final class IMEHost {
     // MARK: - Start
 
     func start() {
-        InputDiagnostics.channel = "ime"
         InputDiagnostics.record("ime-start", "version=\(version) pid=\(getpid())")
         pinyinPreferences = BridgePinyinPreferences(
             englishMode: defaults.object(forKey: Key.englishMode) as? Bool ?? false,
@@ -118,35 +117,18 @@ final class IMEHost {
 
     private func post(_ event: BridgeEvent) { app.post(Bridge.encode(event)) }
 
-    private func answer(_ data: Data) -> Data? {
-        guard let request = Bridge.decode(BridgeRequest.self, from: data) else { return nil }
-        switch request {
-        case .status:
-            return Bridge.encode(BridgeReply.status(status))
-        case .context(let context):
-            watchMainProgram(context.appPID)
-            core.apply(context)
-            return Bridge.encode(BridgeReply.done(true))
-        case .pinyin(let preferences):
-            if preferences != pinyinPreferences {
-                pinyinPreferences = preferences
-                pinyin.applyPreferences(preferences)
-            }
-            return Bridge.encode(BridgeReply.done(true))
-        case .voiceMarked(let session, let seq, let text):
-            return Bridge.encode(BridgeReply.done(core.voiceMarked(session: session, seq: seq, text: text)))
-        case .voiceClear(let session):
-            core.voiceClear(session: session)
-            return Bridge.encode(BridgeReply.done(true))
-        case .voiceInsert(let session, let text, let deadline):
-            let written = core.voiceInsert(session: session, text: text, deadline: deadline)
-            InputDiagnostics.record("voice-insert", written ? "written" : "refused")
-            return Bridge.encode(BridgeReply.done(written))
-        case .voiceEnd(let session):
-            core.voiceEnd(session: session)
-            return Bridge.encode(BridgeReply.done(true))
-        }
-    }
+    private lazy var responder = BridgeResponder(
+        core: core,
+        status: { [unowned self] in self.status },
+        applyPinyin: { [unowned self] preferences in
+            guard preferences != self.pinyinPreferences else { return }
+            self.pinyinPreferences = preferences
+            self.pinyin.applyPreferences(preferences)
+        },
+        mainProgramSeen: { [unowned self] pid in self.watchMainProgram(pid) },
+        trace: { InputDiagnostics.record($0, $1) })
+
+    private func answer(_ data: Data) -> Data? { responder.answer(data) }
 
     // MARK: - Main program
 
@@ -179,6 +161,8 @@ final class IMEHost {
     /// Start it quietly when typing begins and it is not there.
     private func startMainProgram(reason: String, arguments: [String] = ["--background"],
                                   activates: Bool = false, force: Bool = false) {
+        // A test home never starts the installed product.
+        guard !TestHome.isActive else { return }
         let now = ProcessInfo.processInfo.systemUptime
         guard force || now - lastLaunchAttempt > 30 else { return }
         guard !mainProgramRunning else { return }

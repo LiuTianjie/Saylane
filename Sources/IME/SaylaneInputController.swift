@@ -16,7 +16,7 @@ private func onMain<T: Sendable>(_ work: @MainActor () -> T) -> T {
 }
 
 @objc(SaylaneInputController)
-final class SaylaneInputController: IMKInputController {
+final class SaylaneInputController: IMKInputController, InputClientController {
     /// Identifies one activation of this controller's client. Pinyin sessions
     /// and text writes are scoped to it. IMK creates one controller per client,
     /// so the lease follows activation and never the identity of a proxy

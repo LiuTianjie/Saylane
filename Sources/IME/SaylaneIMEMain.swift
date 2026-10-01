@@ -10,6 +10,14 @@ enum SaylaneIMEMain {
         if CommandLine.arguments.contains("--pinyin-self-test") {
             exit(RimeDiagnostics.run())
         }
+        MainActor.assumeIsolated { InputDiagnostics.channel = "ime" }
+        if CommandLine.arguments.contains("--self-test") {
+            // Everything but InputMethodKit's transport, without registering as an input method.
+            let application = NSApplication.shared
+            Task { @MainActor in exit(await IMESelfTest.run()) }
+            application.run()
+            return
+        }
         // Establish the IMK connection before entering the AppKit lifecycle, as a
         // dedicated input-method host. Retain it for the entire process lifetime.
         let name = Bundle.main.object(forInfoDictionaryKey: "InputMethodConnectionName") as! String

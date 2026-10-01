@@ -60,7 +60,7 @@ build/tests/input-router
 swiftc -parse-as-library -framework AppKit -framework Carbon \
   Sources/IME/Pinyin/PinyinHandling.swift Sources/IME/Pinyin/PinyinEngine.swift Tests/PinyinEngineLeaseTests.swift -o build/tests/pinyin-lease
 build/tests/pinyin-lease
-swiftc -framework AppKit -framework InputMethodKit Sources/IME/IMEManager.swift Sources/IME/CurrentInputSource.swift \
+swiftc -framework AppKit -framework InputMethodKit Sources/Shared/TestHome.swift Sources/IME/IMEManager.swift Sources/IME/CurrentInputSource.swift \
   Sources/IME/Pinyin/PinyinKeyEvent.swift Tests/IMEManagerTests.swift -o build/tests/ime-manager
 build/tests/ime-manager
 swiftc Sources/IME/InputDeferralDeadline.swift Tests/InputDeferralDeadlineTests.swift -o build/tests/input-deferral
@@ -70,6 +70,14 @@ swiftc -framework AppKit -framework InputMethodKit Sources/Shared/BridgeMessages
   Sources/IME/InputDeferralDeadline.swift Sources/IME/Pinyin/PinyinHandling.swift Sources/IME/Pinyin/PinyinKeyEvent.swift \
   Sources/Models/PushToTalkHotkey.swift Tests/InputMethodCoreTests.swift -o build/tests/ime-core
 build/tests/ime-core
+swiftc -framework AppKit -framework InputMethodKit Sources/Shared/BridgeMessages.swift Sources/Shared/BridgePort.swift Sources/Shared/TestHome.swift \
+  Sources/IME/InputMethodCore.swift Sources/IME/BridgeResponder.swift Sources/IME/IMEManager.swift Sources/IME/CurrentInputSource.swift \
+  Sources/IME/InputDeferralDeadline.swift Sources/IME/Pinyin/PinyinHandling.swift Sources/IME/Pinyin/PinyinKeyEvent.swift \
+  Sources/Models/PushToTalkHotkey.swift Sources/Services/IMEBridgeClient.swift Sources/Support/InputDiagnostics.swift \
+  Sources/Core/AppDirectories.swift Tests/BridgeEndToEndTests.swift -o build/tests/bridge-e2e
+BRIDGE_HOME="$(mktemp -d /tmp/saylane-bridge-test.XXXXXX)"
+SAYLANE_TEST_HOME="$BRIDGE_HOME" build/tests/bridge-e2e
+rm -rf "$BRIDGE_HOME"
 swiftc -framework AppKit Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Models/PushToTalkHotkey.swift Sources/Core/AppDirectories.swift Sources/Models/SpeechModel.swift Sources/Core/Preferences.swift Sources/Core/PreferencesStore.swift Tests/PreferencesStoreTests.swift -o build/tests/preferences
 build/tests/preferences
 swiftc Sources/Models/SetupReadiness.swift Sources/Models/SetupFlow.swift Sources/Core/UserNotice.swift Sources/Core/Readiness.swift Tests/ReadinessTests.swift -o build/tests/readiness

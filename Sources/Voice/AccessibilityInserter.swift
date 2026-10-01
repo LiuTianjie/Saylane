@@ -24,6 +24,8 @@ enum AccessibilityInserter {
     /// The user's own contents while a dictation sits on the pasteboard. A second
     /// paste inside the window must restore these, not the first dictation.
     @MainActor private static var pendingRestore: (items: SavedItems, ownedCount: Int)?
+    /// System uptime of our last ⌘V, so it is not mistaken for the user's typing.
+    @MainActor private(set) static var lastPasteAt: TimeInterval = -.infinity
 
     /// Paste `text` at the caret of the frontmost application, then put the
     /// user's own pasteboard contents back. Returns false when the keystroke
@@ -61,6 +63,7 @@ enum AccessibilityInserter {
         for type in transientTypes { pasteboard.setData(Data(), forType: type) }
         let ownedCount = pasteboard.changeCount
         pendingRestore = (previous, ownedCount)
+        lastPasteAt = ProcessInfo.processInfo.systemUptime
         for event in [down, up] {
             // Exactly ⌘V, whatever modifier the user may still be holding.
             event.flags = .maskCommand

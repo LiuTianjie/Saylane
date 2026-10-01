@@ -1,6 +1,14 @@
 import AppKit
 import InputMethodKit
 
+/// What the manager needs to know about an activation: its lease and the
+/// receiver InputMethodKit named. The real one is the input controller; tests
+/// and the self-test stand in for it without InputMethodKit's server.
+protocol InputClientController: AnyObject {
+    var sessionID: UUID? { get }
+    var textInputClient: (any IMKTextInput)? { get }
+}
+
 @MainActor
 final class IMEManager {
     static let shared = IMEManager()
@@ -10,7 +18,7 @@ final class IMEManager {
     }
     // Explicitly own the active controller. Deactivation clears it; the active
     // input receiver must not disappear between an IMK callback and a hotkey.
-    private(set) var controller: SaylaneInputController?
+    private(set) var controller: (any InputClientController)?
     private var attachedClient: (any IMKTextInput)?
     private var attachedLeaseID: UUID?
     /// Read once per attachment; asking the proxy is a round trip to the client.
@@ -38,7 +46,7 @@ final class IMEManager {
               controller?.sessionID == leaseID, attachedClient != nil else { return nil }
         return (leaseID, clientGeneration)
     }
-    func isCurrent(_ candidate: SaylaneInputController, leaseID: UUID) -> Bool {
+    func isCurrent(_ candidate: any InputClientController, leaseID: UUID) -> Bool {
         controller === candidate && attachedLeaseID == leaseID
     }
     func isCurrentLease(_ leaseID: UUID) -> Bool {
@@ -46,12 +54,12 @@ final class IMEManager {
     }
 
     /// The active client changed; the pinyin engine switches to that client's session.
-    var onWillSwitchClient: ((SaylaneInputController?) -> Void)?
+    var onWillSwitchClient: (((any InputClientController)?) -> Void)?
     /// A client of this application is attached (nil: none). The main program
     /// uses it to choose how a dictation is written.
     var onAttachmentChanged: ((String?) -> Void)?
 
-    func attach(_ next: SaylaneInputController) {
+    func attach(_ next: any InputClientController) {
         guard let nextClient = next.textInputClient, let nextLeaseID = next.sessionID else {
             suspendCurrentClient()
             return
@@ -75,7 +83,7 @@ final class IMEManager {
         }
     }
     @discardableResult
-    func detach(_ old: SaylaneInputController, leaseID: UUID) -> Bool {
+    func detach(_ old: any InputClientController, leaseID: UUID) -> Bool {
         guard isCurrent(old, leaseID: leaseID) else { return false }
         clearVoiceMarked()
         pinyinMarkedLeaseID = nil
@@ -93,7 +101,7 @@ final class IMEManager {
     /// The client resolved its composition (a click, a focus move inside the
     /// same proxy). Pinyin needs a new key callback before it writes again; a
     /// dictation preview is withdrawn and continues in the HUD.
-    func targetChanged(_ old: SaylaneInputController, leaseID: UUID) {
+    func targetChanged(_ old: any InputClientController, leaseID: UUID) {
         guard isCurrent(old, leaseID: leaseID) else { return }
         clearVoiceMarked()
         // The client resolved its composition itself.
@@ -121,7 +129,7 @@ final class IMEManager {
         isCurrentLease(leaseID) && clientGeneration == generation
     }
 
-    func isPerformingOwnedInsert(_ candidate: SaylaneInputController, leaseID: UUID) -> Bool {
+    func isPerformingOwnedInsert(_ candidate: any InputClientController, leaseID: UUID) -> Bool {
         ownedInsertDepth > 0 && ownedInsertLeaseID == leaseID && isCurrent(candidate, leaseID: leaseID)
     }
 

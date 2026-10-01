@@ -1,14 +1,16 @@
 import Foundation
 
 /// A named local message port. Requests are answered on the run loop of the
-/// thread that created the listener (the main thread in both processes).
+/// thread that created the listener, or on `queue` when one is given: a port
+/// only holds a few messages, so a receiver that may be busy should drain it
+/// somewhere that is not.
 final class BridgeListener {
     private var port: CFMessagePort?
     private var source: CFRunLoopSource?
     private let handler: (Data) -> Data?
 
     /// Fails when the name is already taken by another process.
-    init?(name: String, handler: @escaping (Data) -> Data?) {
+    init?(name: String, queue: DispatchQueue? = nil, handler: @escaping (Data) -> Data?) {
         self.handler = handler
         var context = CFMessagePortContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(),
                                            retain: nil, release: nil, copyDescription: nil)
@@ -20,9 +22,13 @@ final class BridgeListener {
         }
         guard let port = CFMessagePortCreateLocal(nil, name as CFString, callback, &context, nil) else { return nil }
         self.port = port
-        let source = CFMessagePortCreateRunLoopSource(nil, port, 0)
-        self.source = source
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+        if let queue {
+            CFMessagePortSetDispatchQueue(port, queue)
+        } else {
+            let source = CFMessagePortCreateRunLoopSource(nil, port, 0)
+            self.source = source
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+        }
     }
 
     func invalidate() {
