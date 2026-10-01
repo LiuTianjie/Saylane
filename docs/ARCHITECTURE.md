@@ -10,10 +10,10 @@ Saylane 提供三件事：按住快捷键说话并把识别 / 译文写进当前
 |---|---|---|
 | 位置 | `/Library/Input Methods/Saylane.app` | `/Applications/Saylane.app` |
 | Bundle ID | `com.rtranslate.inputmethod.rtranslate` | `com.rtranslate.saylane` |
-| 类型 | `LSBackgroundOnly` | `LSUIElement`，登录项 |
+| 类型 | `LSBackgroundOnly` | `LSUIElement` |
 | 负责 | IMKServer、拼音（librime）、候选窗、把文字写进当前客户端 | 触发键、录音、识别、翻译、润色、HUD、截屏翻译、设置与引导、模型 |
 | 权限 | 无 | 麦克风、语音识别、辅助功能、屏幕录制 |
-| 寿命 | 由系统按需拉起；除升级外不退出 | 可以随时退出、崩溃、被系统要求重启，打字不受影响 |
+| 寿命 | 由系统按需拉起；除升级外不退出 | 输入法挂上客户端时若未运行则在后台拉起；有辅助功能权限时还是登录项。可以随时退出、崩溃、被系统要求重启，打字不受影响 |
 
 输入法进程必须长寿：`imklaunchagent` 统计它的退出次数，30 分钟内第 11 次起所有连着它的应用会永久（直到应用重启）放弃这个输入法。所以凡是会申请权限、联网、加载模型、开窗口的代码都不在这个进程里，`scripts/stage-bundles.sh` 和 `Tests/BrandingTests.py` 会拒绝它链接 AVFoundation、Speech、ScreenCaptureKit 等框架。
 

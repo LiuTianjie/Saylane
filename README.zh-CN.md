@@ -62,7 +62,7 @@ Saylane 是一个 macOS 系统输入法，加上一个常驻后台的主程序�
 
 ```text
 /Library/Input Methods/Saylane.app    输入法
-/Applications/Saylane.app             主程序（0.3 起；登录时自动启动，没有 Dock 图标）
+/Applications/Saylane.app             主程序（0.3 起；没有 Dock 图标，由输入法按需启动）
 ```
 
 > **分发状态：** [v0.2.75](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.75) 包内应用具有 Developer ID Application 签名，但 PKG 安装器未签名，也未完成 Apple 公证。当前安装要求请参阅[安装指南](docs/安装说明.md)。

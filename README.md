@@ -62,7 +62,7 @@ Download the `.pkg` and `SHA256SUMS.txt` from [GitHub Releases](https://github.c
 
 ```text
 /Library/Input Methods/Saylane.app    the input method
-/Applications/Saylane.app             the main program (since 0.3; starts at login, no Dock icon)
+/Applications/Saylane.app             the main program (since 0.3; no Dock icon, started by the input method when needed)
 ```
 
 > **Distribution status:** the [v0.2.75 release](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.75) contains an app signed with Developer ID Application. Its PKG installer is unsigned and has not been notarized by Apple. See the [installation guide](docs/安装说明.md) for the current installation requirements.

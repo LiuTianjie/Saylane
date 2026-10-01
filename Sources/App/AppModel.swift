@@ -738,7 +738,8 @@ final class AppModel: VoiceSessionHost {
 
     private func refreshGlossaryIfNeeded() {
         _ = DictationGlossaryStore.shared.terms
-        guard prefs.dictationGlossaryEnabled else { return }
+        // A test home stays off the network.
+        guard prefs.dictationGlossaryEnabled, !TestHome.isActive else { return }
         if CommandLine.arguments.contains("--snapshot") || CommandLine.arguments.contains("--waveform-snapshot") { return }
         Task { await DictationGlossaryStore.shared.refreshIfStale() }
     }
