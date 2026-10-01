@@ -96,6 +96,7 @@ import Carbon.HIToolbox
     init() {
         prefs.sourceLanguage = .zhHans; prefs.targetLanguage = .zhHans
         prefs.overlayEnabled = false
+        prefs.voiceCuesEnabled = false
         readinessState.permissions.microphone = .granted
         readinessState.models.speechReady = true
         readinessState.models.translationReady = true

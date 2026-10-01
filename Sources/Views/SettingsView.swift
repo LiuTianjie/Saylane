@@ -118,6 +118,11 @@ struct SettingsView: View {
             .selfTestAnchor("setup-guide")
             VStack(alignment: .leading, spacing: 8) {
                 StatusText(text: model.ready ? String(localized: "已就绪") : String(localized: "待完成设置"), ready: model.ready)
+                // The program has no Dock icon and no menu of its own: this is its Quit.
+                Button(String(localized: "退出 Saylane")) { model.quitByUser() }
+                    .buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(.secondary)
+                    .help(String(localized: "退出后拼音照常可用；语音和截屏翻译停用，直到从输入法菜单再次打开设置。"))
+                    .selfTestAnchor("quit")
                 Text("Saylane \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
                     .font(.system(size: 11)).foregroundStyle(.tertiary)
             }
@@ -214,6 +219,16 @@ struct SettingsView: View {
 
         SettingsSection {
             Toggle(String(localized: "说话时显示底部提示"), isOn: model.binding(\.overlayEnabled))
+            Toggle(String(localized: "开始和结束时播放提示音"), isOn: model.binding(\.voiceCuesEnabled))
+            LabeledContent(String(localized: "麦克风")) {
+                Picker("", selection: model.binding(\.microphoneUID)) {
+                    Text(String(localized: "跟随系统")).tag(String?.none)
+                    ForEach(AudioInputDevices.all()) { device in
+                        Text(device.name).tag(String?.some(device.uid))
+                    }
+                }
+                .labelsHidden().fixedSize()
+            }
             if model.readinessState.permissions.accessibility {
                 Toggle(String(localized: "登录时启动"), isOn: model.binding(\.launchAtLogin))
                     .help(String(localized: "开机后不用先切到 Saylane，在任何输入法下都能按键说话。"))

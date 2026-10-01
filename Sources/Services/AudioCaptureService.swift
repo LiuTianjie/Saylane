@@ -5,11 +5,19 @@ final class AudioCaptureService: AudioCapturing {
     private var engine: AVAudioEngine?
     private var continuation: AsyncThrowingStream<AudioFrame, Error>.Continuation?
     private var configObserver: NSObjectProtocol?
+    /// The microphone chosen in the settings; nil is the system's default.
+    /// One that has gone away is ignored.
+    static var preferredInputUID: String?
 
     func startStream() throws -> AsyncThrowingStream<AudioFrame, Error> {
         stop()
         let engine = AVAudioEngine()
         let input = engine.inputNode
+        if let uid = Self.preferredInputUID, var device = AudioInputDevices.deviceID(uid: uid), let unit = input.audioUnit {
+            // Before the format is read: the format is the device's.
+            AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
+                                 &device, UInt32(MemoryLayout<AudioDeviceID>.size))
+        }
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else { throw SpeechEngineError.invalidFormat }
         let (stream, continuation) = AsyncThrowingStream<AudioFrame, Error>.makeStream(bufferingPolicy: .bufferingOldest(512))

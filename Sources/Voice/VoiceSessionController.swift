@@ -37,6 +37,8 @@ final class VoiceSessionController {
     weak var host: VoiceSessionHost?
     private let environment: VoiceInputEnvironment
     private let makeCapture: (TimeInterval) -> PrerollCapture
+    /// The sounds at the start and the end of listening; replaceable in tests.
+    var playCue: (VoiceCue) -> Void = { $0.play() }
 
     private var preroll: PrerollCapture?
     /// One dictation, from the start until its text is written or dropped.
@@ -283,7 +285,10 @@ final class VoiceSessionController {
             case .listening:
                 self.listeningStartedAt = ProcessInfo.processInfo.systemUptime
                 self.overlay.setPhase(.listening)
-            case .finalizing: self.overlay.setPhase(.finalizing)
+                if p?.voiceCuesEnabled == true { self.playCue(.started) }
+            case .finalizing:
+                self.overlay.setPhase(.finalizing)
+                if p?.voiceCuesEnabled == true { self.playCue(.stopped) }
             case .polishing: self.overlay.setPhase(.polishing)
             case .cancelling:
                 self.listeningStartedAt = nil

@@ -9,7 +9,7 @@ sources=(
   Sources/Models/SpeechSessionMetrics.swift Sources/Models/SpeechEngineError.swift
   Sources/Services/AudioLevel.swift Sources/Services/BufferConverter.swift
   Sources/Voice/VoicePolicy.swift Sources/Voice/SessionCoordinator.swift
-  Sources/Services/AudioCaptureService.swift Tests/AudioCaptureTests.swift
+  Sources/Services/AudioInputDevices.swift Sources/Services/AudioCaptureService.swift Tests/AudioCaptureTests.swift
 )
 for mode in debug release; do
   flags=(-Onone)

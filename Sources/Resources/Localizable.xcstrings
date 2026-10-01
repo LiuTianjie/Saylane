@@ -411,6 +411,16 @@
         }
       }
     },
+    "中文和英文、数字之间加空格": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A space between Chinese and Latin letters or digits"
+          }
+        }
+      }
+    },
     "为 macOS 而设计": {
       "localizations": {
         "en": {
@@ -967,6 +977,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Slips and personal vocabulary are corrected on this Mac, offline. Common terms are off by default; when on, they update daily from Wikipedia and Wiktionary (CC BY-SA). Audio is never uploaded."
+          }
+        }
+      }
+    },
+    "句末不加句号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No full stop at the end"
           }
         }
       }
@@ -1568,6 +1588,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Start"
+          }
+        }
+      }
+    },
+    "开始和结束时播放提示音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play a sound when listening starts and stops"
           }
         }
       }
@@ -3173,6 +3203,16 @@
         }
       }
     },
+    "聊天里常这样写。问号和感叹号保留。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As people write in chats. Question and exclamation marks stay."
+          }
+        }
+      }
+    },
     "联想": {
       "localizations": {
         "en": {
@@ -3473,6 +3513,16 @@
         }
       }
     },
+    "跟随系统": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System default"
+          }
+        }
+      }
+    },
     "转换失败 · 请重试或查看设置": {
       "localizations": {
         "en": {
@@ -3679,6 +3729,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "The connection is not fully configured; the local result is kept and nothing is sent to an unconfigured address."
+          }
+        }
+      }
+    },
+    "退出 Saylane": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit Saylane"
+          }
+        }
+      }
+    },
+    "退出后拼音照常可用；语音和截屏翻译停用，直到从输入法菜单再次打开设置。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin keeps working after quitting. Dictation and screen translation stop until the settings are opened again from the input menu."
           }
         }
       }

@@ -8,7 +8,7 @@ shared=(
   Sources/Models/SpeechSessionMetrics.swift Sources/Models/SpeechEngineError.swift
   Sources/Services/AudioLevel.swift Sources/Services/BufferConverter.swift
   Sources/Voice/VoicePolicy.swift Sources/Voice/SessionCoordinator.swift
-  Sources/Services/AudioCaptureService.swift Sources/Voice/PrerollCapture.swift
+  Sources/Services/AudioInputDevices.swift Sources/Services/AudioCaptureService.swift Sources/Voice/PrerollCapture.swift
 )
 swiftc -swift-version 6 -strict-concurrency=complete "${shared[@]}" \
   Tests/VoiceLifecycleRegressionTests.swift -o build/tests/voice-lifecycle
@@ -21,7 +21,7 @@ swiftc -swift-version 6 -strict-concurrency=complete "${shared[@]}" \
   Sources/Input/GlobalHotkeyMonitor.swift Sources/Input/VoiceGesture.swift \
   Sources/Input/RightCommandDoubleTap.swift Sources/Input/ShortcutValidator.swift \
   Sources/Voice/OverlayController.swift Sources/Views/OverlayView.swift Sources/Voice/AccessibilityInserter.swift \
-  Sources/Voice/VoiceInputEnvironment.swift Sources/Voice/VoiceTarget.swift Sources/Voice/VoiceSessionController.swift \
+  Sources/Voice/VoiceCue.swift Sources/Voice/VoiceInputEnvironment.swift Sources/Voice/VoiceTarget.swift Sources/Voice/VoiceSessionController.swift \
   Sources/Support/InputDiagnostics.swift \
   Tests/VoiceSessionControllerTests.swift -o build/tests/voice-controller
 build/tests/voice-controller

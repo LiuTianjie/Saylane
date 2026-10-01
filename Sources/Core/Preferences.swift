@@ -23,6 +23,13 @@ struct Preferences: Equatable, Sendable {
 
     // HUD
     var overlayEnabled = true
+    /// A short sound when listening starts and stops.
+    var voiceCuesEnabled = true
+    /// The microphone to use; nil is the system's default.
+    var microphoneUID: String?
+    /// How the finished text is written.
+    var dictationDropFinalStop = false
+    var dictationSpaceBetweenScripts = false
 
     // Recognition
     var speechModel: SpeechModel = .apple

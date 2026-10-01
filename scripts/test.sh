@@ -64,6 +64,8 @@ swiftc -framework AppKit -framework InputMethodKit Sources/Shared/PinyinKeyOptio
   Sources/IME/IMEManager.swift Sources/IME/CurrentInputSource.swift \
   Sources/IME/Pinyin/PinyinKeyEvent.swift Tests/IMEManagerTests.swift -o build/tests/ime-manager
 build/tests/ime-manager
+swiftc -parse-as-library Sources/Services/DictationFormat.swift Tests/DictationFormatTests.swift -o build/tests/dictation-format
+build/tests/dictation-format
 swiftc Sources/IME/InputDeferralDeadline.swift Tests/InputDeferralDeadlineTests.swift -o build/tests/input-deferral
 build/tests/input-deferral
 swiftc -framework AppKit -framework InputMethodKit Sources/Shared/PinyinKeyOptions.swift Sources/Shared/BridgeMessages.swift Sources/Shared/TestHome.swift \
@@ -83,7 +85,7 @@ swiftc -framework AppKit Sources/Models/AppLanguage.swift Sources/Screen/ScreenL
 build/tests/preferences
 swiftc Sources/Models/SetupReadiness.swift Sources/Models/SetupFlow.swift Sources/Core/UserNotice.swift Sources/Core/Readiness.swift Tests/ReadinessTests.swift -o build/tests/readiness
 build/tests/readiness
-swiftc Sources/Models/SessionState.swift Sources/Models/SpeechHypothesis.swift Sources/Models/SpeechSessionMetrics.swift Sources/Services/AudioLevel.swift Sources/Services/BufferConverter.swift Sources/Models/SpeechEngineError.swift Sources/Voice/VoicePolicy.swift Sources/Voice/SessionCoordinator.swift Sources/Services/AudioCaptureService.swift Sources/Voice/PrerollCapture.swift Tests/PrerollCaptureTests.swift -o build/tests/preroll
+swiftc Sources/Models/SessionState.swift Sources/Models/SpeechHypothesis.swift Sources/Models/SpeechSessionMetrics.swift Sources/Services/AudioLevel.swift Sources/Services/BufferConverter.swift Sources/Models/SpeechEngineError.swift Sources/Voice/VoicePolicy.swift Sources/Voice/SessionCoordinator.swift Sources/Services/AudioInputDevices.swift Sources/Services/AudioCaptureService.swift Sources/Voice/PrerollCapture.swift Tests/PrerollCaptureTests.swift -o build/tests/preroll
 build/tests/preroll
 swiftc -framework AppKit -framework CoreImage Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Screen/ScreenPinRenderer.swift Tests/ScreenPinRendererTests.swift -o build/tests/screen-pin
 build/tests/screen-pin

@@ -99,8 +99,9 @@ final class AppModel: VoiceSessionHost {
         voice.overlay.setHotkeyLabel(prefs.pushToTalk.shortLabel)
         if TestScript.isActive {
             // No translation models and nothing on the user's screen.
-            preferences.update { $0.recognitionOnly = true; $0.overlayEnabled = false }
+            preferences.update { $0.recognitionOnly = true; $0.overlayEnabled = false; $0.voiceCuesEnabled = false }
         }
+        AudioCaptureService.preferredInputUID = prefs.microphoneUID
         ime.onEvent = { [weak self] event in self?.handle(event) }
         ime.push(pinyin: pinyinPreferences)
         ime.start()
@@ -327,6 +328,7 @@ final class AppModel: VoiceSessionHost {
             voice.overlay.setHotkeyLabel(new.pushToTalk.shortLabel)
         }
         if new.launchAtLogin != old.launchAtLogin { syncLoginItem() }
+        if new.microphoneUID != old.microphoneUID { AudioCaptureService.preferredInputUID = new.microphoneUID }
         if new.dictationGlossaryEnabled && !old.dictationGlossaryEnabled {
             Task { await DictationGlossaryStore.shared.refreshIfStale() }
         }
@@ -596,19 +598,24 @@ final class AppModel: VoiceSessionHost {
     func textSink(inFront bundleID: String?, session: UUID) -> VoiceTextSink {
         let ime = ime
         let own = bundleID == Bundle.main.bundleIdentifier
+        // How the finished text is written: applied to whatever route takes it.
+        let options = DictationFormat.Options(dropFinalStop: prefs.dictationDropFinalStop,
+                                              spaceBetweenScripts: prefs.dictationSpaceBetweenScripts)
+        let format: (String) -> String = { options.isIdentity ? $0 : DictationFormat.apply($0, options) }
         InputDiagnostics.record("voice-target", "owner=\(bundleID ?? "none") input-method=\(ime.canWrite(inFront: bundleID)) attached=\(ime.attachedBundleID ?? "none") paste=\(AccessibilityInserter.isTrusted)")
         return VoiceTextSink(
             attached: { ime.canWrite(inFront: bundleID) },
             setMarked: { ime.setMarked($0, session: session, inFront: bundleID) },
             clearMarked: { ime.clearMarked(session: session) },
-            insert: { text in
+            insert: { raw in
+                let text = format(raw)
                 if ime.insert(text, session: session, inFront: bundleID) { return true }
                 // Our own text fields can always be written without anybody's help.
                 return own && LocalTextInserter.insert(text)
             },
             // A test home never posts keys and never touches the user's pasteboard.
-            paste: { TestHome.isActive ? false : AccessibilityInserter.paste($0) },
-            copy: { if TestHome.isActive { TestScript.pasteboard.append($0) } else { AccessibilityInserter.copy($0) } },
+            paste: { TestHome.isActive ? false : AccessibilityInserter.paste(format($0)) },
+            copy: { if TestHome.isActive { TestScript.pasteboard.append(format($0)) } else { AccessibilityInserter.copy(format($0)) } },
             end: { ime.end(session: session) })
     }
 

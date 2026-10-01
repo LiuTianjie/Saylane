@@ -41,6 +41,10 @@ final class PreferencesStore {
         static let languageSwitchEnabled = "languageSwitchEnabled"
         static let launchAtLogin = "launchAtLogin"
         static let overlayEnabled = "overlayEnabled"
+        static let voiceCuesEnabled = "voiceCuesEnabled"
+        static let microphoneUID = "microphoneUID"
+        static let dictationDropFinalStop = "dictationDropFinalStop"
+        static let dictationSpaceBetweenScripts = "dictationSpaceBetweenScripts"
         static let speechModel = "speechModel"
         static let recognitionOnly = "recognitionOnly"
         static let speechHotwordsEnabled = "speechHotwordsEnabled"
@@ -151,6 +155,10 @@ final class PreferencesStore {
         p.languageSwitchEnabled = bool(Key.languageSwitchEnabled, default: p.languageSwitchEnabled)
         p.launchAtLogin = bool(Key.launchAtLogin, default: p.launchAtLogin)
         p.overlayEnabled = bool(Key.overlayEnabled, default: p.overlayEnabled)
+        p.voiceCuesEnabled = bool(Key.voiceCuesEnabled, default: p.voiceCuesEnabled)
+        p.microphoneUID = string(Key.microphoneUID)
+        p.dictationDropFinalStop = bool(Key.dictationDropFinalStop, default: p.dictationDropFinalStop)
+        p.dictationSpaceBetweenScripts = bool(Key.dictationSpaceBetweenScripts, default: p.dictationSpaceBetweenScripts)
         p.speechModel = string(Key.speechModel).flatMap(SpeechModel.init(rawValue:)) ?? p.speechModel
         p.recognitionOnly = bool(Key.recognitionOnly, default: p.recognitionOnly)
         p.speechHotwordsEnabled = bool(Key.speechHotwordsEnabled, default: p.speechHotwordsEnabled)
@@ -200,6 +208,10 @@ final class PreferencesStore {
         put(p.languageSwitchEnabled, o.languageSwitchEnabled, Key.languageSwitchEnabled) { $0 }
         put(p.launchAtLogin, o.launchAtLogin, Key.launchAtLogin) { $0 }
         put(p.overlayEnabled, o.overlayEnabled, Key.overlayEnabled) { $0 }
+        put(p.voiceCuesEnabled, o.voiceCuesEnabled, Key.voiceCuesEnabled) { $0 }
+        put(p.microphoneUID, o.microphoneUID, Key.microphoneUID) { $0 }
+        put(p.dictationDropFinalStop, o.dictationDropFinalStop, Key.dictationDropFinalStop) { $0 }
+        put(p.dictationSpaceBetweenScripts, o.dictationSpaceBetweenScripts, Key.dictationSpaceBetweenScripts) { $0 }
         put(p.speechModel, o.speechModel, Key.speechModel) { $0.rawValue }
         put(p.recognitionOnly, o.recognitionOnly, Key.recognitionOnly) { $0 }
         put(p.speechHotwordsEnabled, o.speechHotwordsEnabled, Key.speechHotwordsEnabled) { $0 }
