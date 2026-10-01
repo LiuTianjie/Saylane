@@ -72,8 +72,10 @@ final class InputMethodCore {
         guard let meta = KeyMeta(event) else { return false }
         expireStalePhase()
         if meta.kind == .flagsChanged, meta.keyCode == UInt16(trigger.keyCode) {
+            let down = meta.flags & UInt64(trigger.nsModifierFlag.rawValue) != 0
             // Whether InputMethodKit delivers the talk key in this application at all.
-            trace("talk-key", "\(meta.flags & UInt64(trigger.nsModifierFlag.rawValue) != 0 ? "down" : "up") forwarded=\(!context.appOwnsKeys)")
+            trace("talk-key", "\(down ? "down" : "up") forwarded=\(!context.appOwnsKeys)")
+            if down { send(.talkKey(bundleID: manager.clientBundleID, at: meta.timestamp)) }
         }
         if !context.appOwnsKeys, forwards(meta) { send(.key(meta)) }
         if consumesLocally(meta) { return true }

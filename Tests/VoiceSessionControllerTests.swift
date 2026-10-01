@@ -62,6 +62,7 @@ import Carbon.HIToolbox
         requestedBundles.append(bundleID)
         sessions.append(session)
         return VoiceTextSink(
+            attached: { self.imkAttached },
             setMarked: { text in
                 guard self.imkAttached else { return false }
                 self.marked.append(text); return true
@@ -90,6 +91,8 @@ import Carbon.HIToolbox
     var completions: [Bool] = []
     var onState: (() -> Void)?
     var onEnd: (() -> Void)?
+    /// A panel that has the keyboard without being the application in front.
+    var panel: String?
     init() {
         prefs.sourceLanguage = .zhHans; prefs.targetLanguage = .zhHans
         prefs.overlayEnabled = false
@@ -102,6 +105,7 @@ import Carbon.HIToolbox
     func makeSpeechEngine() -> any SpeechRecognizing { let speech = Speech(); speeches.append(speech); return speech }
     func makeRefine() -> ((String) -> String)? { nil }
     func makePolish() -> ((String, String) async throws -> String)? { nil }
+    func keyboardOwner(front bundleID: String?) -> String? { panel ?? bundleID }
     func textSink(inFront bundleID: String?, session: UUID) -> VoiceTextSink { writer.sink(inFront: bundleID, session: session) }
     func post(_ notice: UserNotice) { notices.append(notice) }
     func voiceSessionDidEnd(committed: Bool) { completions.append(committed); onEnd?() }
@@ -338,6 +342,40 @@ import Carbon.HIToolbox
             precondition(f.writer.requestedBundles == ["saylane"] && f.writer.inserted == ["voice result"])
             passed += 1
         }
+        do { // A panel (Spotlight, a launcher) has the keyboard without being in front: the dictation is its own.
+            let f = Fixture()
+            f.host.panel = "launcher"
+            try await dictate(f) {
+                precondition(f.voice.targetBundleID == "launcher")
+                // The application behind it being "activated" again is not a switch away from itself.
+                f.voice.frontmostAppChanged(to: "editor", pid: 1234)
+                precondition(f.audio.running)
+            }
+            precondition(f.writer.requestedBundles == ["launcher"] && f.writer.inserted == ["voice result"])
+            precondition(f.writer.pasted.isEmpty && f.writer.copied.isEmpty && f.host.notices.isEmpty)
+            passed += 1
+        }
+        do { // The panel closed before the text was ready: the keyboard is back in the application
+             // behind it, and that is not where this was said. Kept, not pasted.
+            let f = Fixture()
+            f.host.panel = "launcher"
+            try await dictate(f) { f.writer.imkAttached = false }
+            precondition(f.writer.inserted.isEmpty && f.writer.pasted.isEmpty && f.writer.copied == ["voice result"])
+            precondition(f.host.notices.count == 1 && f.host.notices[0].level == .transient)
+            passed += 1
+        }
+        do { // Another application coming to the front ends a panel's dictation like any other.
+            let f = Fixture()
+            f.host.panel = "launcher"
+            f.voice.press(); f.audio.emit()
+            try await settleUntil { f.voice.state == .listening }
+            f.platform.front = "anotherEditor"; f.platform.frontPID = 5678
+            f.voice.frontmostAppChanged(to: "anotherEditor", pid: 5678)
+            precondition(!f.audio.running, "switching applications must stop the microphone")
+            try await settleUntil { !f.voice.isListening }
+            precondition(f.writer.inserted.isEmpty && f.writer.pasted.isEmpty && f.writer.copied == ["voice result"])
+            passed += 1
+        }
         do { // A key or a click right after the start: the press was a shortcut. Nothing is written or kept.
             let f = Fixture()
             f.voice.press(); f.audio.emit(4)
@@ -408,6 +446,6 @@ import Carbon.HIToolbox
             precondition(!f.audio.running && !router.context.isListening && f.writer.inserted.count == 1)
             passed += 1
         }
-        print("PASS: \(passed) voice-controller scenarios: talk key through the router, input-method / paste / pasteboard delivery, lost and late clients, quick release, focus, interruptions, toggle/Esc")
+        print("PASS: \(passed) voice-controller scenarios: talk key through the router, input-method / paste / pasteboard delivery, lost and late clients, quick release, focus, panels, interruptions, toggle/Esc")
     }
 }

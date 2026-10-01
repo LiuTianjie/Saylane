@@ -133,10 +133,11 @@ struct GestureArbiter {
             guard c.trigger.isModifier else { break }
             if isTrigger {
                 let down = Self.isDown(c.trigger, flags: event.flags)
+                // Observed, never swallowed: a modifier does nothing by itself,
+                // applications that follow modifiers keep seeing it, and the
+                // input method learns from it which client has the keyboard.
                 actions = voice.trigger(down: down, alone: Self.isAlone(c.trigger, flags: event.flags),
                                         now: now, config: config)
-                // As before: the talk key's own press and release stay with us.
-                result.consume = true
             } else if event.keyCode != UInt16(kVK_CapsLock), Self.otherModifierDown(c.trigger, flags: event.flags) {
                 actions = voice.other(.modifier)
             }

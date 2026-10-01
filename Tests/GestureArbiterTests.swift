@@ -22,18 +22,19 @@ import Carbon.HIToolbox
         context.trigger = .rightOption
         context.globalEventsCanBeConsumed = true
 
-        // Right Option held on its own is the voice gesture; its own events are consumed.
+        // Right Option held on its own is the voice gesture. A modifier is
+        // observed, never swallowed: applications keep seeing it.
         do {
             var arbiter = GestureArbiter()
             let press = arbiter.feed(flags(rightOption, option | 0x40, 1.0), context: context)
-            precondition(press.actions.isEmpty && press.consume, "nothing happens on key-down")
+            precondition(press.actions.isEmpty && !press.consume, "nothing happens on key-down")
             precondition(arbiter.voiceGestureActive && arbiter.nextVoiceDeadline == 1.12)
             precondition(arbiter.voiceDeadline(now: 1.05).isEmpty)
             precondition(arbiter.voiceDeadline(now: 1.12) == [.voice(.prewarm)])
             precondition(arbiter.voiceDeadline(now: 1.28) == [.voice(.start)])
             var active = context; active.isListening = true; active.voiceCapturing = true
             let release = arbiter.feed(flags(rightOption, 0, 1.5), context: active)
-            precondition(release.actions == [.voice(.stop)] && release.consume)
+            precondition(release.actions == [.voice(.stop)] && !release.consume)
             precondition(!arbiter.voiceGestureActive)
             passed += 1
         }
@@ -99,7 +100,7 @@ import Carbon.HIToolbox
             var rc = context; rc.trigger = .rightCommand
             let mask = PushToTalkHotkey.rightCommand.deviceMask
             let down = arbiter.feed(flags(rightCommand, command | mask, 8.0), context: rc)
-            precondition(down.actions.isEmpty && down.consume)
+            precondition(down.actions.isEmpty && !down.consume)
             precondition(arbiter.voiceDeadline(now: 8.3) == [.voice(.prewarm), .voice(.start)])
             passed += 1
         }
@@ -157,7 +158,7 @@ import Carbon.HIToolbox
             var arbiter = GestureArbiter()
             var shared = context; shared.trigger = .leftControl; shared.screenHoldEnabled = true
             let result = arbiter.feed(flags(leftControl, leftMask, 10.94), context: shared)
-            precondition(result.actions.isEmpty && result.consume)
+            precondition(result.actions.isEmpty && !result.consume)
             precondition(arbiter.voiceDeadline(now: 11.3) == [.voice(.prewarm), .voice(.start)])
             precondition(arbiter.screenHoldDeadline(now: 11.4) == nil)
             passed += 1
@@ -168,7 +169,7 @@ import Carbon.HIToolbox
             let leftCommand = UInt16(kVK_Command)
             let mask = PushToTalkHotkey.leftCommand.deviceMask
             let down = arbiter.feed(flags(leftCommand, command | mask, 12.0), context: lc)
-            precondition(down.actions.isEmpty)
+            precondition(down.actions.isEmpty && !down.consume, "the application sees ⌘ go down")
             let w = arbiter.feed(key(UInt16(kVK_ANSI_W), command | mask, 12.08), context: lc)
             precondition(w.actions.isEmpty && !w.consume, "⌘W reaches the application untouched: \(w.actions)")
             precondition(arbiter.nextVoiceDeadline == nil && arbiter.voiceDeadline(now: 12.5).isEmpty)

@@ -21,7 +21,7 @@ import Carbon.HIToolbox
 
         // One physical hold delivered by IMK alone: nothing on key-down, then the
         // router's own timer opens the microphone and starts the dictation.
-        precondition(router.feed(event(.imk, flags: option, at: clock)))
+        precondition(!router.feed(event(.imk, flags: option, at: clock)), "a modifier is never swallowed")
         precondition(actions.isEmpty)
         await settle(60)
         precondition(actions.isEmpty, "fired before its deadline")
@@ -33,7 +33,7 @@ import Carbon.HIToolbox
         precondition(actions == [.voice(.prewarm), .voice(.start)], "\(actions)")
         router.updateContext { $0.isListening = true; $0.voiceCapturing = true }
         clock += 0.5
-        precondition(router.feed(event(.imk, flags: 0, at: clock)))
+        precondition(!router.feed(event(.imk, flags: 0, at: clock)))
         precondition(actions == [.voice(.prewarm), .voice(.start), .voice(.stop)])
         router.updateContext { $0.isListening = false; $0.voiceCapturing = false }
         actions = []
@@ -84,8 +84,8 @@ import Carbon.HIToolbox
         clock = 200
         let first = event(.imk, flags: option, at: 200)
         let laterTap = event(.tap, flags: option, at: 200.01)
-        precondition(router.feed(first))
-        precondition(router.feed(laterTap))
+        precondition(!router.feed(first))
+        precondition(!router.feed(laterTap))
         clock = 200.3
         await settle(340)
         precondition(actions == [.voice(.prewarm), .voice(.start)], "reverse-order duplicate dispatched twice: \(actions)")
@@ -101,7 +101,7 @@ import Carbon.HIToolbox
         clock += 0.3
         await settle(200)
         precondition(actions == [.voice(.prewarm), .voice(.discard)], "\(actions)")
-        precondition(!router.feed(event(.imk, flags: 0, at: clock)) || actions.count == 2)
+        precondition(!router.feed(event(.imk, flags: 0, at: clock)) && actions.count == 2)
 
         // Mouse-only monitoring must never promote global keyboard readiness.
         precondition(GlobalHotkeyMonitor.keyboardStartPlan(canObserve: false, canFilter: false).isEmpty)

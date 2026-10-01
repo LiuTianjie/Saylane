@@ -15,6 +15,20 @@ enum Bridge {
     static let defaultsSuite = TestHome.isActive ? "local.saylane.test" : imeBundleID
     static let imeBundlePath = "/Library/Input Methods/Saylane.app"
 
+    /// A dictation starts at most this long after its talk key went down
+    /// (a hold, or a tap that waited for a possible second tap).
+    static let talkKeyFreshness: TimeInterval = 2
+
+    /// Whether a text client reported by InputMethodKit belongs to an
+    /// application. Chromium and Electron host their text fields in helper
+    /// processes whose identifier extends the application's
+    /// (`com.electron.lark` → `com.electron.lark.helper`).
+    static func client(_ clientBundleID: String?, belongsTo applicationBundleID: String?) -> Bool {
+        guard let applicationBundleID else { return true }
+        guard let clientBundleID else { return false }
+        return clientBundleID == applicationBundleID || clientBundleID.hasPrefix(applicationBundleID + ".")
+    }
+
     static func encode<T: Encodable>(_ value: T) -> Data { (try? JSONEncoder().encode(value)) ?? Data() }
     static func decode<T: Decodable>(_ type: T.Type, from data: Data?) -> T? {
         guard let data, !data.isEmpty else { return nil }
@@ -120,6 +134,10 @@ enum BridgeEvent: Codable, Sendable {
     /// A client of this application is attached; nil when none is.
     case attachment(bundleID: String?)
     case key(KeyMeta)
+    /// The talk key went down in the attached client (system uptime). Keys go
+    /// to whoever has the keyboard, so this client has it, whichever
+    /// application is in front. Sent whether or not keys are forwarded.
+    case talkKey(bundleID: String?, at: TimeInterval)
     /// The first key typed while the final text is pending. It waits; a result
     /// that is only being polished should be written now.
     case userTyped(session: UUID)

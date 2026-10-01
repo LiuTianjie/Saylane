@@ -85,6 +85,7 @@ final class Client: NSObject, IMKTextInput {
             let core = InputMethodCore(manager: manager, pinyin: pinyin, send: { event in
                 switch event {
                 case .key(let meta): box.events.append("key:\(meta.kind.rawValue):\(meta.keyCode)")
+                case .talkKey(let bundleID, let at): box.events.append("talkKey:\(bundleID ?? "none")@\(Int(at))")
                 case .userTyped: box.events.append("userTyped")
                 case .typingResumed: box.events.append("typingResumed")
                 default: box.events.append("other")
@@ -109,7 +110,7 @@ final class Client: NSObject, IMKTextInput {
             precondition(pinyin.handled == ["a"] && events().isEmpty, "plain typing must not be forwarded")
             precondition(!core.handle(modifier(kVK_Command, flags: .command)))
             precondition(!core.handle(key("w", kVK_ANSI_W, flags: .command)))
-            precondition(events() == ["key:flagsChanged:55", "key:keyDown:13"], "\(events())")
+            precondition(events() == ["talkKey:test.editor@1", "key:flagsChanged:55", "key:keyDown:13"], "\(events())")
             // The screen shortcut is swallowed here and acted on by the main program.
             precondition(core.handle(key("†", kVK_ANSI_T, flags: .option)))
             precondition(events().last == "key:keyDown:17")
@@ -120,9 +121,14 @@ final class Client: NSObject, IMKTextInput {
         do { // The main program listens to keys itself: nothing is forwarded, nothing is swallowed for it.
             let (core, _, _, _, _, events, _) = make()
             core.apply(context(1, .idle, ownsKeys: true))
-            _ = core.handle(modifier(kVK_Command, flags: .command))
+            precondition(!core.handle(modifier(kVK_Command, flags: .command)), "the talk key is never swallowed")
             precondition(!core.handle(key("†", kVK_ANSI_T, flags: .option)))
-            precondition(events().isEmpty)
+            // Only where the talk key went down is reported: it tells the main
+            // program which client has the keyboard. Its release, other
+            // modifiers and every other key stay here.
+            precondition(!core.handle(modifier(kVK_Command, flags: [])))
+            precondition(!core.handle(modifier(kVK_Option, flags: .option)))
+            precondition(events() == ["talkKey:test.editor@1"], "\(events())")
             passed += 1
         }
         do { // Listening: a composition is committed first, keys pass through, Esc is swallowed.

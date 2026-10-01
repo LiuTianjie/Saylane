@@ -191,6 +191,9 @@ enum IMESelfTest {
     /// started in the same test home with a scripted recognizer. Keys go in here
     /// exactly as InputMethodKit would deliver them; the dictation they start
     /// in the other process must come back as text in this process's client.
+    /// `SAYLANE_TEST_FRONT` is the application the main program believes is in
+    /// front: this client's own, or another one — then the client is a panel
+    /// over it (Spotlight, a launcher) and must be written all the same.
     static func runDuo() async -> Int32 {
         setvbuf(stdout, nil, _IONBF, 0)
         guard TestHome.isActive, let expected = ProcessInfo.processInfo.environment["SAYLANE_TEST_SPEECH"], !expected.isEmpty else {
@@ -202,6 +205,9 @@ enum IMESelfTest {
         let client = Client()
         let controller = StandIn(client: client)
         IMEManager.shared.attach(controller)
+        let front = ProcessInfo.processInfo.environment["SAYLANE_TEST_FRONT"] ?? "unknown"
+        print(front == client.bundleIdentifier() ? "the client's application is in front"
+                                                 : "the client is a panel over \(front)")
         check(await wait(15) { host.mainProgramConnected }, "the main program found the input method and introduced itself")
         guard host.mainProgramConnected else { return 1 }
         let trigger = host.trigger

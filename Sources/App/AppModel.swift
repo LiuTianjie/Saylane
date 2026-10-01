@@ -413,7 +413,7 @@ final class AppModel: VoiceSessionHost {
             if voice.sessionID == session, voice.state == .polishing {
                 _ = voice.commitCompletedOutputForUserInput()
             }
-        case .typingResumed:
+        case .typingResumed, .talkKey:
             break
         case .menu(let action):
             perform(action)
@@ -594,11 +594,14 @@ final class AppModel: VoiceSessionHost {
 
     func translate(_ text: String) async throws -> String { try await translation.translate(text) }
 
+    func keyboardOwner(front bundleID: String?) -> String? { ime.keyboardOwner(front: bundleID) }
+
     func textSink(inFront bundleID: String?, session: UUID) -> VoiceTextSink {
         let ime = ime
         let own = bundleID == Bundle.main.bundleIdentifier
-        InputDiagnostics.record("voice-target", "front=\(bundleID ?? "none") input-method=\(ime.canWrite(inFront: bundleID)) attached=\(ime.attachedBundleID ?? "none") paste=\(AccessibilityInserter.isTrusted)")
+        InputDiagnostics.record("voice-target", "owner=\(bundleID ?? "none") input-method=\(ime.canWrite(inFront: bundleID)) attached=\(ime.attachedBundleID ?? "none") paste=\(AccessibilityInserter.isTrusted)")
         return VoiceTextSink(
+            attached: { ime.canWrite(inFront: bundleID) },
             setMarked: { ime.setMarked($0, session: session, inFront: bundleID) },
             clearMarked: { ime.clearMarked(session: session) },
             insert: { text in

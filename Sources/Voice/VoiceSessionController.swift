@@ -12,6 +12,9 @@ protocol VoiceSessionHost: AnyObject {
     func makeRefine() -> ((String) -> String)?
     func makePolish() -> ((String, String) async throws -> String)?
     func translate(_ text: String) async throws -> String
+    /// The application that has the keyboard while `bundleID` is the one in
+    /// front: a panel such as Spotlight takes keys without coming to the front.
+    func keyboardOwner(front bundleID: String?) -> String?
     /// The ways to write into the application whose bundle is `bundleID`.
     func textSink(inFront bundleID: String?, session: UUID) -> VoiceTextSink
     func post(_ notice: UserNotice)
@@ -36,7 +39,10 @@ final class VoiceSessionController {
     private var preroll: PrerollCapture?
     /// One dictation, from the start until its text is written or dropped.
     private(set) var sessionID: UUID?
+    /// The application the dictation belongs to: the one that had the keyboard.
     private(set) var targetBundleID: String?
+    /// The application in front at the press, and its process.
+    private var frontBundleID: String?
     private var targetPID: pid_t?
     private var target: FocusedTextTarget?
     private var sink: VoiceTextSink?
@@ -145,7 +151,8 @@ final class VoiceSessionController {
         let p = host.prefs
         let readiness = host.voiceReadiness
         let front = environment.frontmostBundleID()
-        record("start-check", "selected=\(readiness.inputSource.selected) front=\(front ?? "none") mic=\(readiness.permissions.microphone == .granted) speech=\(readiness.models.speechReady) translation=\(readiness.models.translationReady) checking=\(readiness.models.busy)")
+        let owner = host.keyboardOwner(front: front)
+        record("start-check", "selected=\(readiness.inputSource.selected) front=\(front ?? "none")\(owner == front ? "" : " keyboard=" + (owner ?? "none")) mic=\(readiness.permissions.microphone == .granted) speech=\(readiness.models.speechReady) translation=\(readiness.models.translationReady) checking=\(readiness.models.busy)")
 
         if let blocker = readiness.blocker {
             fail(.actionable(blocker.message, ReadinessReducer.destination(for: blocker)))
@@ -154,15 +161,19 @@ final class VoiceSessionController {
         let pid = environment.frontmostPID()
         let environment = self.environment
         let session = UUID()
-        let sink = host.textSink(inFront: front, session: session)
+        let sink = host.textSink(inFront: owner, session: session)
+        // A panel has no other sign of life than the input method's attachment:
+        // once that is gone the keyboard is back in the application behind it.
+        let panel = owner != front
         let target = FocusedTextTarget(sink: sink) {
-            pid == nil || environment.frontmostPID() == pid
+            (pid == nil || environment.frontmostPID() == pid) && (!panel || sink.attached())
         }
         target.onDelivery = { [weak self] delivery, text in self?.delivered(delivery, text: text) }
         sessionID = session
         self.sink = sink
         self.target = target
-        targetBundleID = front
+        targetBundleID = owner
+        frontBundleID = front
         targetPID = pid
 
         let capture: any AudioCapturing = preroll ?? makeCapture(policy.prerollLimit)
@@ -212,7 +223,7 @@ final class VoiceSessionController {
     /// ready it is left on the pasteboard.
     func frontmostAppChanged(to bundleID: String?, pid: pid_t? = nil) {
         guard isListening else { return }
-        let sameBundle = targetBundleID == nil || bundleID == targetBundleID
+        let sameBundle = frontBundleID == nil || bundleID == frontBundleID
         let sameProcess = targetPID == nil || pid == targetPID
         guard !(sameBundle && sameProcess) else { return }
         record("app-switched", "to \(bundleID ?? "none") pid=\(pid.map(String.init) ?? "none") capturing=\(isCapturing)")
@@ -311,6 +322,7 @@ final class VoiceSessionController {
         target = nil
         sessionID = nil
         targetBundleID = nil
+        frontBundleID = nil
         targetPID = nil
     }
 }

@@ -127,6 +127,20 @@ final class Client: NSObject, IMKTextInput {
         precondition(manager.clientGeneration == epoch)
         precondition(manager.insertPinyin("x", leaseID: controllerC.sessionID!)
                      && c2.inserted == ["x"] && c1.inserted.isEmpty)
+        // Chromium and Electron hosts report a helper process as the client:
+        // it belongs to the application whose identifier it extends, and to no other.
+        do {
+            let manager = IMEManager(inputSourceSelected: { true })
+            let helper = Client()
+            helper.bundle = "test.editor.helper"
+            manager.attach(SaylaneInputController(helper))
+            precondition(manager.clientBundleID == "test.editor.helper")
+            precondition(manager.canWriteVoice(inFront: "test.editor") && manager.canWriteVoice(inFront: "test.editor.helper"))
+            precondition(!manager.canWriteVoice(inFront: "test.edit") && !manager.canWriteVoice(inFront: "test.editor.helper.gpu"))
+            precondition(manager.insertVoiceText("said", inFront: "test.editor") && helper.inserted == ["said"])
+            precondition(!manager.insertVoiceText("elsewhere", inFront: "another.app") && helper.inserted == ["said"])
+            precondition(Bridge.client("a.b", belongsTo: nil) && !Bridge.client(nil, belongsTo: "a.b"))
+        }
         print("PASS: exact IME epochs, owned final insertion, stale-focus rejection, voice writes by attachment, deferred text/command boundary")
     }
 }

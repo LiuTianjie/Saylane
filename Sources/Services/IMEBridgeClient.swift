@@ -11,6 +11,8 @@ final class IMEBridgeClient {
     private(set) var status: BridgeIMEStatus?
     /// The application whose client the input method is attached to.
     private(set) var attachedBundleID: String?
+    /// The client the talk key last went down in, and when (system uptime).
+    @ObservationIgnored private var talkKey: (bundleID: String, at: TimeInterval)?
     @ObservationIgnored private let sender = BridgeSender(name: Bridge.imePortName)
     @ObservationIgnored private var listener: BridgeListener?
     @ObservationIgnored private let receiveQueue = DispatchQueue(label: "saylane.bridge.receive", qos: .userInteractive)
@@ -71,10 +73,23 @@ final class IMEBridgeClient {
 
     // MARK: - Dictation
 
+    /// The application a dictation started now belongs to. A panel — Spotlight,
+    /// a launcher, a quick-entry window — takes the keyboard without becoming
+    /// the application in front. When this press of the talk key arrived
+    /// through the client the input method is attached to, that client has the
+    /// keyboard and the dictation is its application's.
+    func keyboardOwner(front bundleID: String?) -> String? {
+        guard isConnected, !protocolMismatch, let attachedBundleID, let talkKey,
+              talkKey.bundleID == attachedBundleID,
+              ProcessInfo.processInfo.systemUptime - talkKey.at <= Bridge.talkKeyFreshness,
+              !Bridge.client(attachedBundleID, belongsTo: bundleID) else { return bundleID }
+        return attachedBundleID
+    }
+
     /// The input method is selected and attached to a client of this application.
     func canWrite(inFront bundleID: String?) -> Bool {
-        guard isConnected, !protocolMismatch, let attachedBundleID else { return false }
-        return bundleID == nil || bundleID == attachedBundleID
+        guard isConnected, !protocolMismatch, attachedBundleID != nil else { return false }
+        return Bridge.client(attachedBundleID, belongsTo: bundleID)
     }
 
     /// Show a preview at the caret. The answer is not awaited: the newest text wins.
@@ -124,6 +139,8 @@ final class IMEBridgeClient {
             attachedBundleID = bundleID
             // An event from a process we have not heard a hello from: find out who it is.
             if status == nil { refreshStatus() }
+        case .talkKey(let bundleID, let at):
+            talkKey = bundleID.map { ($0, at) }
         default:
             break
         }
@@ -148,6 +165,7 @@ final class IMEBridgeClient {
         InputDiagnostics.record("input-method", "gone")
         status = nil
         attachedBundleID = nil
+        talkKey = nil
         watch?.cancel()
         watch = nil
         watchedPID = 0

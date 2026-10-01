@@ -60,7 +60,8 @@ build/tests/input-router
 swiftc -parse-as-library -framework AppKit -framework Carbon \
   Sources/IME/Pinyin/PinyinHandling.swift Sources/IME/Pinyin/PinyinEngine.swift Tests/PinyinEngineLeaseTests.swift -o build/tests/pinyin-lease
 build/tests/pinyin-lease
-swiftc -framework AppKit -framework InputMethodKit Sources/Shared/TestHome.swift Sources/IME/IMEManager.swift Sources/IME/CurrentInputSource.swift \
+swiftc -framework AppKit -framework InputMethodKit Sources/Shared/BridgeMessages.swift Sources/Shared/TestHome.swift \
+  Sources/IME/IMEManager.swift Sources/IME/CurrentInputSource.swift \
   Sources/IME/Pinyin/PinyinKeyEvent.swift Tests/IMEManagerTests.swift -o build/tests/ime-manager
 build/tests/ime-manager
 swiftc Sources/IME/InputDeferralDeadline.swift Tests/InputDeferralDeadlineTests.swift -o build/tests/input-deferral

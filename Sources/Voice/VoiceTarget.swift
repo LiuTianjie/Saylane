@@ -18,6 +18,8 @@ enum VoiceDelivery: Equatable, Sendable {
 /// method, event posting or pasteboard.
 @MainActor
 struct VoiceTextSink {
+    /// The input method is attached to a client of the application right now.
+    var attached: () -> Bool = { false }
     /// Live preview at the caret, through the input method. False when it is not attached.
     var setMarked: (String) -> Bool
     var clearMarked: () -> Void
@@ -30,7 +32,7 @@ struct VoiceTextSink {
     var end: () -> Void = {}
 }
 
-/// A dictation belongs to the application that was in front at the press, not
+/// A dictation belongs to the application that had the keyboard at the press, not
 /// to one text field or one IMK activation. Previews follow the IMK client when
 /// there is one; the final text lands at that application's caret through the
 /// first route that works. It is never written into another application and

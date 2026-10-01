@@ -59,8 +59,17 @@ final class Client: NSObject, IMKTextInput {
                                             seen = pid
                                         })
         let listener = BridgeListener(name: Bridge.imePortName) { data in
-            // A plain text request lets the test read what the client saw.
-            if String(decoding: data, as: UTF8.self) == "dump" { return Data(client.log.joined(separator: "|").utf8) }
+            // Plain text requests let the test read what the client saw and
+            // press the talk key in it, now or ten seconds ago.
+            let command = String(decoding: data, as: UTF8.self)
+            if command == "dump" { return Data(client.log.joined(separator: "|").utf8) }
+            if command == "talk" || command == "talk-old" {
+                let time = ProcessInfo.processInfo.systemUptime - (command == "talk" ? 0 : 10)
+                let press = NSEvent.keyEvent(with: .flagsChanged, location: .zero, modifierFlags: .command, timestamp: time,
+                                             windowNumber: 0, context: nil, characters: "", charactersIgnoringModifiers: "",
+                                             isARepeat: false, keyCode: UInt16(kVK_Command))!
+                return MainActor.assumeIsolated { Data((core.handle(press) ? "taken" : "passed").utf8) }
+            }
             return MainActor.assumeIsolated { responder.answer(data) }
         }
         guard listener != nil else { exit(3) }
@@ -89,6 +98,7 @@ final class Client: NSObject, IMKTextInput {
             case .hello: events.append("hello")
             case .pinyinMode(let english): events.append("pinyinMode:\(english)")
             case .attachment(let bundle): events.append("attachment:\(bundle ?? "nil")")
+            case .talkKey(let bundle, _): events.append("talkKey:\(bundle ?? "nil")")
             default: events.append("other")
             }
         }
@@ -107,6 +117,22 @@ final class Client: NSObject, IMKTextInput {
         precondition(ime.status?.pid == child.processIdentifier && ime.attachedBundleID == "test.editor")
         waitUntil("an event from the input method arrived") { events.contains("pinyinMode:true") }
         precondition(events.first == "hello", "\(events)")
+
+        // Which application has the keyboard. Being attached proves nothing by
+        // itself, and neither does a press from ten seconds ago; the talk key
+        // arriving through the client just now does, whatever is "in front".
+        func press(_ command: String) {
+            let before = events.count
+            let answer = BridgeSender(name: Bridge.imePortName).request(Data(command.utf8), timeout: 1)
+            precondition(answer.map { String(decoding: $0, as: UTF8.self) } == "passed", "the talk key is never swallowed")
+            waitUntil("the talk key was reported") { events.dropFirst(before).contains("talkKey:test.editor") }
+        }
+        precondition(ime.keyboardOwner(front: "another.app") == "another.app")
+        press("talk-old")
+        precondition(ime.keyboardOwner(front: "another.app") == "another.app", "an old press proves nothing")
+        press("talk")
+        precondition(ime.keyboardOwner(front: "another.app") == "test.editor", "the client that delivered the talk key has the keyboard")
+        precondition(ime.keyboardOwner(front: "test.editor") == "test.editor" && ime.keyboardOwner(front: nil) == nil)
 
         // A dictation into the application the input method is attached to.
         precondition(ime.canWrite(inFront: "test.editor") && !ime.canWrite(inFront: "another.app"))
@@ -133,7 +159,8 @@ final class Client: NSObject, IMKTextInput {
         child.terminate(); child.waitUntilExit()
         waitUntil("the input method's exit was noticed") { !ime.isConnected }
         precondition(!ime.canWrite(inFront: "test.editor") && ime.attachedBundleID == nil)
+        precondition(ime.keyboardOwner(front: "another.app") == "another.app")
         precondition(!ime.insert("gone", session: UUID(), inFront: "test.editor"))
-        print("PASS: bridge end to end: late start, pushed context, preview and final text, wrong application, a second write, the peer exiting")
+        print("PASS: bridge end to end: late start, pushed context, who has the keyboard, preview and final text, wrong application, a second write, the peer exiting")
     }
 }

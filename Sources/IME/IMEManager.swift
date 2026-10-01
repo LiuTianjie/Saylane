@@ -168,7 +168,7 @@ final class IMEManager {
     private func voiceClient(inFront bundleID: String?) -> (client: any IMKTextInput, leaseID: UUID)? {
         guard isOursSelected, let controller, let client = attachedClient,
               let leaseID = attachedLeaseID, controller.sessionID == leaseID else { return nil }
-        if let bundleID, attachedBundleID != bundleID { return nil }
+        guard Bridge.client(attachedBundleID, belongsTo: bundleID) else { return nil }
         return (client, leaseID)
     }
 
