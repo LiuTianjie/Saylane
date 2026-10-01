@@ -30,7 +30,7 @@
 
 ---
 
-Saylane 运行在 macOS 系统输入法中。平时用 Rime 拼音打字，按住快捷键即可听写，也可以用一种语言说话、用另一种语言输出。文字直接在当前输入框中组字，完成后一次提交。
+Saylane 是一个 macOS 系统输入法，加上一个常驻后台的主程序：输入法负责打字和把文字写进输入框，主程序负责听写、翻译、截屏翻译和设置。平时用 Rime 拼音打字，按住快捷键即可听写，也可以用一种语言说话、用另一种语言输出。文字直接在当前输入框中组字，完成后一次提交。
 
 **默认使用 Apple 端侧语音识别与翻译。** 也可以下载其他本地识别模型，或在终稿阶段开启自己配置的 AI 润色服务。普通听写和翻译无需模型 API Key。
 
@@ -58,10 +58,11 @@ Saylane 运行在 macOS 系统输入法中。平时用 Rime 拼音打字，按�
 
 需要 **macOS 26+ 与 Apple Silicon**。当前构建不支持 Intel Mac 或更早版本的 macOS。
 
-从 [GitHub Releases](https://github.com/LiuTianjie/Saylane/releases/latest) 下载 `.pkg` 和 `SHA256SUMS.txt` 校验文件。安装器会将输入法放到：
+从 [GitHub Releases](https://github.com/LiuTianjie/Saylane/releases/latest) 下载 `.pkg` 和 `SHA256SUMS.txt` 校验文件。安装器会放两个程序：
 
 ```text
-/Library/Input Methods/Saylane.app
+/Library/Input Methods/Saylane.app    输入法
+/Applications/Saylane.app             主程序（0.3 起；登录时自动启动，没有 Dock 图标）
 ```
 
 > **分发状态：** [v0.2.75](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.75) 包内应用具有 Developer ID Application 签名，但 PKG 安装器未签名，也未完成 Apple 公证。当前安装要求请参阅[安装指南](docs/安装说明.md)。
@@ -75,7 +76,7 @@ Saylane 运行在 macOS 系统输入法中。平时用 Rime 拼音打字，按�
 3. 按住**右 Option（⌥）**说话。波形胶囊显示录音状态，草稿直接出现在输入框中。
 4. 松开完成输入；按 **Esc** 取消当前会话。
 
-按住说话的快捷键可以修改。按下的那一刻就开始录音，不会丢掉句首。需要在其他输入法下使用语音时，在设置中开启**输入监控**和**辅助功能**权限；Saylane 不会切换你当前的输入法。
+按住说话的快捷键可以修改。单独按住约 0.3 秒开始说话，录音在此之前已经打开，不会丢掉句首；和其它键一起按（⌘C、⌥←、⌘ 点击）不会触发。需要在其它输入法下、或光标不在输入框里时也能使用语音，在设置中开启**辅助功能**权限；Saylane 不会切换你当前的输入法。
 
 说话时底部只显示一条波形，文字直接出现在光标处。输入法菜单里的「复制上一次听写」可以取回最近一次的结果。
 
@@ -143,7 +144,7 @@ Saylane 运行在 macOS 系统输入法中。平时用 Rime 拼音打字，按�
 | 启用输入法 | 允许通过 InputMethodKit 进行原生组字 |
 | 麦克风 | 采集按住说话时的录音 |
 | 语音识别 | 在权限引导中管理需要此授权的识别路径 |
-| 输入监控 | 在其他输入法下使用快捷键 |
+| 辅助功能（推荐） | 在任何应用、任何输入法下使用快捷键；没有输入法客户端时以粘贴方式写入 |
 | 屏幕录制 | 捕获用户选择的截屏翻译区域 |
 
 缺失权限可在**设置 → 权限管理**中查看和补齐。模型与语言是否就绪会单独检查，不与系统权限混为一谈。
@@ -163,7 +164,9 @@ flowchart LR
     IMK --> Field[绑定的输入框]
 ```
 
-协调器将每次语音会话绑定到开始时的输入目标。中间结果更新 marked text，终稿只提交一次；取消或切换目标会使待处理任务失效，避免晚到结果写入另一轮会话。本地口语整理作用于最终识别结果，之后再执行最终翻译与可选润色。
+两个进程分工：输入法进程只做打字和写入，不申请任何权限，也不会因为主程序退出或崩溃而中断；主程序通过本机端口把预览和终稿交给输入法写入。详见[架构](docs/ARCHITECTURE.md)。
+
+协调器将每次语音会话绑定到开始时拥有键盘的应用。中间结果更新 marked text，终稿只提交一次；取消或切换目标会使待处理任务失效，避免晚到结果写入另一轮会话。本地口语整理作用于最终识别结果，之后再执行最终翻译与可选润色。
 
 拼音走独立路径：**InputMethodKit → Rime Session → librime**，配合 Saylane 原生候选窗，支持组字编辑、精确优先的模糊音、中英混合候选及原生词频学习。当前不支持词后联想，也不会迁移旧自研引擎的学习数据。手动检查词库更新只报告差异，不会安装更新。详见[拼音架构](docs/RIME_PINYIN.md)。
 
@@ -186,6 +189,8 @@ make build
 | `make build` | Debug 应用，位于 `build/Build/Products/Debug/` |
 | `make test` | Swift 逻辑测试、原生辅助进程检查与真实 librime 回归 |
 | `make release` | 构建 Release，不安装 |
+| `make verify` | Release 构建 + 全部测试 + 三个对已构建程序的自测（输入法、两进程听写、界面） |
+| `make pkg-local` | 生成只用于本机测试的 `dist/Saylane-<version>-<build>-local.pkg`（安装包未签名） |
 | `make pkg` | 构建 Release 并生成 `dist/Saylane-<version>.pkg` |
 
 打包必须设置 `SAYLANE_SIGNING_IDENTITY`（**Developer ID Application**）、`SAYLANE_INSTALLER_IDENTITY`（**Developer ID Installer**）和 `SAYLANE_NOTARY_PROFILE`（已有的 notarytool 配置）。脚本在签名前检查这三项，拒绝 ad-hoc 签名，并在公证、装订验证通过后才生成最终 PKG。应用签名、安装器签名、公证以及系统输入源成功启用是不同的检查项。
@@ -196,8 +201,11 @@ make build
 
 | 路径 | 职责 |
 | --- | --- |
-| `Sources/IME/` | InputMethodKit 宿主、组字与 Rime 接入 |
-| `Sources/Services/` | 采集、识别、翻译、会话生命周期与屏幕覆盖层 |
+| `Sources/IME/` | 输入法进程：InputMethodKit、组字、Rime、候选窗 |
+| `Sources/App/` | 主程序入口与组合根 |
+| `Sources/Shared/` | 两个进程之间的协议与端口 |
+| `Sources/Input/`、`Sources/Voice/`、`Sources/Screen/` | 手势、语音会话与写入路线、截屏翻译 |
+| `Sources/Services/` | 采集、识别、翻译、模型、权限与输入源安装 |
 | `Sources/Views/` | 原生设置、引导、候选窗和波形 UI |
 | `Tests/` | Swift / Python 检查与原生运行时回归 |
 | `Vendor/` | ASR 接入源码、依赖锁与生成的运行时资源 |
@@ -206,7 +214,8 @@ make build
 
 | 文档 | 内容 |
 | --- | --- |
-| [架构](docs/ARCHITECTURE.md) | 当前模块划分、状态流、输入路由、语音会话与并发模型 |
+| [架构](docs/ARCHITECTURE.md) | 两个进程、协议、按键路由、语音会话、测试 |
+| [0.3 重写设计](docs/DESIGN_0.3.md) | 为什么拆成两个进程、协议与手势规格、真机验收清单 |
 | [变更记录](CHANGELOG.md) | 每个版本用户可见的变化 |
 | [安装指南](docs/安装说明.md) | 分发状态、输入源启用与权限 |
 | [语音体验与评测](docs/history/VOICE_INPUT_OPTIMIZATION.md) | 实时结果、终稿收尾、诊断与可复现的 ASR 评测 |
@@ -237,7 +246,7 @@ Saylane 的旧名称是 RTranslate。应用、可执行文件、Scheme 和新安
 
 欢迎提交聚焦的修复、可复现的问题与文档改进。反馈时请提供 macOS 版本、Mac 架构、Saylane 版本、识别模型、语言对和目标应用，并移除日志中的私人文字、录音、截图与接口凭据。
 
-代码改动请运行 `make test`。输入法、快捷键、权限和覆盖层改动还需在真实 macOS 会话及受影响应用中验证。文件识别评测和单元测试不能证明麦克风到上屏的延迟或跨应用兼容性。
+代码改动请运行 `make verify`。输入法、快捷键、权限和覆盖层改动还需在真实 macOS 会话及受影响应用中验证。文件识别评测和单元测试不能证明麦克风到上屏的延迟或跨应用兼容性。
 
 `bash scripts/build-ime-test-host.sh` 会生成 `build/tests/IMEIntegrationHost.app`，提供两个独立的原生 AppKit 输入框，只选择已启用的输入源。用真实按键检查拼音组字、切换输入框、语音上屏和取消；粘贴文字或直接设置辅助功能的值不算输入法测试。已安装的程序还支持 `--microphone-check`，连续执行三次真实采集 / 停止，不保存录音。
 

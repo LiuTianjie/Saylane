@@ -2,6 +2,47 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.3.0 (local testing)
+
+Saylane is rewritten as two programs. Design and reasons: `docs/DESIGN_0.3.md`; structure: `docs/ARCHITECTURE.md`.
+
+### Two programs
+
+- **The input method** (`/Library/Input Methods/Saylane.app`) types pinyin and writes text into the focused field. It asks for no permission, opens no window and loads no model.
+- **The main program** (`/Applications/Saylane.app`) does everything else: the talk key, recording, recognition, translation, proofreading, the capsule, screen translation, settings and the guide. It starts at login (a switch in Settings) and has no Dock icon; ⌘Q closes its window and leaves it running. The input method starts it when it is not there.
+- Typing no longer depends on anything the main program does. It keeps working while a model loads, when macOS asks to "Quit & Reopen" after a permission is granted, and when the main program is quit or crashes: a dictation in progress is released and the keys that were waiting for it are typed.
+- Why: macOS counts how often an input method's process exits. From the eleventh exit within thirty minutes every running application is told the input method "has crashed" and stops using it until that application is relaunched — the input menu then shows no Saylane submenu, and neither pinyin nor dictation works there. Found on device with WeChat on 2026-10-01. In 0.2.x every installation, every permission restart and every crash of any feature counted. The input-method process now exits once per upgrade and at no other time.
+
+### After upgrading from 0.2.x
+
+- Allow the microphone again: the main program is a new application to macOS, and the guide opens for it after the installation. Screen Recording and Speech Recognition likewise, when you use them.
+- Relaunch any application in which Saylane had stopped working (see above). Nothing else can clear that mark.
+
+### The talk key
+
+- One state machine for every modifier (as introduced in 0.2.83): held on its own for 0.12 s the microphone opens silently, at 0.28 s the dictation starts. A key, a click or a second modifier in between voids the press until the key is released.
+- A key or a click while you are speaking is an interruption: within 1.5 s the press was a shortcut and nothing is kept; later the recording stops and what was said is put on the clipboard instead of at a caret that may have moved.
+- Tap-to-talk starts on the release of a clean tap, so a shortcut can no longer start it.
+- A release that never arrives (the application swallowed it) no longer leaves the microphone open: the physical key state is checked while you speak.
+- A modifier used as the talk key is no longer hidden from applications.
+- **Accessibility** (recommended) makes the talk key work in every application and under every input source. Without it the key works where Saylane is the selected input source and the caret is in a text field. Input Monitoring is no longer asked for.
+
+### Where the text goes
+
+- A dictation belongs to the application that has the keyboard, not merely the one in front. Spotlight, launchers and other floating panels are written through the input method like any text field.
+- Applications that host their text fields in a helper process (Lark reports `com.electron.lark.helper`) are recognised as themselves.
+- Unchanged: input method → paste (needs Accessibility; the clipboard is restored) → clipboard with a notice. Another application coming to the front, or a panel closing, never gets the text; it is kept on the clipboard.
+
+### Engineering
+
+- `Sources/Shared/` holds the contract: Codable messages over two local `CFMessagePort`s. The input method decides about every key by itself from the last state it was sent and never waits for the main program; state is always pushed whole.
+- The gesture handlers `InputShortcutHandler`, `PushToTalkHandler` and `GlobalHotkeyRouter` are replaced by `VoiceGesture`.
+- Diagnostics are per process: `Diagnostics/ime.json` and `Diagnostics/app.json`; identical consecutive entries are merged.
+- `make verify` builds the release, runs every test and three self-tests of the built programs in a scratch home (`SAYLANE_TEST_HOME`): the input method against a text client in its own process, a whole dictation across both programs with a scripted recognizer, and the interface with real clicks. `scripts/verify-staged.sh` repeats the self-tests on the signed bundles that go into the package.
+- The installer carries both bundles. It never kills the input method before the payload is in place and ends the old process exactly once afterwards.
+
+Verified on the development Mac: all tests and the three self-tests, also on the signed bundles of the package. Not verifiable there and still to be confirmed on device: InputMethodKit's transport from other applications to the new process, the permission prompts of the new application, the installer scripts running as root, the microphone and the recognizers.
+
 ## 0.2.83 (local testing)
 
 - The talk key is hold-to-talk on every modifier: it starts only after the key has been held on its own for about 0.3 s. ⌘W, ⌘C, ⌥←, ⇧A, a modified click or a second modifier never start a dictation, never open the microphone and never show the capsule. With ⌘, ⌃ or ⇧ as the talk key the microphone opens when the hold is confirmed, not on every key press.

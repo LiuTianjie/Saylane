@@ -30,7 +30,7 @@
 
 ---
 
-Saylane lives in the macOS input-source menu. Type Chinese with Rime-backed Pinyin, hold a key to dictate, or speak in one language and write in another. Text appears as editable composition in the focused field, then commits when you finish.
+Saylane is a macOS input method plus a small background program: the input method types and writes into the focused field, the program does dictation, translation, screen translation and settings. Type Chinese with Rime-backed Pinyin, hold a key to dictate, or speak in one language and write in another. Text appears as editable composition in the focused field, then commits when you finish.
 
 **The default path uses Apple's on-device speech recognition and translation.** Downloadable local recognizers are available, and AI editing is an optional final step using an endpoint you configure. Ordinary dictation and translation need no model API key.
 
@@ -58,10 +58,11 @@ When the focused field has attached an input-method client, text is composed and
 
 You need **macOS 26+ on Apple Silicon**. Intel Macs and older macOS versions are not supported by the current build.
 
-Download the `.pkg` and `SHA256SUMS.txt` from [GitHub Releases](https://github.com/LiuTianjie/Saylane/releases/latest). The installer places the input method at:
+Download the `.pkg` and `SHA256SUMS.txt` from [GitHub Releases](https://github.com/LiuTianjie/Saylane/releases/latest). The installer places two programs:
 
 ```text
-/Library/Input Methods/Saylane.app
+/Library/Input Methods/Saylane.app    the input method
+/Applications/Saylane.app             the main program (since 0.3; starts at login, no Dock icon)
 ```
 
 > **Distribution status:** the [v0.2.75 release](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.75) contains an app signed with Developer ID Application. Its PKG installer is unsigned and has not been notarized by Apple. See the [installation guide](docs/安装说明.md) for the current installation requirements.
@@ -75,7 +76,7 @@ The installer opens the setup guide. Enable Saylane under **System Settings → 
 3. Hold **right Option (⌥)** and speak. A compact waveform shows recording activity while the draft appears in the field.
 4. Release to finalize. Press **Esc** to cancel the active session.
 
-The hold-to-talk key is configurable. To dictate while another input source is selected, enable **Input Monitoring** and **Accessibility** in Settings; Saylane leaves your input source as it is.
+The hold-to-talk key is configurable. It starts after the key has been held on its own for about 0.3 s; the microphone is already open by then, so the beginning of the sentence is not lost. Pressed together with another key (⌘C, ⌥←, a ⌘-click) it does nothing. To dictate while another input source is selected, or when the caret is not in a text field, enable **Accessibility** in Settings; Saylane leaves your input source as it is.
 
 ### 3. Switch language modes
 
@@ -141,7 +142,7 @@ If voice editing fails or reaches its timeout, the ordinary draft is retained. C
 | Enable the input source | Allows native composition through InputMethodKit |
 | Microphone | Records hold-to-talk input |
 | Speech Recognition | Managed in the permission guide for recognition paths that require it |
-| Input Monitoring | Enables shortcuts while another input source is selected |
+| Accessibility (recommended) | Makes the talk key work in every application and under every input source; pastes the text where no input-method client is attached |
 | Screen Recording | Captures the region selected for screen translation |
 
 Missing permissions can be reviewed from **Settings → Permissions**. Model and language readiness are checked separately from system permissions.
@@ -161,7 +162,9 @@ flowchart LR
     IMK --> Field[Bound text field]
 ```
 
-The coordinator binds each voice session to its original input target. Partial results update marked text; the final result commits once. Cancellation and target changes invalidate pending work so late results cannot write into a different session. Local cleanup runs on the final recognition result, before final translation and optional editing.
+The two processes have separate jobs: the input method only types and writes, asks for no permission, and keeps working when the main program quits or crashes; the main program hands previews and final text to it over a local port. See [Architecture](docs/ARCHITECTURE.md).
+
+The coordinator binds each voice session to the application that had the keyboard when it started. Partial results update marked text; the final result commits once. Cancellation and target changes invalidate pending work so late results cannot write into a different session. Local cleanup runs on the final recognition result, before final translation and optional editing.
 
 The Pinyin path is separate: **InputMethodKit → Rime session → librime**, with Saylane's native candidate UI. It supports composition editing, fuzzy Pinyin with exact matches preferred, mixed English candidates, and native vocabulary learning. Next-word suggestions and migration of the old custom engine's learning data are not currently supported. The manual dictionary-update check reports differences; it does not install them. [Pinyin architecture](docs/RIME_PINYIN.md).
 
@@ -184,6 +187,8 @@ make build
 | `make build` | Debug app in `build/Build/Products/Debug/` |
 | `make test` | Swift logic tests, native helper checks, and real librime regressions |
 | `make release` | Release build without installation |
+| `make verify` | Release build, every test, and three self-tests of the built programs (input method, two-process dictation, interface) |
+| `make pkg-local` | `dist/Saylane-<version>-<build>-local.pkg` for testing on this Mac (unsigned package) |
 | `make pkg` | Release build and `dist/Saylane-<version>.pkg` |
 
 Packaging requires `SAYLANE_SIGNING_IDENTITY` (**Developer ID Application**), `SAYLANE_INSTALLER_IDENTITY` (**Developer ID Installer**), and `SAYLANE_NOTARY_PROFILE` (an existing notarytool profile). The script checks all three before signing, rejects ad-hoc identities, and publishes the final PKG only after notarization and staple verification. App signing, installer signing, notarization, and successful input-source activation are distinct checks.
@@ -194,8 +199,11 @@ Build artifacts live in ignored `build/` and `dist/` directories. Building an ap
 
 | Path | Responsibility |
 | --- | --- |
-| `Sources/IME/` | InputMethodKit host, composition, and Rime integration |
-| `Sources/Services/` | Capture, recognition, translation, session lifecycle, and screen overlays |
+| `Sources/IME/` | The input-method process: InputMethodKit, composition, Rime, candidates |
+| `Sources/App/` | The main program's entry point and composition root |
+| `Sources/Shared/` | The contract and ports between the two processes |
+| `Sources/Input/`, `Sources/Voice/`, `Sources/Screen/` | Gestures, the voice session and its write routes, screen translation |
+| `Sources/Services/` | Capture, recognition, translation, models, permissions, input-source installation |
 | `Sources/Views/` | Native settings, setup, candidates, and waveform UI |
 | `Tests/` | Swift/Python checks and native-runtime regression tests |
 | `Vendor/` | ASR integration source, dependency locks, and generated runtime resources |
@@ -204,7 +212,8 @@ Build artifacts live in ignored `build/` and `dist/` directories. Building an ap
 
 | Guide | Covers |
 | --- | --- |
-| [Architecture](docs/ARCHITECTURE.md) | Current module layout, state flow, input routing, voice session and concurrency model |
+| [Architecture](docs/ARCHITECTURE.md) | The two processes, the contract between them, key routing, the voice session, tests |
+| [0.3 rewrite design](docs/DESIGN_0.3.md) | Why there are two processes, the protocol and gesture specification, the on-device acceptance list |
 | [Changelog](CHANGELOG.md) | User-facing changes per release |
 | [Installation](docs/安装说明.md) | Package status, input-source activation, and permissions |
 | [Voice input behavior and evaluation](docs/history/VOICE_INPUT_OPTIMIZATION.md) | Live hypotheses, finalization, diagnostics, and reproducible ASR benchmarks |
@@ -234,7 +243,7 @@ The installer recognizes old and new app paths and checks bundle identity before
 
 Focused fixes, reproducible bug reports, and documentation improvements are welcome. Include your macOS version, Mac architecture, Saylane version, recognizer, language pair, and target application. Redact private text, audio, screenshots, and endpoint credentials from reports.
 
-Run `make test` for code changes. Input-method, hotkey, permission, and overlay changes also need testing in the actual macOS session and affected apps. File recognition benchmarks and unit tests do not establish microphone-to-text latency or cross-app compatibility.
+Run `make verify` for code changes. Input-method, hotkey, permission, and overlay changes also need testing in the actual macOS session and affected apps. File recognition benchmarks and unit tests do not establish microphone-to-text latency or cross-app compatibility.
 
 `bash scripts/build-ime-test-host.sh` builds `build/tests/IMEIntegrationHost.app`, a native AppKit client with two independent text fields. It selects only already-enabled input sources. Use actual key events to check pinyin composition, switching fields, voice insertion, and cancellation; pasting text or setting an accessibility value does not test the input method. The installed executable also accepts `--microphone-check` for three real capture/stop cycles without saving audio.
 
