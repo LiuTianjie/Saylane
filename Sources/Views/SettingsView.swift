@@ -291,10 +291,46 @@ struct SettingsView: View {
             }
             Toggle(String(localized: "用 ; 和 ' 选第 2、第 3 个候选"), isOn: model.binding(\.pinyinKeys.pickWithSemicolonQuote))
             Toggle(String(localized: "输入中文时用英文标点"), isOn: model.binding(\.pinyinKeys.englishPunctuation))
+            languageModelRow
         } header: {
             Text(String(localized: "候选与标点"))
         } footer: {
             Text(String(localized: "Page Up / Page Down 始终可以翻页。没有被选作翻页键的标点，会先上屏第一个候选再输入标点。"))
+        }
+    }
+
+    /// The optional whole-sentence model: downloaded on request, never shipped.
+    @ViewBuilder private var languageModelRow: some View {
+        let lm = model.pinyinLanguageModel
+        LabeledContent {
+            switch lm.state {
+            case .installed:
+                HStack(spacing: 10) {
+                    StatusText(text: String(localized: "已安装"), ready: true)
+                    Button(String(localized: "删除")) { lm.remove() }.controlSize(.small)
+                }
+            case .downloading(let received):
+                HStack(spacing: 10) {
+                    ProgressView(value: Double(received), total: Double(PinyinLanguageModel.bytes)).frame(width: 110)
+                    Text("\(received / 1_048_576) / \(PinyinLanguageModel.bytes / 1_048_576) MB")
+                        .font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
+                    Button(String(localized: "取消")) { lm.cancel() }.controlSize(.small)
+                }
+            case .verifying:
+                HStack(spacing: 8) { ProgressView().controlSize(.small); Text(String(localized: "正在校验…")).foregroundStyle(.secondary) }
+            case .absent, .failed:
+                Button(String(localized: "下载（409 MB）")) { lm.download() }.controlSize(.small)
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(localized: "整句语言模型"))
+                Text({
+                    if case .failed(let reason) = lm.state { return String(localized: "下载失败：\(reason)") }
+                    return String(localized: "整句拼音更准：60 句日常句子里，对的从 35 句变成 44 句。万象语言模型（CC BY 4.0），从 GitHub 下载，只保存在这台 Mac 上。")
+                }())
+                .font(.system(size: 11.5)).foregroundStyle(lm.state.isFailure ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 

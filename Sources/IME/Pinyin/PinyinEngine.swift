@@ -25,6 +25,7 @@ final class PinyinEngine: PinyinHandling {
     private(set) var fuzzyEnabled = true
     private(set) var barPreeditEnabled = false
     private var keys = PinyinKeyOptions()
+    private var languageModel = false
     var onEnglishModeChanged: ((Bool) -> Void)?
     private static let maxSessions = 12
 
@@ -53,6 +54,11 @@ final class PinyinEngine: PinyinHandling {
         englishModePreference = p.englishMode
         barPreeditEnabled = p.barPreedit
         keys = p.keys
+        if languageModel != p.languageModel {
+            // Installed or removed: every session types with the schema that fits.
+            languageModel = p.languageModel
+            for state in sessions.values { state.rime.reloadSchema() }
+        }
         if fuzzyEnabled != p.fuzzy {
             fuzzyEnabled = p.fuzzy
         }

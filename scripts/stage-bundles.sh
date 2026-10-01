@@ -39,9 +39,17 @@ if /usr/bin/otool -L "$IME/Contents/MacOS/SaylaneIME" | /usr/bin/grep -Eq 'AVFAu
   exit 1
 fi
 
+# Of librime's plugins only the language-model reader ships: nothing that runs scripts.
+PLUGINS="$(/bin/ls "$IME/Contents/Frameworks/rime-plugins" 2>/dev/null | /usr/bin/tr '\n' ' ')"
+if [[ "$PLUGINS" != 'librime-octagram.dylib ' ]]; then
+  echo "Unexpected librime plugins in the input method: ${PLUGINS:-none}" >&2
+  exit 1
+fi
+
 if [[ -n "$IDENTITY" ]]; then
   # Embedded native code gets the same stable identity before the outer seal.
   /usr/bin/codesign --force --options runtime --timestamp --sign "$IDENTITY" "$IME/Contents/Frameworks/librime.1.dylib"
+  /usr/bin/codesign --force --options runtime --timestamp --sign "$IDENTITY" "$IME/Contents/Frameworks/rime-plugins/librime-octagram.dylib"
   /usr/bin/codesign --force --options runtime --timestamp --sign "$IDENTITY" "$IME"
   for HELPER in "$APP"/Contents/Resources/Runtime/llama-funasr-*; do
     /usr/bin/codesign --force --options runtime --timestamp --sign "$IDENTITY" "$HELPER"

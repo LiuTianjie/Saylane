@@ -94,6 +94,9 @@ struct BridgePinyinPreferences: Codable, Equatable, Sendable {
     var fuzzy = true
     var barPreedit = false
     var keys = PinyinKeyOptions()
+    /// Whether the optional language model is installed. A change makes the
+    /// input method reload its schema; the file itself is what it looks at.
+    var languageModel = false
 }
 
 struct BridgeIMEStatus: Codable, Equatable, Sendable {

@@ -6,6 +6,7 @@ import Carbon.HIToolbox
 final class RimePinyinSession {
     static let pageSize = 9
     private let native: SLSession
+    private let runtime: RimeRuntime
     private(set) var preedit = ""
     private(set) var markedText = ""
     private(set) var markedCaret = 0
@@ -31,6 +32,7 @@ final class RimePinyinSession {
     var keys = PinyinKeyOptions()
 
     init(runtime: RimeRuntime, englishMode: Bool = false, fuzzyEnabled: Bool = false) throws {
+        self.runtime = runtime
         native = try runtime.makeSession(fuzzy: fuzzyEnabled)
         self.englishMode = englishMode
         self.fuzzyEnabled = fuzzyEnabled
@@ -221,10 +223,19 @@ final class RimePinyinSession {
         guard enabled != fuzzyEnabled else { return true }
         // Changing the schema destroys composition. Explicitly preserve raw text.
         commitRawInput()
-        guard SLRimeSelectSchema(native, RimeRuntime.schema(fuzzy: enabled)) != 0 else { return false }
+        guard SLRimeSelectSchema(native, runtime.schema(fuzzy: enabled)) != 0 else { return false }
         fuzzyEnabled = enabled
         refresh()
         return true
+    }
+
+    /// The language model was installed or removed: type with the schema that fits.
+    @discardableResult
+    func reloadSchema() -> Bool {
+        commitRawInput()
+        let ok = SLRimeSelectSchema(native, runtime.schema(fuzzy: fuzzyEnabled)) != 0
+        refresh()
+        return ok
     }
 
     private func commitRawInput() {

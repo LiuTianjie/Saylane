@@ -1696,3 +1696,18 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+--------------------------------------------------------------------------------
+librime-octagram (language-model plugin for librime)
+
+Shipped unmodified from the official librime 1.17.0 macOS release, in the
+input method's Frameworks/rime-plugins. Copyright (c) 2014, RIME Developers.
+BSD 3-Clause License: https://github.com/lotem/librime-octagram/blob/master/LICENSE
+
+--------------------------------------------------------------------------------
+Wanxiang language model (optional, not shipped)
+
+"wanxiang-lts-zh-hans.gram" is downloaded only when the user asks for it in
+the settings, from https://github.com/amzxyz/RIME-LMDG (release "LTS"), and is
+used unmodified. Licensed under Creative Commons Attribution 4.0 International
+(CC BY 4.0) by its authors.

@@ -39,10 +39,22 @@ final class RimeRuntime: @unchecked Sendable {
     }
 
     func makeSession(fuzzy: Bool) throws -> SLSession {
-        let session = SLRimeCreate(Self.schema(fuzzy: fuzzy))
+        let session = SLRimeCreate(schema(fuzzy: fuzzy))
         guard session != 0 else { throw SetupError.schema }
         return session
     }
 
-    static func schema(fuzzy: Bool) -> String { fuzzy ? "saylane_pinyin_fuzzy" : "saylane_pinyin" }
+    /// The whole-sentence language model the user may download from the
+    /// settings. It lives next to the user dictionary; nothing ships it.
+    static let languageModelFile = "wanxiang-lts-zh-hans.gram"
+    var languageModelInstalled: Bool {
+        FileManager.default.fileExists(atPath: userData.appendingPathComponent(Self.languageModelFile).path)
+    }
+
+    /// The schema to type with. The variants that read the language model are
+    /// chosen only while its file is there: the plain ones stay exactly as
+    /// they were, and nothing looks for a file that does not exist.
+    func schema(fuzzy: Bool) -> String {
+        (fuzzy ? "saylane_pinyin_fuzzy" : "saylane_pinyin") + (languageModelInstalled ? "_lm" : "")
+    }
 }

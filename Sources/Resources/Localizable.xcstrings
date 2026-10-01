@@ -371,6 +371,16 @@
         }
       }
     },
+    "下载失败：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download failed: %@"
+          }
+        }
+      }
+    },
     "下载未完成": {
       "localizations": {
         "en": {
@@ -381,12 +391,32 @@
         }
       }
     },
+    "下载的文件校验不一致，可能是发布方更新了模型。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The downloaded file does not match the expected checksum; the publisher may have updated the model."
+          }
+        }
+      }
+    },
     "下载翻译模型": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Download Translation Model"
+          }
+        }
+      }
+    },
+    "下载（409 MB）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download (409 MB)"
           }
         }
       }
@@ -1472,6 +1502,16 @@
         }
       }
     },
+    "已安装": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installed"
+          }
+        }
+      }
+    },
     "已就绪": {
       "localizations": {
         "en": {
@@ -2032,6 +2072,26 @@
         }
       }
     },
+    "整句拼音更准：60 句日常句子里，对的从 35 句变成 44 句。万象语言模型（CC BY 4.0），从 GitHub 下载，只保存在这台 Mac 上。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whole sentences of pinyin come out right more often: 44 instead of 35 of 60 everyday sentences. The Wanxiang language model (CC BY 4.0), downloaded from GitHub and kept on this Mac only."
+          }
+        }
+      }
+    },
+    "整句语言模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sentence language model"
+          }
+        }
+      }
+    },
     "文件已安装，但系统尚未发现输入法组件。不能开始语音输入。": {
       "localizations": {
         "en": {
@@ -2479,6 +2539,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Finishing"
+          }
+        }
+      }
+    },
+    "正在校验…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifying…"
           }
         }
       }

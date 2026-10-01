@@ -45,6 +45,15 @@ for swift in list((root / 'Sources').rglob('*.swift')):
         continue
     text = swift.read_text()
     assert 'import InputMethodKit' not in text, f'{swift}: InputMethodKit belongs to the input method'
+# The language model: the reader plugin ships with the input method, the model
+# never does, and the input method does not fetch anything itself.
+assert 'Vendor/Rime/Runtime/lib/rime-plugins/librime-octagram.dylib' in ime_target and 'subpath: rime-plugins' in ime_target
+prepare = read('scripts/prepare-rime.py')
+assert "if plugin.name != 'librime-octagram.dylib': plugin.unlink()" in prepare, 'no Lua or prediction plugin ships'
+assert "librime-octagram.dylib " in read('scripts/stage-bundles.sh')
+assert not list((root / 'Vendor/Rime/Rime').glob('*.gram')), 'no language model is shipped'
+model = read('Sources/Services/PinyinLanguageModel.swift')
+assert 'static let sha256 = "' in model and 'guard digest == Self.sha256' in model, 'the download is checked against a pinned hash'
 main = read('Sources/App/SaylaneMain.swift')
 assert 'IMKServer' not in main and '--register-input-source' in main
 assert '--register-input-source' not in read('Sources/IME/SaylaneIMEMain.swift'), \

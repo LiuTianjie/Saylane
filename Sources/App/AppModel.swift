@@ -33,6 +33,7 @@ final class AppModel: VoiceSessionHost {
     var screenTranslate: ScreenTranslateController { screen.controller }
     let ime = IMEBridgeClient()
     let pinyinDictionaryUpdates = RimeDictionaryUpdateModel()
+    let pinyinLanguageModel = PinyinLanguageModel()
     let router = InputEventRouter()
     private let settingsWindow = SettingsController()
 
@@ -102,6 +103,10 @@ final class AppModel: VoiceSessionHost {
             preferences.update { $0.recognitionOnly = true; $0.overlayEnabled = false; $0.voiceCuesEnabled = false }
         }
         AudioCaptureService.preferredInputUID = prefs.microphoneUID
+        pinyinLanguageModel.onChanged = { [weak self] in
+            guard let self else { return }
+            self.ime.push(pinyin: self.pinyinPreferences)
+        }
         ime.onEvent = { [weak self] event in self?.handle(event) }
         ime.push(pinyin: pinyinPreferences)
         ime.start()
@@ -267,7 +272,8 @@ final class AppModel: VoiceSessionHost {
 
     private var pinyinPreferences: BridgePinyinPreferences {
         BridgePinyinPreferences(englishMode: prefs.pinyinEnglishMode, fuzzy: prefs.pinyinFuzzyEnabled,
-                                barPreedit: prefs.pinyinBarPreeditEnabled, keys: prefs.pinyinKeys)
+                                barPreedit: prefs.pinyinBarPreeditEnabled, keys: prefs.pinyinKeys,
+                                languageModel: pinyinLanguageModel.isInstalled)
     }
 
     // MARK: - Notices

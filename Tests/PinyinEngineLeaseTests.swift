@@ -5,6 +5,7 @@ struct BridgePinyinPreferences {
     var fuzzy = true
     var barPreedit = false
     var keys = PinyinKeyOptions()
+    var languageModel = false
 }
 
 enum PushToTalkHotkey { case leftShift, rightShift, other }
@@ -43,6 +44,8 @@ final class RimePinyinSession {
     func emitCommit(_ text: String) { commitBuffer += text }
     func takeCommit() -> String { defer { commitBuffer = "" }; return commitBuffer }
     func setFuzzyEnabled(_ enabled: Bool) -> Bool { fuzzyEnabled = enabled; return true }
+    var reloads = 0
+    @discardableResult func reloadSchema() -> Bool { reloads += 1; return true }
     func setEnglishMode(_ enabled: Bool) { englishMode = enabled; onModeChange?(enabled) }
     func handle(_ event: PinyinKeyEvent, shiftToggleEnabled: Bool) -> Bool { false }
     func selectCandidate(at index: Int) { selections += 1 }

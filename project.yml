@@ -12,8 +12,8 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     SWIFT_EMIT_LOC_STRINGS: YES
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
-    MARKETING_VERSION: "0.4.2"
-    CURRENT_PROJECT_VERSION: "402"
+    MARKETING_VERSION: "0.5.0"
+    CURRENT_PROJECT_VERSION: "500"
     DEAD_CODE_STRIPPING: YES
     ARCHS: arm64
     ONLY_ACTIVE_ARCH: NO
@@ -60,6 +60,14 @@ targets:
         name: Rime
         type: folder
         buildPhase: resources
+      # librime loads plugins from "rime-plugins" next to itself. Only the
+      # language-model reader is shipped.
+      - path: Vendor/Rime/Runtime/lib/rime-plugins/librime-octagram.dylib
+        buildPhase:
+          copyFiles:
+            destination: frameworks
+            subpath: rime-plugins
+        attributes: [CodeSignOnCopy]
     dependencies:
       - sdk: InputMethodKit.framework
       - framework: Vendor/Rime/Runtime/lib/librime.1.dylib

@@ -46,10 +46,11 @@ def main():
         p.read_bytes() for p in sorted(CONFIG.iterdir()) if p.is_file()
     )).hexdigest()
     stamp = VENDOR / '.prepared'
-    required = [RUNTIME / 'lib/librime.1.dylib', RUNTIME / 'include/rime_api.h',
+    required = [RUNTIME / 'lib/librime.1.dylib', RUNTIME / 'lib/rime-plugins/librime-octagram.dylib', RUNTIME / 'include/rime_api.h',
                 DATA / 'build/saylane.table.bin', DATA / 'build/saylane_pinyin.prism.bin',
                 DATA / 'build/saylane_pinyin_fuzzy.prism.bin', DATA / 'build/saylane_pinyin.schema.yaml',
-                DATA / 'build/saylane_pinyin_fuzzy.schema.yaml', DATA / 'build/melt_eng.table.bin',
+                DATA / 'build/saylane_pinyin_fuzzy.schema.yaml', DATA / 'build/saylane_pinyin_lm.schema.yaml',
+                DATA / 'build/saylane_pinyin_fuzzy_lm.schema.yaml', DATA / 'build/melt_eng.table.bin',
                 DATA / 'build/saylane_en.prism.bin', DATA / 'build/saylane_en.schema.yaml', DATA / 'essay.txt',
                 DATA / 'opencc/emoji.json', DATA / 'opencc/emoji.txt', DATA / 'opencc/others.txt']
     if stamp.exists() and stamp.read_text() == fingerprint and all(p.exists() for p in required):
@@ -64,15 +65,19 @@ def main():
             archive.extractall(temp, filter='data')
         if RUNTIME.exists(): shutil.rmtree(RUNTIME)
         shutil.move(str(temp / 'dist'), RUNTIME)
-        # Test with the exact core runtime shipped in the app, without auto-loaded
-        # Lua/predict/octagram plugin dylibs from the upstream developer archive.
-        shutil.rmtree(RUNTIME / 'lib/rime-plugins', ignore_errors=True)
-        # All runtime dependencies are statically linked into this official dylib;
-        # only macOS system libraries may remain dynamically linked.
-        deps = subprocess.check_output(['otool', '-L', str(RUNTIME / 'lib/librime.1.dylib')], text=True)
-        for line in deps.splitlines():
-            if line.startswith('\t') and not line.strip().startswith(('@rpath/librime.1.dylib ', '/usr/lib/', '/System/Library/')):
-                raise RuntimeError(f'Unbundled runtime dependency: {line}')
+        # The runtime that ships: the core library and, of the plugins in the
+        # upstream archive, only the language-model one (octagram). No Lua, no
+        # prediction plugin: nothing that runs scripts or is not used.
+        for plugin in (RUNTIME / 'lib/rime-plugins').iterdir():
+            if plugin.name != 'librime-octagram.dylib': plugin.unlink()
+        if not (RUNTIME / 'lib/rime-plugins/librime-octagram.dylib').exists():
+            raise RuntimeError('The upstream archive has no librime-octagram.dylib')
+        for library in ['lib/librime.1.dylib', 'lib/rime-plugins/librime-octagram.dylib']:
+            deps = subprocess.check_output(['otool', '-L', str(RUNTIME / library)], text=True)
+            for line in deps.splitlines():
+                if line.startswith('\t') and not line.strip().startswith(
+                        ('@rpath/librime.1.dylib ', '@rpath/librime-octagram.dylib ', '/usr/lib/', '/System/Library/')):
+                    raise RuntimeError(f'Unbundled runtime dependency in {library}: {line}')
         data = temp / 'Data'
         (data / 'cn_dicts').mkdir(parents=True)
         for name in ['8105', 'base', 'ext', 'others']:
@@ -112,6 +117,18 @@ def main():
             '  initial_quality: -4\n'
         )
         (data / 'saylane_pinyin_fuzzy.schema.yaml').write_text(runtime)
+        # The same two schemas with the whole-sentence language model
+        # (librime-octagram). The model file is not shipped: the user downloads
+        # it from the settings into the Rime user directory, and these schemas
+        # are selected only while it is there. On 60 everyday sentences typed
+        # as one string of pinyin: 35 right without the model, 44 with it.
+        grammar = '\ngrammar:\n  language: wanxiang-lts-zh-hans\n'
+        (data / 'saylane_pinyin_lm.schema.yaml').write_text(
+            strict.replace('schema_id: saylane_pinyin', 'schema_id: saylane_pinyin_lm')
+                  .replace('name: Saylane 拼音', 'name: Saylane 拼音（语言模型）') + grammar)
+        (data / 'saylane_pinyin_fuzzy_lm.schema.yaml').write_text(
+            runtime.replace('schema_id: saylane_pinyin_fuzzy', 'schema_id: saylane_pinyin_fuzzy_lm')
+                   .replace('name: Saylane 拼音', 'name: Saylane 拼音（语言模型）') + grammar)
         opencc = data / 'opencc'
         opencc.mkdir()
         for name in ['emoji.json', 'emoji.txt', 'others.txt']:
@@ -122,7 +139,8 @@ def main():
         (data / 'SOURCE-NOTICE.txt').write_text(
             'librime 1.17.0: BSD-3-Clause; official unmodified macOS runtime.\n'
             'rime-ice dictionary subset: 8105, base, ext, others, en/en_ext, and opencc emoji tables.\n'
-            'No Lua or frontend code copied.\n'
+            'Of the plugins in that archive only librime-octagram (the language-model reader) is shipped; no Lua.\n'
+            'No frontend code copied. No language model is shipped: the optional one is downloaded by the user.\n'
             'Dictionary sources, upstream headers, GPL-3.0 license and pinned URLs are included.\n'
             'rime-essay: LGPL-3.0; source essay.txt, AUTHORS and license included.\n'
             'The compiled data is built from these bundled sources and Saylane schema files.\n'

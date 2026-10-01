@@ -118,6 +118,17 @@ enum IMESelfTest {
         check(client.inserted == ["你好"] && client.marked.isEmpty, "space writes the first candidate (\(client.inserted))")
         check(NSApp.windows.allSatisfy { !($0.isVisible && $0 is NSPanel) }, "the candidate window is gone after the commit")
 
+        // The optional language model, when a test home has it in its Rime
+        // directory: the plugin shipped in this bundle reads it, and a sentence
+        // the plain engine gets wrong (…提交岛主分支了) comes out right.
+        if case .success(let runtime) = RimeRuntime.shared, runtime.languageModelInstalled {
+            for letter in "daimayijingtijiaodaozhufenzhile" {
+                _ = controller.handle(key(String(letter), 0))
+            }
+            check(controller.handle(key(" ", kVK_Space)) && client.inserted.last == "代码已经提交到主分支了",
+                  "with the language model installed, a whole sentence comes out right (\(client.inserted.last ?? ""))")
+        }
+
         // A shortcut passes through untouched.
         check(!controller.handle(key("w", kVK_ANSI_W, flags: .command)), "⌘W is left to the application")
 

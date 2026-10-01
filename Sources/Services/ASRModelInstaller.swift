@@ -157,7 +157,7 @@ actor ASRModelInstaller {
 
 /// Use a delegate-driven task: async download convenience APIs can suppress incremental
 /// download callbacks. Continuation/task state is locked; result callbacks use URLSession's serial queue.
-private final class ModelDownloadTransfer: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+final class ModelDownloadTransfer: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
     private let report: @Sendable (Int64) -> Void
     private let lock = NSLock()
     private var task: URLSessionDownloadTask?
