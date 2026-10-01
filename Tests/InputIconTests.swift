@@ -11,8 +11,8 @@ import Foundation
             let strings = try PropertyListSerialization.propertyList(from: data, format: nil) as! [String: String]
             precondition(strings["CFBundleName"] == "Saylane" && strings["CFBundleDisplayName"] == "Saylane")
         }
-        // The input-menu icon is a PDF loaded by TIS file URL, not NSImage(named:).
-        let icon = "menu_icon.pdf"
+        // The input menu loads the file by URL and tints it as a template.
+        let icon = "InputMenuIcon.pdf"
         precondition(info["tsInputMethodIconFileKey"] as? String == icon)
         precondition(mode["tsInputModeMenuIconFileKey"] as? String == icon)
         precondition(mode["tsInputModePaletteIconFileKey"] as? String == icon)
@@ -40,8 +40,14 @@ import Foundation
                 if abs(r - g) > 20 || abs(g - b) > 20 { colored += 1 }
             }
         }
-        precondition(opaque > 400 && opaque < 900)
+        precondition(opaque > 380 && opaque < 620, "\(opaque)")
         precondition(white == 0 && colored == 0 && black > 50)
-        print("PASS: menu icon is menu_icon.pdf without Gray ICC")
+        // Saylane's own mark: a speech bubble with a text cursor cut out of it.
+        // (Until 0.4 this was a copy of another input method's disc with five bars.)
+        func alpha(_ x: Int, _ y: Int) -> Int { Int(pixels[(y * w + x) * 4 + 3]) }
+        precondition(alpha(6, 12) > 200 && alpha(25, 12) > 200 && alpha(16, 12) == 0, "a bubble with the cursor's stem cut out")
+        precondition(alpha(16, 31) == 0 && alpha(16, 0) == 0 && alpha(0, 16) == 0, "not a disc: empty above, below and beside the bubble")
+        precondition(!FileManager.default.fileExists(atPath: "Sources/Resources/menu_icon.pdf"))
+        print("PASS: the input-menu icon is Saylane's own template mark, 16 pt, without a colour profile")
     }
 }

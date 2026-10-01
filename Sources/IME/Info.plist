@@ -37,7 +37,7 @@
 	<key>InputMethodServerDelegateClass</key>
 	<string>SaylaneInputController</string>
 	<key>tsInputMethodIconFileKey</key>
-	<string>menu_icon.pdf</string>
+	<string>InputMenuIcon.pdf</string>
 	<key>tsInputMethodCharacterRepertoireKey</key>
 	<array>
 		<string>Latn</string>
@@ -58,9 +58,9 @@
 				<key>tsInputModeIsVisibleKey</key>
 				<true/>
 				<key>tsInputModeMenuIconFileKey</key>
-				<string>menu_icon.pdf</string>
+				<string>InputMenuIcon.pdf</string>
 				<key>tsInputModePaletteIconFileKey</key>
-				<string>menu_icon.pdf</string>
+				<string>InputMenuIcon.pdf</string>
 				<key>tsInputModePrimaryInScriptKey</key>
 				<true/>
 				<key>tsInputModeScriptKey</key>
