@@ -261,6 +261,15 @@ enum IMESelfTest {
         _ = controller.handle(modifier(trigger, down: false))
         check(await wait(5) { client.inserted.filter { $0 == expected }.count == 2 }, "a second dictation is written as well")
 
+        // The menu: the four ways to speak and write, chosen here, changed in the main program.
+        check(await wait(5) { host.menu.modes.count == 4 && host.menu.currentMode == 0 && host.menu.canChooseMode },
+              "the menu lists the four ways to speak and write (\(host.menu.modes))")
+        host.chooseMode(3)
+        check(await wait(5) { host.menu.currentMode == 3 }, "choosing one in the menu changes it in the main program")
+        _ = await wait(3) { host.menu.canChooseMode }
+        host.chooseMode(0)
+        check(await wait(5) { host.menu.currentMode == 0 }, "and choosing the first one changes it back")
+
         print(failures == 0 ? "PASS: two-process self-test" : "FAILED: \(failures) check(s)")
         return failures == 0 ? 0 : 1
     }

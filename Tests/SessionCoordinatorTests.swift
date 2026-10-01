@@ -384,6 +384,40 @@ import Foundation
             precondition(outcomes == ["cancelled"])
             passed += 1
         }
+        do { // The typewriter on its own: a clump appears a few characters at a time.
+            var t = Typewriter()
+            precondition(t.retarget("今天下午三点开会讨论方案") == "今天" && !t.isSettled)
+            var steps = ["今天"]
+            while let next = t.step() { steps.append(next) }
+            precondition(steps.last == "今天下午三点开会讨论方案" && steps.count >= 6 && t.isSettled)
+            precondition(zip(steps, steps.dropFirst()).allSatisfy { $1.hasPrefix($0) && $1.count > $0.count })
+            // A correction of shown characters replaces them in place and never shortens what is shown.
+            precondition(t.retarget("今天下午三点开会讨论方按") == "今天下午三点开会讨论方按" && t.isSettled)
+            precondition(t.retarget("今天下午三点开会讨论方案，然后") == "今天下午三点开会讨论方案，" && t.step() == "今天下午三点开会讨论方案，然")
+            precondition(t.finish() == "今天下午三点开会讨论方案，然后" && t.finish() == nil && t.step() == nil)
+            // A shorter text is shown at once.
+            precondition(t.retarget("今天") == "今天" && t.isSettled)
+            t.show("整句"); precondition(t.isSettled && t.retarget("整句") == nil)
+            passed += 1
+        }
+        do { // A preview is typed out, and shown whole the moment the key is released.
+            let c = SessionCoordinator(previewInterval: 0, typingInterval: 0.004), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
+            c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: true) { $0 }
+            await settle(); speech.emit("今天下午三点开会讨论方案")
+            precondition(target.marked == ["今天"])
+            await settle(120)
+            precondition(target.marked.last == "今天下午三点开会讨论方案" && target.marked.count >= 6)
+            precondition(zip(target.marked, target.marked.dropFirst()).allSatisfy { $1.hasPrefix($0) })
+            let typed = target.marked.count
+            speech.emit("今天下午三点开会讨论方案，然后把结论发给所有人")
+            precondition(target.marked.count == typed + 1)
+            speech.finishDelay = 60
+            c.release(); await settle(10)
+            precondition(target.marked.last == "今天下午三点开会讨论方案，然后把结论发给所有人" && target.marked.count == typed + 2)
+            await settleUntilIdle(c)
+            precondition(target.committed == ["最终结果。"] && target.marked.count == typed + 2)
+            passed += 1
+        }
         print("PASS: \(passed) session scenarios, including 20 consecutive drain/commit cycles")
     }
 }

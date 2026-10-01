@@ -1,6 +1,6 @@
 # Saylane 架构（当前实现）
 
-更新：2026-10-02（0.5.0）。本文描述仓库的实际结构。为什么拆成两个进程见 `docs/DESIGN_0.3.md`；更早的设计稿在 `docs/history/`。
+更新：2026-10-02（0.6.0）。本文描述仓库的实际结构。为什么拆成两个进程见 `docs/DESIGN_0.3.md`；更早的设计稿在 `docs/history/`。
 
 Saylane 提供三件事：按住快捷键说话并把识别 / 译文写进当前文本框、Rime 拼音打字、划区截屏翻译。识别与翻译全部在本机完成。
 
@@ -97,7 +97,10 @@ CGEvent tap（主程序，需辅助功能）────────────
 
 等终稿期间用户继续打字：输入法把可排队的按键（最多 64 个）排在终稿之后；超过 `userInputFence`（0.45 s）或遇到不能排队的键（回车、方向键、快捷键）则打字先行，终稿稍后照常写入。
 
-预览的头几个字：Apple 的 `SpeechTranscriber` 第一个结果大约在开口后 1.05 s 才来，`DictationTranscriber(.progressiveLongDictation)` 约 0.54 s。两个模块挂在同一个 `SpeechAnalyzer` 上，前者开口之前显示后者的结果，之后只用前者；终稿永远来自 `SpeechTranscriber`（`SpeechEngine.earlyModule`）。
+预览与终稿是两条路（详见 `docs/SPEECH_PIPELINE.md`）：
+
+- 预览来自系统的 `DictationTranscriber`（约 0.26 s 更新一次；`SpeechTranscriber` 约 1 s 一次），经 `Typewriter` 逐字放出。两个模块挂在同一个 `SpeechAnalyzer` 上。
+- 终稿：识别模型选“系统识别”时来自 `SpeechTranscriber`；选了下载的模型时由 `TwoPassSpeechEngine` 让模型来写，失败或超时写系统识别听到的。长听写在句子结尾分段交给模型。
 
 写入之前按偏好整理一次（`DictationFormat`）：去掉句末句号、中文与英文 / 数字之间加空格。两项默认都关。开始和结束各有一声提示音（`VoiceCue`，可关）；麦克风可以指定设备（`AudioCaptureService.preferredInputUID`），设备不在时退回系统默认。
 
@@ -117,6 +120,8 @@ CGEvent tap（主程序，需辅助功能）────────────
 - 加载它的是 librime 官方发行包里的 octagram 插件（`Frameworks/rime-plugins/librime-octagram.dylib`，BSD-3），随安装包分发并签名；其它插件不带。
 - 方案各有一份带语法的副本（`saylane_pinyin_lm`、`saylane_pinyin_fuzzy_lm`，`scripts/prepare-rime.py` 生成）。模型文件在用户目录里时 `RimeRuntime.schema(fuzzy:)` 选带 `_lm` 的那份，否则和以前完全一样。用户词库是同一个。
 - 60 句日常句子的首选整句正确数：不带模型 35，带模型 44。另一个 41 MB 的模型（essay-bgw）只有 36–38，没有采用。
+
+识别模型的错字率（150 段真人录音）：系统识别 5.2%，SenseVoiceSmall 3.7%，Qwen3-ASR 0.6B 2.0%。设置里只列这三个；Qwen 4-bit 和 Fun-ASR-Nano 没有实测数据，只对已经下载过的人显示。
 
 ## 7. 安装
 
@@ -160,6 +165,7 @@ Swift 6 语言模式 + `strict-concurrency: complete`。UI 与编排在主 actor
 - 安装包未签名、未公证，没有自动更新。
 - 触发键只能从列表里选（修饰键和功能键），不能录制任意组合。
 - 没有双拼。
+- 语音识别不联网。准确率比云端大模型差，见 `docs/SPEECH_PIPELINE.md` §4。
 - 没有辅助功能权限时，触发键只在 Saylane 是当前输入法且光标在文本框里时有效。
 - 功能键作触发键需要辅助功能权限。
 - 一个应用如果在本次开机期间见过输入法进程异常退出（见 §1），需要重启该应用才会重新连接。

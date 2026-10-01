@@ -2,6 +2,44 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.6.0 (local testing)
+
+"Doubao feels more live, faster and more accurate — find out how, and get there." How such a product gets there (`docs/SPEECH_PIPELINE.md`): recognition runs in the cloud, the streaming result is corrected in further passes, and a "typewriter" lets new characters out one at a time. Saylane now does the same things on the Mac.
+
+### Speaking
+
+- The words on screen follow the voice. They changed about once a second, three to six characters at a time: that is how often Apple's accurate recognizer answers, whatever it is fed. Its dictation model answers about every 0.26 s, and is now the preview for the whole utterance, not just its first words (measured on real speech replayed in real time: a screen update every 257 ms, before every 899 ms).
+- New characters are typed out a few at a time instead of landing in a clump; a correction of characters that are already shown replaces them in place.
+- Two passes. With a downloaded recognizer selected, the system recognizer still shows the words while you speak, and the model writes the final text when the key is released. On 150 recordings of real Mandarin speech (FLEURS test set) the system recognizer got 5.2% of the characters wrong, SenseVoiceSmall 3.7%, Qwen3-ASR 0.6B 2.0%; whole sentences right: 60, 73 and 96 of 150. The final text is there 0.34 s after the release (median, sentences of about ten seconds; nine in ten within 0.56 s). If the model fails or takes too long, what the system recognizer heard is written.
+- No more 30-second limit with a downloaded recognizer. A long dictation is handed to the model in stretches that end where a sentence ends, while you are still speaking; only the last stretch is left at the release (50 s of continuous speech: three stretches, text 0.42 s after the release).
+- The recognizer no longer shows or writes a space in front of Chinese punctuation ("欢迎 ，并与").
+
+### Settings and menu, gone through one by one
+
+- Voice Input has a "Recognizer" row that says which one is in use and takes you to the list.
+- "Local Models" is now "Models": the three recognizers that were measured, each with its size and error figure; the pinyin sentence model, which was only on the Keyboard page; then the status of the current languages. A recognizer is selected as soon as its download finishes. Qwen 4-bit and Fun-ASR-Nano were never measured and are listed only for those who already have them.
+- "I speak / Write" are "First language / Second language": they are the pair, and "Current" says which of the four ways to combine them is in use.
+- Removed "Recognize only, do not translate". It said what the direction already says; whoever had it on keeps writing the language that is spoken.
+- Removed the "Speech Recognition" permission row. The on-device recognizers never ask for it.
+- Removed the "Models for the current language — Download" row; a Download button appears in the status row that needs it.
+- The input-method menu lists the four modes with a tick on the current one, instead of a greyed-out title and "Switch translation direction". "Open the Rime user dictionary folder" moved to Keyboard Input ("Learned words — Show in Finder").
+- Not exposed, on purpose: the languages of screen translation (changed with D on the pinned translation).
+
+### Engineering
+
+- `Saylane --asr-bench list.txt out.jsonl --speech-model … [--realtime] [--solo]` replays recordings through a recognizer and records the final text and the moment of every preview.
+- Dictation metrics record when the voice starts (`voiceStarted`), so "voice to first character" can be read from a real session.
+- The bridge protocol is version 3 (menu modes).
+
+Not done, and said plainly:
+
+- Accuracy is still behind a cloud model, mostly on names and terms. A larger local model (Qwen3-ASR 1.7B) is not integrated and was not measured. A cloud recognizer was offered and declined for now.
+- The preview comes from the dictation model, which makes more mistakes than the final text; a few characters change when the final text arrives.
+- English and the other languages were not measured on real speech.
+- The comparison with Doubao is of methods, not of numbers on the same recordings.
+
+Verified on the development Mac: all tests, the three self-tests of the built programs, and the measurements above. Not yet seen on device: everything in this release.
+
 ## 0.5.0 (local testing)
 
 A review of the installed 0.4.1 against Doubao produced eight items. This release does six of them and part of a seventh; what is left is listed at the end.

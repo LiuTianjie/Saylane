@@ -7,7 +7,6 @@ struct Readiness: Equatable, Sendable {
 
     struct Permissions: Equatable, Sendable {
         var microphone: PermissionStatus = .notDetermined
-        var speechRecognition: PermissionStatus = .notDetermined
         var inputMonitoring = false
         var screenCapture = false
         var accessibility = false

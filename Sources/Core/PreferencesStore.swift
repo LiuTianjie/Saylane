@@ -46,6 +46,7 @@ final class PreferencesStore {
         static let dictationDropFinalStop = "dictationDropFinalStop"
         static let dictationSpaceBetweenScripts = "dictationSpaceBetweenScripts"
         static let speechModel = "speechModel"
+        /// Read once for migration, then removed.
         static let recognitionOnly = "recognitionOnly"
         static let speechHotwordsEnabled = "speechHotwordsEnabled"
         static let speechHotwords = "speechHotwords"
@@ -74,8 +75,9 @@ final class PreferencesStore {
         static let onboardingVersion = "onboardingVersion"
         static let quitByUser = "mainProgramQuitByUser"
         /// Settings of features that no longer exist (0.4: the Control long-press
-        /// for screen translation). Removed from storage when found.
-        static let retired = ["screenHoldEnabled"]
+        /// for screen translation; 0.6: "recognize only", which the direction
+        /// already says). Removed from storage when found.
+        static let retired = ["screenHoldEnabled", "recognitionOnly"]
         /// Pre-0.3 flag. Read once for migration, never written again.
         static let legacySetupVerified = "setupVerifiedV7"
         static let legacyDomain = "com.rtranslate.app"
@@ -83,6 +85,7 @@ final class PreferencesStore {
 
     init(backing: PreferencesBacking = UserDefaults.standard) {
         self.backing = backing
+        Self.migrateRecognitionOnly(backing)
         for key in Key.retired where backing.object(forKey: key) != nil { backing.removeObject(forKey: key) }
         Self.migrateLegacyDomain(backing)
         Self.keepDirectionOfExistingInstall(backing)
@@ -116,6 +119,14 @@ final class PreferencesStore {
                 backing.set(value, forKey: key)
             }
         }
+    }
+
+    /// "Recognize only, do not translate" was a second way of saying "write the
+    /// language that is spoken". Someone who had it on keeps exactly that.
+    private static func migrateRecognitionOnly(_ backing: PreferencesBacking) {
+        guard backing.object(forKey: Key.recognitionOnly) as? Bool == true else { return }
+        let spoken = backing.object(forKey: Key.sourceLanguage) as? String ?? Preferences().sourceLanguage.rawValue
+        backing.set(spoken, forKey: Key.targetLanguage)
     }
 
     /// Until 0.4.2 the default was "speak Chinese, write English", and a
@@ -160,7 +171,6 @@ final class PreferencesStore {
         p.dictationDropFinalStop = bool(Key.dictationDropFinalStop, default: p.dictationDropFinalStop)
         p.dictationSpaceBetweenScripts = bool(Key.dictationSpaceBetweenScripts, default: p.dictationSpaceBetweenScripts)
         p.speechModel = string(Key.speechModel).flatMap(SpeechModel.init(rawValue:)) ?? p.speechModel
-        p.recognitionOnly = bool(Key.recognitionOnly, default: p.recognitionOnly)
         p.speechHotwordsEnabled = bool(Key.speechHotwordsEnabled, default: p.speechHotwordsEnabled)
         p.speechHotwords = string(Key.speechHotwords) ?? p.speechHotwords
         p.dictationCleanupEnabled = bool(Key.dictationCleanupEnabled, default: p.dictationCleanupEnabled)
@@ -213,7 +223,6 @@ final class PreferencesStore {
         put(p.dictationDropFinalStop, o.dictationDropFinalStop, Key.dictationDropFinalStop) { $0 }
         put(p.dictationSpaceBetweenScripts, o.dictationSpaceBetweenScripts, Key.dictationSpaceBetweenScripts) { $0 }
         put(p.speechModel, o.speechModel, Key.speechModel) { $0.rawValue }
-        put(p.recognitionOnly, o.recognitionOnly, Key.recognitionOnly) { $0 }
         put(p.speechHotwordsEnabled, o.speechHotwordsEnabled, Key.speechHotwordsEnabled) { $0 }
         put(p.speechHotwords, o.speechHotwords, Key.speechHotwords) { $0 }
         put(p.dictationCleanupEnabled, o.dictationCleanupEnabled, Key.dictationCleanupEnabled) { $0 }

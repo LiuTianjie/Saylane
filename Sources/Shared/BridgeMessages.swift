@@ -4,7 +4,7 @@ import Foundation
 /// (`SaylaneIME`, typing and writing into the focused client) and the main
 /// program (`Saylane`, everything else). See `docs/DESIGN_0.3.md`.
 enum Bridge {
-    static let protocolVersion = 2
+    static let protocolVersion = 3
     /// The input method answers requests from the main program here.
     static let imePortName = "com.rtranslate.saylane.ime-bridge" + TestHome.suffix
     /// The main program receives events from the input method here.
@@ -60,8 +60,11 @@ struct KeyMeta: Codable, Equatable, Sendable {
 
 /// What the input-method menu shows; the main program owns the wording.
 struct BridgeMenuState: Codable, Equatable, Sendable {
-    var directionTitle = ""
-    var canSwitchDirection = false
+    /// The ways to speak and write with the chosen pair of languages ("中文 听写", "中文 → EN", …).
+    var modes: [String] = []
+    var currentMode: Int?
+    /// A mode can be chosen now: nothing is being dictated or prepared.
+    var canChooseMode = false
     var hasLastDictation = false
     var notice: String?
 }
@@ -129,7 +132,7 @@ enum BridgeReply: Codable, Sendable {
 }
 
 enum BridgeMenuAction: String, Codable, Sendable {
-    case openSettings, showNotice, switchDirection, screenCapture, copyLastDictation
+    case openSettings, showNotice, screenCapture, copyLastDictation
 }
 
 /// Input method → main program.
@@ -148,5 +151,7 @@ enum BridgeEvent: Codable, Sendable {
     /// Typing went ahead of the pending text; the preview is gone.
     case typingResumed(session: UUID)
     case menu(BridgeMenuAction)
+    /// One of `BridgeMenuState.modes` was chosen in the menu.
+    case menuMode(Int)
     case pinyinMode(english: Bool)
 }

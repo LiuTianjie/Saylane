@@ -15,7 +15,6 @@ final class PermissionsController {
 
     var permissions: Readiness.Permissions {
         Readiness.Permissions(microphone: Self.status(service.microphone),
-                              speechRecognition: Self.status(service.speechRecognition),
                               inputMonitoring: service.inputMonitoringGranted,
                               screenCapture: service.screenCaptureGranted,
                               accessibility: AccessibilityInserter.isTrusted)
@@ -47,11 +46,6 @@ final class PermissionsController {
         if InputSourceInstall.isEnabled, !InputSourceInstall.isSelected, !InputSourceInstall.selectEnabledMode() {
             onNotice?(.actionable(InputSourceInstall.lastFailure ?? String(localized: "切换未完成。"), .permissions))
         }
-        onChanged?()
-    }
-
-    func requestSpeechRecognition() async {
-        await service.requestSpeechRecognition()
         onChanged?()
     }
 

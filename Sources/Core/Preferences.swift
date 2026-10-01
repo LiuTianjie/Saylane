@@ -33,7 +33,6 @@ struct Preferences: Equatable, Sendable {
 
     // Recognition
     var speechModel: SpeechModel = .apple
-    var recognitionOnly = false
     var speechHotwordsEnabled = false
     var speechHotwords = ""
     var dictationCleanupEnabled = true
@@ -71,5 +70,5 @@ struct Preferences: Equatable, Sendable {
     var onboardingCompleted: Bool { onboardingVersion >= Self.currentOnboardingVersion }
 
     var currentDirection: TranslationDirection { TranslationDirection(source: sourceLanguage, target: targetLanguage) }
-    var translationIsPassthrough: Bool { recognitionOnly || sourceLanguage == targetLanguage }
+    var translationIsPassthrough: Bool { sourceLanguage == targetLanguage }
 }

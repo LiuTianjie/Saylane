@@ -11,7 +11,6 @@ struct PermissionsSettingsView: View {
 
     private var imeReady: Bool { model.readinessState.inputSource.enabled }
     private var micReady: Bool { model.permissions.microphone == .granted }
-    private var speechReady: Bool { model.permissions.speechRecognition == .granted }
     private var screenReady: Bool { model.permissions.screenCaptureGranted }
     private var accessibilityReady: Bool { model.readinessState.permissions.accessibility }
     private var globalEventListening: Bool { model.router.isGlobalTapListening }
@@ -41,18 +40,6 @@ struct PermissionsSettingsView: View {
             }
             SettingsSection {
                 accessibilityRow
-                permissionRow(
-                    symbol: "waveform",
-                    title: String(localized: "语音识别"),
-                    detail: speechDetail,
-                    ready: speechReady,
-                    optional: true,
-                    busy: model.permissions.isRequestingSpeech,
-                    actionTitle: model.permissions.isRequestingSpeech ? String(localized: "等待授权…") : String(localized: "去开通"),
-                    disabled: model.permissions.isRequestingSpeech
-                ) {
-                    Task { await model.requestSpeechRecognitionPermission() }
-                }
                 permissionRow(
                     symbol: "rectangle.dashed",
                     title: String(localized: "屏幕录制"),
@@ -143,14 +130,6 @@ struct PermissionsSettingsView: View {
         case .granted: return String(localized: "仅听写时采集")
         case .denied: return String(localized: "系统设置 → 隐私与安全性 → 麦克风")
         case .notDetermined: return String(localized: "第一次按住说话时系统会询问，也可以现在允许")
-        }
-    }
-
-    private var speechDetail: String {
-        switch model.permissions.speechRecognition {
-        case .granted: return String(localized: "使用 Apple 语音识别时需要")
-        case .denied: return String(localized: "系统设置 → 隐私与安全性 → 语音识别")
-        case .notDetermined: return String(localized: "使用 Apple 语音识别时需要")
         }
     }
 

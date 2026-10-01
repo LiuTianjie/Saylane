@@ -10,22 +10,35 @@ enum SpeechModel: String, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .apple: return String(localized: "Apple 系统识别")
-        case .senseVoice: return String(localized: "SenseVoiceSmall · Q8（试用）")
-        case .funASRNano: return String(localized: "Fun-ASR-Nano · Q4（试用）")
-        case .qwen4bit: return "Qwen3-ASR 0.6B · 4-bit"
-        case .qwen6bit: return "Qwen3-ASR 0.6B · 6-bit"
+        case .apple: return String(localized: "系统识别")
+        case .senseVoice: return String(localized: "SenseVoiceSmall · 较小")
+        case .funASRNano: return "Fun-ASR-Nano"
+        case .qwen4bit: return "Qwen3-ASR · 4-bit"
+        case .qwen6bit: return String(localized: "Qwen3-ASR · 更准")
         }
     }
+    var shortTitle: String {
+        switch self {
+        case .apple: return String(localized: "系统识别")
+        case .senseVoice: return "SenseVoiceSmall"
+        case .funASRNano: return "Fun-ASR-Nano"
+        case .qwen4bit, .qwen6bit: return "Qwen3-ASR"
+        }
+    }
+    /// The error figures are characters wrong on 150 recordings of real Mandarin speech (FLEURS test set), measured on this code.
     var detail: String {
         switch self {
-        case .apple: return String(localized: "系统管理 · 实时组字")
-        case .senseVoice: return String(localized: "约 254 MB · 中英粤日韩 · 边说边出字")
-        case .funASRNano: return String(localized: "约 954 MB · 中英日 · 边说边出字")
-        case .qwen4bit: return String(localized: "约 724 MB · 较小体积 · 边说边出字")
-        case .qwen6bit: return String(localized: "约 873 MB · 较低量化损失 · 边说边出字")
+        case .apple: return String(localized: "macOS 自带，不用下载 · 100 个字错 5 个")
+        case .senseVoice: return String(localized: "下载 254 MB · 100 个字错不到 4 个 · 中英粤日韩")
+        case .funASRNano: return String(localized: "下载 954 MB · 中英日 · 没有实测数据")
+        case .qwen4bit: return String(localized: "下载 724 MB · 体积小一些 · 没有实测数据")
+        case .qwen6bit: return String(localized: "下载 873 MB · 100 个字错 2 个 · 松开后约 0.3 秒写出终稿")
         }
     }
+    /// The order of the list in Settings: what the Mac has, then the most accurate.
+    static let listed: [SpeechModel] = [.apple, .qwen6bit, .senseVoice, .qwen4bit, .funASRNano]
+    /// The models offered to everyone; the others stay listed for those who already have them.
+    var isOffered: Bool { self == .apple || self == .qwen6bit || self == .senseVoice }
     var isQwen: Bool { self == .qwen4bit || self == .qwen6bit }
     var isLocal: Bool { self != .apple }
     var isNative: Bool { self == .senseVoice || self == .funASRNano }

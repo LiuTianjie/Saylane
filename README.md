@@ -46,7 +46,7 @@ For example, with Chinese → English selected:
 - **Keep typing and speaking in one input method.** Rime handles Pinyin composition, candidate selection, mixed English, and user vocabulary learning; page keys, `;` `'` picks and Western punctuation are choices in Settings, and an optional 409 MB language model makes whole sentences come out right more often. Voice input uses the same native text-input connection.
 - **See a draft while you speak.** Recognition and translation update the current composition. Releasing the shortcut finalizes and commits once; `Esc` cancels the session.
 - **Choose dictation or translation.** Configure a language pair and switch between A → A, A → B, B → A, and B → B. Same-language dictation skips translation.
-- **Choose your local recognizer.** Start with Apple, or download Qwen3-ASR, SenseVoiceSmall, or Fun-ASR-Nano from Settings.
+- **Live words, a more accurate final text.** The words on screen update about every 0.26 s. Download Qwen3-ASR and it writes the final text on release, with fewer than half the mistakes of the system recognizer.
 - **Separate previews from final editing.** Local cleanup and terminology corrections run at the final stage. Optional AI editing can refine the finished draft without processing every partial result.
 - **Read text on screen, too.** Capture a region and view translated text over the pinned screenshot, using local Vision OCR and Apple Translation.
 
@@ -91,23 +91,21 @@ When quick language switching is enabled, double-tap **right Command (⌘)** to 
 
 This also makes English dictation useful for self-practice. Saylane transcribes what the model recognizes; it does not score pronunciation.
 
-## Local speech models
+## Speech recognizers
 
-Choose a model in **Settings → Local Models**, download it if needed, then select **Use**. Model weights are stored separately from the app and excluded from the installer.
+Choose one in **Settings → Models**; the Voice Input page has a "Recognizer" row that takes you there. A recognizer is selected as soon as its download finishes. Model weights are not part of the installer.
 
-| Recognizer | Approximate download | Runtime and preview behavior |
-| --- | --- | --- |
-| **Apple · default** | Language assets managed by macOS | SpeechAnalyzer / SpeechTranscriber with live hypotheses |
-| **Qwen3-ASR 0.6B · 4-bit** | 724 MB | MLX worker; repeated decoding of accumulated audio |
-| **Qwen3-ASR 0.6B · 6-bit** | 873 MB | MLX worker; repeated decoding of accumulated audio |
-| **SenseVoiceSmall · Q8** | 254 MB | Native helper; repeated decoding of accumulated audio; experimental |
-| **Fun-ASR-Nano · Q4** | 954 MB | Native helper; repeated decoding of accumulated audio; experimental |
+| Recognizer | Download | Characters wrong in 100 | How it is used |
+| --- | --- | --- | --- |
+| **System recognizer · default** | None; language assets are managed by macOS | about 5 | Preview and final text |
+| **Qwen3-ASR 0.6B** | 873 MB | about 2 | The system recognizer shows the words live; this model writes the final text on release (about 0.3 s) |
+| **SenseVoiceSmall** | 254 MB | under 4 | Same, smaller |
 
-Downloads use pinned revisions and SHA-256 verification. Settings provide cancellation, retry, repair, and deletion. Switching away from a local model releases its runtime; downloaded files remain on disk.
+The error figures come from 150 recordings of real Mandarin speech (FLEURS test set), measured on one Mac with this code. They compare recognizers; they are not a promise about everyday dictation. Method, and a comparison with how Doubao's input method works: [speech pipeline notes](docs/SPEECH_PIPELINE.md).
 
-The downloadable recognizers refresh the draft while you speak, but **this is not native incremental streaming**. Their current recording limit is **30 seconds per session**. Model size is a download estimate, not a RAM requirement or an accuracy ranking. Language availability varies by backend.
+The words on screen while you speak always come from the system recognizer, updated about every 0.26 s and typed out a few characters at a time. With a downloaded model selected, the model writes the final text; if it fails or is too slow, what the system recognizer heard is written. A long dictation is handed over in stretches that end at sentence boundaries; there is no per-session time limit. Downloads use pinned revisions and SHA-256 verification, with cancel, retry, repair and delete.
 
-The **recognition-only** setting skips translation. AI editing has an independent voice-input switch; turn it off as well to keep text out of the editing endpoint. Personal hotwords can guide supported recognition paths, but do not guarantee a particular transcription. See [local model behavior](docs/ASR_COMPARISON.md) and [Qwen integration](docs/QWEN_ASR.md).
+AI editing has its own voice-input switch; turn it off to keep text out of the editing endpoint. Personal hotwords can guide supported recognition paths, but do not guarantee a particular transcription. See [local model behavior](docs/ASR_COMPARISON.md) and [Qwen integration](docs/QWEN_ASR.md).
 
 ## Screen translation
 

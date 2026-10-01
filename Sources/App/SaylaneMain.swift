@@ -23,7 +23,7 @@ enum SaylaneMain {
             if !ok { fputs("\(InputSourceInstall.lastFailure ?? "Input source could not be disabled")\n", stderr) }
             exit(ok ? EXIT_SUCCESS : EXIT_FAILURE)
         }
-        if CommandLine.arguments.contains(where: { ["--diagnose", "--microphone-check", "--recognize-file", "--translation-check", "--download-speech-model", "--asr-memory-check", "--qwen-worker"].contains($0) }) {
+        if CommandLine.arguments.contains(where: { ["--diagnose", "--microphone-check", "--recognize-file", "--asr-bench", "--translation-check", "--download-speech-model", "--asr-memory-check", "--qwen-worker"].contains($0) }) {
             Task { @MainActor in exit(await Diagnostics.run(CommandLine.arguments)) }
             RunLoop.main.run()
             return

@@ -7,6 +7,9 @@ final class QwenAudioBuffer {
     private(set) var samples: [Float] = []
     private let converter = BufferConverter()
 
+    /// Start again from audio that was already converted.
+    func restore(_ converted: [Float]) { samples = converted }
+
     func append(_ input: AVAudioPCMBuffer) throws {
         guard input.frameLength > 0 else { return }
         guard input.format.sampleRate > 0, input.format.channelCount > 0,

@@ -123,6 +123,8 @@ final class IMEHost {
         post(.menu(action))
     }
 
+    func chooseMode(_ index: Int) { post(.menuMode(index)) }
+
     private func englishModeChanged(_ english: Bool) {
         pinyinPreferences.englishMode = english
         defaults.set(english, forKey: Key.englishMode)

@@ -48,9 +48,11 @@ import Carbon.HIToolbox
             ])
             let store = PreferencesStore(backing: backing)
             let p = store.current
-            precondition(p.sourceLanguage == .en && p.targetLanguage == .zhHans && p.pairSource == .en && p.pairTarget == .ja)
+            // "Recognize only" was on: what is spoken is what is written.
+            precondition(p.sourceLanguage == .en && p.targetLanguage == .en && p.pairSource == .en && p.pairTarget == .ja)
+            precondition(backing.object(forKey: "recognitionOnly") == nil)
             precondition(p.pushToTalk == .rightCommand && p.tapToTalk && !p.languageSwitchEnabled && !p.overlayEnabled)
-            precondition(p.speechModel == .senseVoice && p.recognitionOnly && p.speechHotwordsEnabled && p.speechHotwords == "Saylane|赛兰")
+            precondition(p.speechModel == .senseVoice && p.speechHotwordsEnabled && p.speechHotwords == "Saylane|赛兰")
             precondition(!p.dictationCleanupEnabled && p.dictationGlossaryEnabled && p.finalPolishEnabled)
             precondition(p.finalPolishEndpoint == "https://x/v1" && p.finalPolishModel == "m" && p.screenPolishEnabled)
             precondition(p.screenCaptureShortcut.keyCode == UInt16(kVK_ANSI_S) && p.screenCaptureShortcut.normalizedFlags == (ScreenModifier.command | ScreenModifier.option))

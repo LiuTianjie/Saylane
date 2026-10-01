@@ -2,15 +2,12 @@ import AppKit
 import AVFoundation
 import CoreGraphics
 import Observation
-import Speech
 
 @MainActor @Observable
 final class PermissionService {
     enum Status: Equatable { case granted, denied, notDetermined }
     var isRequestingMicrophone = false
-    var isRequestingSpeech = false
     var microphone: Status = .notDetermined
-    var speechRecognition: Status = .notDetermined
     var inputMonitoringGranted = false
     var screenCaptureGranted = false
     var allCriticalGranted: Bool { microphone == .granted }
@@ -20,11 +17,6 @@ final class PermissionService {
         case .authorized: microphone = .granted
         case .notDetermined: microphone = .notDetermined
         default: microphone = .denied
-        }
-        switch SFSpeechRecognizer.authorizationStatus() {
-        case .authorized: speechRecognition = .granted
-        case .notDetermined: speechRecognition = .notDetermined
-        default: speechRecognition = .denied
         }
         inputMonitoringGranted = CGPreflightListenEventAccess()
         screenCaptureGranted = CGPreflightScreenCaptureAccess()
@@ -64,27 +56,6 @@ final class PermissionService {
             if microphone != .granted {
                 Self.openPrivacy("Privacy_Microphone")
             }
-        }
-    }
-
-    func requestSpeechRecognition() async {
-        guard !isRequestingSpeech else { return }
-        isRequestingSpeech = true
-        defer { isRequestingSpeech = false }
-        refresh()
-        if speechRecognition == .granted { return }
-        if speechRecognition == .denied {
-            Self.openPrivacy("Privacy_SpeechRecognition")
-            return
-        }
-        let status: SFSpeechRecognizerAuthorizationStatus = await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { @Sendable status in
-                continuation.resume(returning: status)
-            }
-        }
-        refresh()
-        if status != .authorized {
-            Self.openPrivacy("Privacy_SpeechRecognition")
         }
     }
 

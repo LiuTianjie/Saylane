@@ -79,22 +79,25 @@ final class SaylaneInputController: IMKInputController, InputClientController {
             add(menu, "⚠︎ " + notice, #selector(showNotice(_:)))
             menu.addItem(.separator())
         }
-        if !state.directionTitle.isEmpty {
-            menu.addItem(withTitle: state.directionTitle, action: nil, keyEquivalent: "").isEnabled = false
+        if host.mainProgramConnected, !state.modes.isEmpty {
+            // What a dictation writes: one of the four ways to combine the two languages.
+            for (index, title) in state.modes.enumerated() {
+                let item = add(menu, title, #selector(chooseMode(_:)))
+                item.tag = index
+                item.state = index == state.currentMode ? .on : .off
+                item.isEnabled = state.canChooseMode && !host.isDictating
+            }
+            menu.addItem(.separator())
         }
         add(menu, host.englishMode ? String(localized: "切换到拼音中文") : String(localized: "切换到英文键盘"),
             #selector(togglePinyinMode(_:))).isEnabled = !host.isDictating
         if host.mainProgramConnected {
-            if state.canSwitchDirection {
-                add(menu, String(localized: "切换翻译方向"), #selector(switchOutputLanguage(_:))).isEnabled = !host.isDictating
-            }
             add(menu, String(localized: "截屏翻译"), #selector(captureScreen(_:)))
             if state.hasLastDictation {
                 add(menu, String(localized: "复制上一次听写"), #selector(copyLastDictation(_:)))
             }
         }
         menu.addItem(.separator())
-        add(menu, String(localized: "打开 Rime 用户词库目录"), #selector(openRimeUserDirectory(_:)))
         add(menu, String(localized: "Saylane 设置…"), #selector(showPreferences(_:)))
         return menu
     }
@@ -114,8 +117,11 @@ final class SaylaneInputController: IMKInputController, InputClientController {
         onMain { IMEHost.shared.perform(.showNotice) }
     }
 
-    @objc private func switchOutputLanguage(_ sender: Any!) {
-        onMain { IMEHost.shared.perform(.switchDirection) }
+    @objc private func chooseMode(_ sender: Any!) {
+        // IMK hands over the menu item itself, or a dictionary that carries it.
+        let item = sender as? NSMenuItem ?? (sender as? [String: Any])?[kIMKCommandMenuItemName] as? NSMenuItem
+        guard let index = item?.tag else { return }
+        onMain { IMEHost.shared.chooseMode(index) }
     }
 
     @objc private func togglePinyinMode(_ sender: Any!) {
@@ -128,10 +134,6 @@ final class SaylaneInputController: IMKInputController, InputClientController {
 
     @objc private func copyLastDictation(_ sender: Any!) {
         onMain { IMEHost.shared.perform(.copyLastDictation) }
-    }
-
-    @objc private func openRimeUserDirectory(_ sender: Any!) {
-        NSWorkspace.shared.open(AppDirectories.rime)
     }
 
     override func recognizedEvents(_ sender: Any!) -> Int {

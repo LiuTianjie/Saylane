@@ -67,7 +67,7 @@ final class VoiceSessionController {
 
     init(coordinator: SessionCoordinator? = nil, overlay: OverlayController? = nil, policy: VoicePolicy = .standard,
          environment: VoiceInputEnvironment? = nil, makeCapture: ((TimeInterval) -> PrerollCapture)? = nil) {
-        self.coordinator = coordinator ?? SessionCoordinator()
+        self.coordinator = coordinator ?? SessionCoordinator(typingInterval: VoicePolicy.typingInterval)
         self.overlay = overlay ?? OverlayController()
         self.policy = policy
         self.environment = environment ?? .system

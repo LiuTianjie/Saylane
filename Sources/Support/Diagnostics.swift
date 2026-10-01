@@ -104,6 +104,30 @@ import Darwin
                 print(String(data: try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]), encoding: .utf8)!)
                 return 0
             }
+            if let index = arguments.firstIndex(of: "--asr-bench"), arguments.count > index + 2 {
+                // One recording per line in, one JSON report per line out. The
+                // model stays loaded between recordings.
+                let files = try String(contentsOfFile: arguments[index + 1], encoding: .utf8)
+                    .split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+                let variant = arguments.firstIndex(of: "--speech-model")
+                    .flatMap { arguments.count > $0 + 1 ? SpeechModel(rawValue: arguments[$0 + 1]) : nil } ?? .apple
+                let locale = Locale(identifier: arguments.firstIndex(of: "--locale")
+                    .flatMap { arguments.count > $0 + 1 ? arguments[$0 + 1] : nil } ?? "zh-CN")
+                FileManager.default.createFile(atPath: arguments[index + 2], contents: nil)
+                let out = try FileHandle(forWritingTo: URL(fileURLWithPath: arguments[index + 2]))
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.sortedKeys]
+                for (number, path) in files.enumerated() {
+                    let runs = try await SpeechFileBenchmark.run(fileURL: URL(fileURLWithPath: path), locale: locale,
+                        model: variant.rawValue, realtime: arguments.contains("--realtime"), repetitions: 1) {
+                        Self.benchmarkEngine(variant, arguments: arguments)
+                    }
+                    for run in runs { out.write(try encoder.encode(run) + Data("\n".utf8)) }
+                    print("\(number + 1)/\(files.count)")
+                }
+                try out.close()
+                return 0
+            }
             if let index = arguments.firstIndex(of: "--recognize-file"), arguments.count > index + 1 {
                 let fileURL = URL(fileURLWithPath: arguments[index + 1])
                 let locale = arguments.count > index + 2 && !arguments[index + 2].hasPrefix("--") ? arguments[index + 2] : "zh-CN"
@@ -199,6 +223,15 @@ import Darwin
         }
         let footprint = status == KERN_SUCCESS ? String(format: "%.1f", Double(info.phys_footprint) / 1_048_576) : "unavailable"
         return "MLX active=\(usage.active) cache=\(usage.cache) peak=\(usage.peak) footprintMiB=\(footprint)"
+    }
+
+    private static func benchmarkEngine(_ variant: SpeechModel, arguments: [String]) -> any SpeechRecognizing {
+        if variant == .apple { return SpeechEngine() }
+        // What a dictation uses: two passes. `--solo` is the model on its own.
+        if arguments.contains("--solo") { return QwenSpeechEngine(variant: variant, context: nil, runtime: QwenRuntime.shared) }
+        let engine = AppModel.twoPass(variant, prompt: nil, contextualStrings: [])
+        engine.onStretch = { print(String(format: "stretch %.1f s", $0)) }
+        return engine
     }
 
     private static func runQwenWorker(_ variant: SpeechModel) async -> Int32 {

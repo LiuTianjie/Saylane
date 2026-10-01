@@ -92,15 +92,14 @@ final class ModelCoordinator {
                             : String(localized: "请下载 \(config.source.displayName) 的语音模型")
             onReadiness?(.speechModel(ready: installed, detail: detail))
         } else {
-            onReadiness?(.speechModel(ready: false, detail: String(localized: "正在校验并加载 \(config.speechModel.title)…")))
+            onReadiness?(.speechModel(ready: false, detail: String(localized: "正在校验并加载 \(config.speechModel.shortTitle)…")))
             if asrModels.installed.contains(config.speechModel) {
                 do {
                     guard config.speechModel.supports(locale: config.source.speechLocale) else { throw ASRModelError.unsupportedLanguage }
                     _ = try QwenLanguage.name(for: config.source.speechLocale)
                     try await QwenRuntime.shared.prepare(config.speechModel)
                     guard current == revision, !Task.isCancelled else { return }
-                    let mode = config.speechModel.emitsLivePartial ? String(localized: "边说边出字") : String(localized: "松开后出字")
-                    onReadiness?(.speechModel(ready: true, detail: String(localized: "\(config.speechModel.title) 已就绪 · \(mode)")))
+                    onReadiness?(.speechModel(ready: true, detail: String(localized: "\(config.speechModel.shortTitle) 已就绪：系统识别实时出字，它写终稿")))
                 } catch {
                     guard current == revision, !Task.isCancelled else { return }
                     onReadiness?(.speechModel(ready: false, detail: String(localized: "模型未就绪，请重试或重新下载修复")))
@@ -108,15 +107,14 @@ final class ModelCoordinator {
                 }
             } else {
                 await QwenRuntime.shared.unload()
-                onReadiness?(.speechModel(ready: false, detail: String(localized: "请下载 \(config.speechModel.title)")))
+                onReadiness?(.speechModel(ready: false, detail: String(localized: "请下载 \(config.speechModel.shortTitle)")))
             }
         }
         guard current == revision, !Task.isCancelled else { return }
         let translationReady = config.passthrough || translation.isReady
         let translationDetail: String
         if configuration.passthrough {
-            translationDetail = config.source == config.target
-                ? String(localized: "同语言听写，不调用翻译") : String(localized: "仅识别：不翻译")
+            translationDetail = String(localized: "同语言听写，不调用翻译")
         } else {
             translationDetail = translationReady ? String(localized: "翻译模型已就绪") : String(localized: "翻译模型未准备好，请点击下载")
         }
@@ -133,8 +131,12 @@ final class ModelCoordinator {
             if config.speechModel == .apple {
                 guard let locale = await SpeechEngine.resolvedLocale(for: config.source.speechLocale) else { throw SpeechEngineError.unsupportedLocale }
                 try await SpeechEngine.prepareModel(for: locale)
-            } else if !asrModels.installed.contains(config.speechModel) {
-                try await asrModels.download(config.speechModel)
+            } else {
+                if !asrModels.installed.contains(config.speechModel) { try await asrModels.download(config.speechModel) }
+                // The words on screen while speaking come from the system's recognizer: have it, if it exists for the language.
+                if let locale = await SpeechEngine.resolvedLocale(for: config.source.speechLocale) {
+                    try? await SpeechEngine.prepareModel(for: locale)
+                }
             }
             if !config.passthrough && !translation.isReady {
                 try await translation.ready(source: config.source.translationLanguage, target: config.target.translationLanguage)

@@ -18,4 +18,6 @@ struct VoicePolicy: Equatable, Sendable {
     var interruptGrace: TimeInterval = 1.5
 
     static let standard = VoicePolicy()
+    /// The preview is typed out in steps this far apart.
+    static let typingInterval: TimeInterval = 0.03
 }

@@ -17,6 +17,13 @@ import Foundation
         let hypothesisCount: Int
         let revisedCharacterCount: Int
         let text: String
+        /// When each hypothesis arrived, counted from the first audio fed.
+        var partials: [Partial] = []
+        var file: String?
+    }
+    struct Partial: Codable {
+        let ms: Double
+        let text: String
     }
 
     static func run(fileURL: URL, locale: Locale, model: String, realtime: Bool, repetitions: Int,
@@ -29,11 +36,13 @@ import Foundation
             var firstHypothesis: Double?
             var count = 0, revised = 0
             var previous = ""
+            var partials: [Partial] = []
             var feedingStarted = started
             engine.onPartial = { result in
                 guard !result.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
                 let current = ProcessInfo.processInfo.systemUptime
                 if firstHypothesis == nil { firstHypothesis = (current - feedingStarted) * 1000 }
+                partials.append(Partial(ms: (current - feedingStarted) * 1000, text: result.text))
                 count += 1
                 let common = zip(previous, result.text).prefix { $0 == $1 }.count
                 revised += max(0, previous.count - common)
@@ -66,7 +75,8 @@ import Foundation
                                    audioMS: Double(file.length) / file.processingFormat.sampleRate * 1000,
                                    setupMS: setupMS, firstHypothesisMS: firstHypothesis,
                                    finalizeMS: (ended - released) * 1000, totalMS: (ended - started) * 1000,
-                                   hypothesisCount: count, revisedCharacterCount: revised, text: text))
+                                   hypothesisCount: count, revisedCharacterCount: revised, text: text,
+                                   partials: partials, file: fileURL.lastPathComponent))
             } catch {
                 await engine.cancel()
                 throw error

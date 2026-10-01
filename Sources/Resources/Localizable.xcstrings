@@ -11,12 +11,12 @@
         }
       }
     },
-    "%@ 已就绪 · %@": {
+    "%@ 已就绪：系统识别实时出字，它写终稿": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ready · %@"
+            "value": "%@ ready: the system recognizer shows the words, it writes the final text"
           }
         }
       }
@@ -201,42 +201,12 @@
         }
       }
     },
-    "Apple 系统识别": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apple system recognition"
-          }
-        }
-      }
-    },
-    "Apple 资产由系统管理；本地模型从 Hugging Face 下载固定版本并校验。翻译模型下载时会弹出一个小窗口，不需要打开设置。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apple assets are managed by the system; local models are downloaded from Hugging Face at a pinned revision and verified. A small window appears while a translation model downloads; Settings does not need to be open."
-          }
-        }
-      }
-    },
     "Esc": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Esc"
-          }
-        }
-      }
-    },
-    "Fun-ASR-Nano · Q4（试用）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fun-ASR-Nano · Q4 (preview)"
           }
         }
       }
@@ -257,6 +227,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Page Up / Page Down always turn the page. Punctuation that is not a page key commits the first candidate, then types itself."
+          }
+        }
+      }
+    },
+    "Qwen3-ASR · 更准": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qwen3-ASR · more accurate"
           }
         }
       }
@@ -301,12 +281,12 @@
         }
       }
     },
-    "SenseVoiceSmall · Q8（试用）": {
+    "SenseVoiceSmall · 较小": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "SenseVoiceSmall · Q8 (preview)"
+            "value": "SenseVoiceSmall · smaller"
           }
         }
       }
@@ -341,6 +321,16 @@
         }
       }
     },
+    "macOS 自带，不用下载 · 100 个字错 5 个": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Built into macOS, nothing to download · 5 characters in 100 wrong"
+          }
+        }
+      }
+    },
     "zh/z、an/ang 等，精确音节优先": {
       "localizations": {
         "en": {
@@ -367,6 +357,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Download"
+          }
+        }
+      }
+    },
+    "下载 254 MB · 100 个字错不到 4 个 · 中英粤日韩": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "254 MB download · under 4 characters in 100 wrong · zh/en/yue/ja/ko"
+          }
+        }
+      }
+    },
+    "下载 724 MB · 体积小一些 · 没有实测数据": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "724 MB download · a little smaller · not measured"
+          }
+        }
+      }
+    },
+    "下载 873 MB · 100 个字错 2 个 · 松开后约 0.3 秒写出终稿": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "873 MB download · 2 characters in 100 wrong · final text about 0.3 s after release"
+          }
+        }
+      }
+    },
+    "下载 954 MB · 中英日 · 没有实测数据": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "954 MB download · zh/en/ja · not measured"
           }
         }
       }
@@ -491,52 +521,12 @@
         }
       }
     },
-    "仅识别，不翻译": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recognize only, do not translate"
-          }
-        }
-      }
-    },
-    "仅识别：不翻译": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recognition only: no translation"
-          }
-        }
-      }
-    },
-    "你说": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You say"
-          }
-        }
-      }
-    },
     "使用": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Use"
-          }
-        }
-      }
-    },
-    "使用 Apple 语音识别时需要": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Needed for Apple speech recognition"
           }
         }
       }
@@ -671,16 +661,6 @@
         }
       }
     },
-    "写成": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Write"
-          }
-        }
-      }
-    },
     "准备模型": {
       "localizations": {
         "en": {
@@ -761,32 +741,12 @@
         }
       }
     },
-    "切换翻译方向": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switch translation direction"
-          }
-        }
-      }
-    },
     "切换这块的翻译方向，不影响说话（D）": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Change this capture's direction without affecting voice (D)"
-          }
-        }
-      }
-    },
-    "划区翻译": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Region translation"
           }
         }
       }
@@ -951,16 +911,6 @@
         }
       }
     },
-    "双击右 ⌘ 在这四种组合之间轮转。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Double-tap right ⌘ to cycle through these four combinations."
-          }
-        }
-      }
-    },
     "反馈与兼容": {
       "localizations": {
         "en": {
@@ -987,16 +937,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancel"
-          }
-        }
-      }
-    },
-    "口误修正、个人词库和大模型校对不受影响": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Slip correction, personal vocabulary and AI proofreading are unaffected"
           }
         }
       }
@@ -1171,13 +1111,12 @@
         }
       }
     },
-    "启用输入模式失败。": {
-      "extractionState": "stale",
+    "在访达中显示": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enabling the input mode failed."
+            "value": "Show in Finder"
           }
         }
       }
@@ -1268,6 +1207,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "AI polish is configured under Text Correction. Screenshots are never uploaded."
+          }
+        }
+      }
+    },
+    "学到的词": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Learned words"
           }
         }
       }
@@ -1762,22 +1711,22 @@
         }
       }
     },
-    "当前语言所需模型": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Models for the current language"
-          }
-        }
-      }
-    },
     "当前语言的模型尚未就绪，请先下载模型，再开始听写。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Models for the current language are not ready. Download them before dictating."
+          }
+        }
+      }
+    },
+    "当前语言的状态": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Status for the current languages"
           }
         }
       }
@@ -1832,16 +1781,6 @@
         }
       }
     },
-    "我说": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I speak"
-          }
-        }
-      }
-    },
     "截取屏幕失败，请重试。": {
       "localizations": {
         "en": {
@@ -1892,12 +1831,12 @@
         }
       }
     },
-    "打开 Rime 用户词库目录": {
+    "打字时选过的词记在这个文件夹里，只在这台 Mac 上。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Rime User Dictionary Folder"
+            "value": "The words you picked while typing are kept in this folder, on this Mac only."
           }
         }
       }
@@ -2192,6 +2131,16 @@
         }
       }
     },
+    "更换…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change…"
+          }
+        }
+      }
+    },
     "最多使用三个键（两个修饰键加一个主键）。": {
       "localizations": {
         "en": {
@@ -2242,16 +2191,6 @@
         }
       }
     },
-    "本地模型": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Local Models"
-          }
-        }
-      }
-    },
     "本地模型单次最多 30 秒，已提交听到的部分。": {
       "extractionState": "stale",
       "localizations": {
@@ -2293,16 +2232,6 @@
         }
       }
     },
-    "权重按需下载，可分别删除。本地模型按住说话时刷新预览，松开后再出最终结果；每次最多 30 秒，超过时保留已识别的部分。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Weights download on demand and can be deleted individually. Local models refresh a preview while you hold, then produce the final result on release; at most 30 s each time, keeping what was recognized beyond that."
-          }
-        }
-      }
-    },
     "权限": {
       "localizations": {
         "en": {
@@ -2319,16 +2248,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Permissions"
-          }
-        }
-      }
-    },
-    "松开后出字": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "text appears on release"
           }
         }
       }
@@ -2398,7 +2317,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Model"
+            "value": "Models"
           }
         }
       }
@@ -2883,16 +2802,6 @@
         }
       }
     },
-    "状态": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Status"
-          }
-        }
-      }
-    },
     "用 ; 和 ' 选第 2、第 3 个候选": {
       "localizations": {
         "en": {
@@ -3073,26 +2982,6 @@
         }
       }
     },
-    "系统管理 · 实时组字": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "System managed · live composing"
-          }
-        }
-      }
-    },
-    "系统设置 → 隐私与安全性 → 语音识别": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "System Settings → Privacy & Security → Speech Recognition"
-          }
-        }
-      }
-    },
     "系统设置 → 隐私与安全性 → 辅助功能": {
       "localizations": {
         "en": {
@@ -3113,6 +3002,26 @@
         }
       }
     },
+    "系统识别": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System recognizer"
+          }
+        }
+      }
+    },
+    "系统识别和翻译的语言资源由 macOS 管理。翻译模型下载时会弹出一个小窗口，不需要打开设置。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language assets for the system recognizer and for translation are managed by macOS. A small window appears while a translation model downloads; Settings does not need to be open."
+          }
+        }
+      }
+    },
     "系统输入法注册失败（错误码 %d）。": {
       "localizations": {
         "en": {
@@ -3129,46 +3038,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "The system has not found the component yet"
-          }
-        }
-      }
-    },
-    "约 254 MB · 中英粤日韩 · 边说边出字": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "About 254 MB · zh/en/yue/ja/ko · live text"
-          }
-        }
-      }
-    },
-    "约 724 MB · 较小体积 · 边说边出字": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "About 724 MB · smaller · live text"
-          }
-        }
-      }
-    },
-    "约 873 MB · 较低量化损失 · 边说边出字": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "About 873 MB · less quantization loss · live text"
-          }
-        }
-      }
-    },
-    "约 954 MB · 中英日 · 边说边出字": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "About 954 MB · zh/en/ja · live text"
           }
         }
       }
@@ -3363,12 +3232,22 @@
         }
       }
     },
+    "识别": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognition"
+          }
+        }
+      }
+    },
     "识别模型": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Recognizers"
+            "value": "Recognizer"
           }
         }
       }
@@ -3413,6 +3292,26 @@
         }
       }
     },
+    "语言一": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "First language"
+          }
+        }
+      }
+    },
+    "语言二": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Second language"
+          }
+        }
+      }
+    },
     "语音": {
       "localizations": {
         "en": {
@@ -3438,7 +3337,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Speech Recognition"
+            "value": "Speech recognition"
           }
         }
       }
@@ -3529,6 +3428,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show the bottom HUD while talking"
+          }
+        }
+      }
+    },
+    "说话时的字和松开后的终稿都来自系统识别。下载更准的模型后，终稿由它来写，错字少一半以上。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The words while you speak and the final text both come from the system recognizer. With a more accurate model downloaded, it writes the final text, with fewer than half the mistakes."
+          }
+        }
+      }
+    },
+    "说话时的字总是由系统识别实时显示。选了下载的模型，松开后的终稿由它来写；它出错或太慢时，写系统识别听到的。错字数来自 150 段真人普通话录音。模型从 Hugging Face 下载固定版本并校验，只保存在这台 Mac 上。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The words while you speak are always shown by the system recognizer. With a downloaded model selected, it writes the final text on release; if it fails or is too slow, what the system recognizer heard is written. Error figures come from 150 recordings of real Mandarin speech. Models are downloaded from Hugging Face at a pinned revision, verified, and kept on this Mac only."
+          }
+        }
+      }
+    },
+    "说话时的字由系统识别实时显示；松开后由 %@ 写终稿。它出错或太慢时，写系统识别听到的。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The words while you speak are shown by the system recognizer; on release %@ writes the final text. If it fails or is too slow, what the system recognizer heard is written."
           }
         }
       }
@@ -3723,16 +3652,6 @@
         }
       }
     },
-    "边说边出字": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "live text"
-          }
-        }
-      }
-    },
     "还没有允许屏幕录制。允许后可以用 %@ 划区翻译。": {
       "localizations": {
         "en": {
@@ -3819,6 +3738,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pinyin keeps working after quitting. Dictation and screen translation stop until the settings are opened again from the input menu."
+          }
+        }
+      }
+    },
+    "选两种语言。“当前”决定说哪一种、写成哪一种；双击右 ⌘ 在这四种组合之间轮转。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick two languages. “Current” decides which one you speak and which one is written; double-tap right ⌘ to cycle through the four combinations."
           }
         }
       }

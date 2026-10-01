@@ -100,7 +100,7 @@ final class AppModel: VoiceSessionHost {
         voice.overlay.setHotkeyLabel(prefs.pushToTalk.shortLabel)
         if TestScript.isActive {
             // No translation models and nothing on the user's screen.
-            preferences.update { $0.recognitionOnly = true; $0.overlayEnabled = false; $0.voiceCuesEnabled = false }
+            preferences.update { $0.targetLanguage = $0.sourceLanguage; $0.overlayEnabled = false; $0.voiceCuesEnabled = false }
         }
         AudioCaptureService.preferredInputUID = prefs.microphoneUID
         pinyinLanguageModel.onChanged = { [weak self] in
@@ -250,7 +250,7 @@ final class AppModel: VoiceSessionHost {
         case .finalizing: phase = .finalizing
         case .polishing: phase = .polishing
         }
-        let direction = currentDirection.title
+        let modes = TranslationDirection.voiceModes(a: p.pairSource, b: p.pairTarget)
         let actionable = notice.flatMap { $0.level == .actionable ? $0.message : nil }
         ime.update {
             $0.phase = phase
@@ -263,8 +263,9 @@ final class AppModel: VoiceSessionHost {
             $0.screenShortcutFlags = p.screenCaptureShortcut.normalizedFlags
             $0.keysEndDictation = p.tapToTalk
             $0.userInputFence = voice.policy.userInputFence
-            $0.menu = BridgeMenuState(directionTitle: direction,
-                                      canSwitchDirection: p.languageSwitchEnabled && !isPreparingModels,
+            $0.menu = BridgeMenuState(modes: modes.map(\.compactTitle),
+                                      currentMode: modes.firstIndex(of: currentDirection),
+                                      canChooseMode: !isPreparingModels && phase == .idle,
                                       hasLastDictation: voice.lastDictation != nil,
                                       notice: actionable)
         }
@@ -325,7 +326,7 @@ final class AppModel: VoiceSessionHost {
 
     private func preferencesDidChange(from old: Preferences, to new: Preferences) {
         if new.sourceLanguage != old.sourceLanguage || new.targetLanguage != old.targetLanguage
-            || new.speechModel != old.speechModel || new.recognitionOnly != old.recognitionOnly {
+            || new.speechModel != old.speechModel {
             voice.cancel(); router.reset()
             models.apply(new)
         }
@@ -391,7 +392,10 @@ final class AppModel: VoiceSessionHost {
     func downloadSpeechModel(_ selected: SpeechModel) async {
         guard !isListening else { return }
         notice = nil
+        let hadIt = models.asrModels.installed.contains(selected)
         await models.downloadSpeechModel(selected)
+        // Someone who downloads a recognizer wants to use it. (Repairing one that was there changes nothing.)
+        if !hadIt, models.asrModels.installed.contains(selected) { selectSpeechModel(selected) }
     }
 
     func downloadModels() async {
@@ -424,6 +428,9 @@ final class AppModel: VoiceSessionHost {
             break
         case .menu(let action):
             perform(action)
+        case .menuMode(let index):
+            let modes = TranslationDirection.voiceModes(a: prefs.pairSource, b: prefs.pairTarget)
+            if modes.indices.contains(index) { setVoiceMode(modes[index]) }
         case .pinyinMode(let english):
             preferences.update { $0.pinyinEnglishMode = english }
         }
@@ -433,7 +440,6 @@ final class AppModel: VoiceSessionHost {
         switch action {
         case .openSettings: openSettings()
         case .showNotice: openSettings(for: notice?.destination ?? .none)
-        case .switchDirection: swapTranslationDirection()
         case .screenCapture: handleScreenCaptureHotkey()
         case .copyLastDictation: copyLastDictation()
         }
@@ -555,7 +561,24 @@ final class AppModel: VoiceSessionHost {
         let model = prefs.speechModel
         if model == .apple { return SpeechEngine(contextualStrings: vocabularyTerms) }
         let prompt = model.isQwen ? SpeechHotwords.context(terms: vocabularyTerms) : nil
-        return QwenSpeechEngine(variant: model, context: prompt, runtime: QwenRuntime.shared)
+        return Self.twoPass(model, prompt: prompt, contextualStrings: vocabularyTerms)
+    }
+
+    /// The system's recognizer for the words on screen, the downloaded model for the text that is written.
+    static func twoPass(_ model: SpeechModel, prompt: String?, contextualStrings: [String]) -> TwoPassSpeechEngine {
+        TwoPassSpeechEngine(
+            live: SpeechEngine(contextualStrings: contextualStrings),
+            prepare: { locale in
+                guard model.supports(locale: locale) else { throw ASRModelError.unsupportedLanguage }
+                _ = try QwenLanguage.name(for: locale)
+                try await QwenRuntime.shared.prepare(model)
+            },
+            transcribe: { samples, locale in
+                let text = try await QwenRuntime.shared.transcribe(samples, language: QwenLanguage.name(for: locale),
+                                                                   variant: model, context: prompt)
+                return QwenLanguage.normalize(text, locale: locale)
+            },
+            makeSolo: { QwenSpeechEngine(variant: model, context: prompt, runtime: QwenRuntime.shared) })
     }
 
     private var vocabularyTerms: [String] {
@@ -732,7 +755,6 @@ final class AppModel: VoiceSessionHost {
         }
     }
 
-    func requestSpeechRecognitionPermission() async { await permissionsController.requestSpeechRecognition() }
 
     func requestMicrophonePermission() async {
         let granted = await permissionsController.requestMicrophone()

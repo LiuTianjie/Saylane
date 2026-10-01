@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreMedia
 import Foundation
 import Speech
 
@@ -10,9 +11,18 @@ final class SpeechEngine: SpeechRecognizing {
     private var analyzer: SpeechAnalyzer?
     private var inputBuilder: AsyncStream<AnalyzerInput>.Continuation?
     private var recognizerTask: Task<Void, Error>?
-    /// The dictation model's results, used only until the speech model has said something.
+    /// The dictation model's results: the words on screen while you speak.
     private var earlyTask: Task<Void, Never>?
-    private var speechModelSpoke = false
+    private var earlyFinalized = ""
+    private var earlyVolatile = ""
+    /// How far into the recording each model's latest answer reaches, in seconds.
+    private var earlyHeard = 0.0
+    private var speechHeard = 0.0
+    private var speechVolatile = ""
+    /// Called for every stretch the speech model settles: where it ends in the recording, and its text.
+    var onSegment: ((_ end: Double, _ text: String) -> Void)?
+    /// The dictation model may be this far behind the speech model before the preview stops following it.
+    private static let earlyMayTrail = 1.5
     private let converter = BufferConverter()
     private var analyzerFormat: AVAudioFormat?
     private var finalized = ""
@@ -32,10 +42,11 @@ final class SpeechEngine: SpeechRecognizing {
     }
 
     /// The system's dictation model for this language, when it is already on
-    /// the Mac. It answers after about half a second where the speech model
-    /// takes a whole one (measured on the same recording: 530 ms against
-    /// 1020 ms), so it supplies the first words of the preview. The text that
-    /// is written always comes from the speech model.
+    /// the Mac. It is the preview: it answers about every 0.3 s, where the
+    /// speech model answers once a second, several characters at a time
+    /// (measured on recordings replayed in real time: 29–31 updates against
+    /// 11–12 over the same eleven seconds). The text that is written always
+    /// comes from the speech model, which makes fewer mistakes.
     private static func earlyModule(for locale: Locale) async -> DictationTranscriber? {
         let wanted = locale.identifier(.bcp47)
         guard await DictationTranscriber.installedLocales.contains(where: { $0.identifier(.bcp47) == wanted }) else { return nil }
@@ -64,7 +75,8 @@ final class SpeechEngine: SpeechRecognizing {
         try Task.checkCancellation()
         finalized = ""
         hasAudioSignal = false
-        speechModelSpoke = false
+        earlyFinalized = ""; earlyVolatile = ""; speechVolatile = ""
+        earlyHeard = 0; speechHeard = 0
         generation += 1
         let token = generation
 
@@ -108,13 +120,15 @@ final class SpeechEngine: SpeechRecognizing {
                     guard token == self.generation else { return }
                     guard self.hasAudioSignal else { continue }
                     let text = String(result.text.characters)
-                    if !text.isEmpty { self.speechModelSpoke = true }
+                    self.speechHeard = max(self.speechHeard, Self.end(of: result.range))
                     if result.isFinal {
-                        self.finalized += text
-                        self.onPartial?(SpeechHypothesis(stableText: self.finalized))
+                        self.finalized = Self.tidy(self.finalized + text)
+                        self.speechVolatile = ""
+                        if !text.isEmpty { self.onSegment?(Self.end(of: result.range), Self.tidy(text)) }
                     } else {
-                        self.onPartial?(SpeechHypothesis(stableText: self.finalized, volatileText: text))
+                        self.speechVolatile = text
                     }
+                    self.emitPreview()
                 }
             } catch {
                 throw error
@@ -126,19 +140,48 @@ final class SpeechEngine: SpeechRecognizing {
                 do {
                     for try await result in early.results {
                         guard let self, token == self.generation else { return }
-                        // Only the first words: once the speech model has an answer, it is the preview.
-                        if self.speechModelSpoke { return }
                         guard self.hasAudioSignal else { continue }
                         let text = String(result.text.characters)
-                        if !text.isEmpty { self.onPartial?(SpeechHypothesis(volatileText: text)) }
+                        self.earlyHeard = max(self.earlyHeard, Self.end(of: result.range))
+                        if result.isFinal {
+                            self.earlyFinalized += text
+                            self.earlyVolatile = ""
+                        } else {
+                            self.earlyVolatile = text
+                        }
+                        self.emitPreview()
                     }
                 } catch {
-                    // The preview then starts with the speech model's first answer, as before.
+                    // The preview then follows the speech model alone.
+                    guard let self, token == self.generation else { return }
+                    self.earlyFinalized = ""; self.earlyVolatile = ""; self.earlyHeard = 0
                 }
             }
         }
 
         try await analyzer.start(inputSequence: stream)
+    }
+
+    /// The preview follows the dictation model while it keeps up, and the speech model otherwise.
+    private func emitPreview() {
+        let early = earlyFinalized + earlyVolatile
+        if !early.isEmpty, speechHeard - earlyHeard < Self.earlyMayTrail {
+            onPartial?(SpeechHypothesis(stableText: Self.tidy(earlyFinalized), volatileText: earlyVolatile))
+        } else if !(finalized + speechVolatile).isEmpty {
+            onPartial?(SpeechHypothesis(stableText: finalized, volatileText: speechVolatile))
+        }
+    }
+
+    private static func end(of range: CMTimeRange) -> Double {
+        let seconds = range.end.seconds
+        return seconds.isFinite ? seconds : 0
+    }
+
+    /// The speech model puts a space in front of Chinese punctuation ("欢迎 ，并与"). Not in what is shown or written.
+    static func tidy(_ text: String) -> String {
+        guard text.contains(" ") else { return text }
+        return text.replacingOccurrences(of: "(?<=[\\p{Han}，。！？；：、])[ \\t]+(?=[，。！？；：、])|(?<=[，。！？；：、])[ \\t]+(?=\\p{Han})",
+                                         with: "", options: .regularExpression)
     }
 
     func feed(_ buffer: AVAudioPCMBuffer) throws {
@@ -219,3 +262,5 @@ final class SpeechEngine: SpeechRecognizing {
         }
     }
 }
+
+extension SpeechEngine: SegmentingSpeechRecognizing {}

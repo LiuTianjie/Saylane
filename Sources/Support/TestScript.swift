@@ -30,7 +30,6 @@ enum TestScript {
     static var readiness: Readiness {
         var ready = Readiness()
         ready.permissions.microphone = .granted
-        ready.permissions.speechRecognition = .granted
         ready.inputSource = .init(installedLocation: true, installed: true, enabled: true, selected: true)
         ready.models.speechReady = true
         ready.models.translationReady = true

@@ -56,10 +56,13 @@ final class SessionCoordinator {
     private var run: Run?
     private let now: () -> TimeInterval
     private let previewInterval: TimeInterval
+    /// Seconds between the steps in which a preview is typed out; 0 shows each preview whole.
+    private let typingInterval: TimeInterval
 
-    init(previewInterval: TimeInterval = 0.08,
+    init(previewInterval: TimeInterval = 0.08, typingInterval: TimeInterval = 0,
          now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         self.previewInterval = max(0, previewInterval)
+        self.typingInterval = max(0, typingInterval)
         self.now = now
     }
 
@@ -95,6 +98,8 @@ final class SessionCoordinator {
         var presentation: Task<Void, Never>?
         var lastPresentedAt: TimeInterval?
         var lastHypothesis = ""
+        var typewriter = Typewriter()
+        var typing: Task<Void, Never>?
         /// Complete local/translated output, available only while optional
         /// polishing is in flight. It is safe to commit when typing resumes.
         var ordinaryOutput: String?
@@ -115,7 +120,7 @@ final class SessionCoordinator {
         /// Every task of this run, cancelled together. No other place cancels them.
         func cancelAll() {
             setup?.cancel(); pump?.cancel(); preview?.cancel()
-            finish?.cancel(); deadline?.cancel(); presentation?.cancel()
+            finish?.cancel(); deadline?.cancel(); presentation?.cancel(); typing?.cancel()
         }
     }
 
@@ -163,7 +168,10 @@ final class SessionCoordinator {
                                 context.metrics.audioMS += Double(frame.buffer.frameLength) / frame.buffer.format.sampleRate * 1000
                             }
                             try speech.feed(frame.buffer)
-                            self.onLevel?(AudioLevel.normalized(from: frame.buffer))
+                            let level = AudioLevel.normalized(from: frame.buffer)
+                            // About -39 dB: a voice, not the room. From here to `firstPreview` is how long the first word takes.
+                            if level >= 0.3 { self.mark("voiceStarted", for: context) }
+                            self.onLevel?(level)
                         }
                     } catch {
                         guard self.isCurrent(context) else { throw error }
@@ -297,6 +305,10 @@ final class SessionCoordinator {
         context.preview?.cancel()
         context.presentation?.cancel()
         context.pendingHypothesis = nil
+        // What was heard so far is shown whole while the final text is worked out.
+        context.typing?.cancel()
+        context.typing = nil
+        if let rest = context.typewriter.finish(), context.target.isValid { context.target.setMarked(rest) }
         armDeadline(context, seconds: context.policy.prepareTimeout, action: .cancel)
         context.finish = Task { [weak self] in
             guard let self else { return }
@@ -400,8 +412,27 @@ final class SessionCoordinator {
     private func showMarked(_ text: String, for context: Run) {
         mark("firstPreview", for: context)
         context.metrics.previewCount += 1
-        context.target.setMarked(text)
         onPreview?(text.count)
+        guard typingInterval > 0, !context.stopRequested else {
+            context.typing?.cancel()
+            context.typing = nil
+            context.typewriter.show(text)
+            context.target.setMarked(text)
+            return
+        }
+        // A correction of what is already there appears at once; new words are typed out.
+        if let next = context.typewriter.retarget(text) { context.target.setMarked(next) }
+        guard context.typing == nil, !context.typewriter.isSettled else { return }
+        context.typing = Task { [weak self, weak context, typingInterval] in
+            while true {
+                do { try await Task.sleep(for: .seconds(typingInterval)) } catch { return }
+                guard let self, let context, self.isCurrent(context), !context.stopRequested,
+                      context.target.isValid else { return }
+                guard let next = context.typewriter.step() else { break }
+                context.target.setMarked(next)
+            }
+            context?.typing = nil
+        }
     }
 
     private func mark(_ stage: String, for context: Run) {
@@ -433,5 +464,55 @@ final class SessionCoordinator {
                 self.release()
             }
         }
+    }
+}
+
+/// Recognizers answer in clumps, several characters at once. The typewriter
+/// lets the caret move the way speech does: new characters appear a few at a
+/// time, faster the further behind it is; a correction of characters that are
+/// already shown replaces them in place, at once.
+struct Typewriter {
+    private var shown: [Character] = []
+    private var target: [Character] = []
+    /// A clump is typed out over about this many steps.
+    static let catchUpSteps = 6
+
+    var isSettled: Bool { shown.count >= target.count }
+
+    /// A new text to work towards. Returns what to show right away: the first
+    /// step of it, with any correction of the shown characters applied.
+    mutating func retarget(_ text: String) -> String? {
+        let before = shown
+        target = Array(text)
+        shown = Array(target.prefix(shown.count))
+        advance()
+        return shown == before ? nil : String(shown)
+    }
+
+    /// The next text to show, or nil when all of it is shown.
+    mutating func step() -> String? {
+        guard !isSettled else { return nil }
+        advance()
+        return String(shown)
+    }
+
+    /// Everything at once; nil when it is already shown.
+    mutating func finish() -> String? {
+        guard !isSettled else { return nil }
+        shown = target
+        return String(shown)
+    }
+
+    /// Show this text whole, without typing.
+    mutating func show(_ text: String) {
+        target = Array(text)
+        shown = target
+    }
+
+    private mutating func advance() {
+        let behind = target.count - shown.count
+        guard behind > 0 else { return }
+        let count = (behind + Self.catchUpSteps - 1) / Self.catchUpSteps
+        shown = Array(target.prefix(shown.count + count))
     }
 }

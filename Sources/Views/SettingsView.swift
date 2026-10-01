@@ -15,7 +15,7 @@ struct SettingsView: View {
         Tab(id: 5, title: String(localized: "键盘输入"), symbol: "keyboard"),
         Tab(id: 4, title: String(localized: "截屏翻译"), symbol: "text.viewfinder"),
         Tab(id: 3, title: String(localized: "文字修正"), symbol: "wand.and.stars"),
-        Tab(id: 2, title: String(localized: "本地模型"), symbol: "square.stack.3d.up"),
+        Tab(id: 2, title: String(localized: "模型"), symbol: "square.stack.3d.up"),
         Tab(id: 0, title: String(localized: "权限管理"), symbol: "lock"),
     ]
     private var currentTab: Tab { Self.tabs.first { $0.id == model.settingsTab } ?? Self.tabs[0] }
@@ -141,14 +141,14 @@ struct SettingsView: View {
         let busy = model.isListening || model.isPreparingModels
         let functionKeyNeedsFiltering = !p.pushToTalk.isModifier && !model.router.isGlobalTapFiltering
         SettingsSection {
-            LabeledContent(String(localized: "我说")) {
-                Picker(String(localized: "我说"), selection: Binding(get: { p.pairSource }, set: { model.setLanguagePair(a: $0, b: p.pairTarget) })) {
+            LabeledContent(String(localized: "语言一")) {
+                Picker(String(localized: "语言一"), selection: Binding(get: { p.pairSource }, set: { model.setLanguagePair(a: $0, b: p.pairTarget) })) {
                     ForEach(AppLanguage.allCases) { Text($0.displayName).tag($0) }
                 }
                 .labelsHidden()
             }
-            LabeledContent(String(localized: "写成")) {
-                Picker(String(localized: "写成"), selection: Binding(get: { p.pairTarget }, set: { model.setLanguagePair(a: p.pairSource, b: $0) })) {
+            LabeledContent(String(localized: "语言二")) {
+                Picker(String(localized: "语言二"), selection: Binding(get: { p.pairTarget }, set: { model.setLanguagePair(a: p.pairSource, b: $0) })) {
                     ForEach(AppLanguage.allCases) { Text($0.displayName).tag($0) }
                 }
                 .labelsHidden()
@@ -163,9 +163,31 @@ struct SettingsView: View {
         } header: {
             Text(String(localized: "语言"))
         } footer: {
-            Text(String(localized: "双击右 ⌘ 在这四种组合之间轮转。"))
+            Text(String(localized: "选两种语言。“当前”决定说哪一种、写成哪一种；双击右 ⌘ 在这四种组合之间轮转。"))
         }
         .disabled(busy)
+
+        SettingsSection {
+            LabeledContent {
+                HStack(spacing: 10) {
+                    StatusText(text: model.readinessState.models.speechReady ? String(localized: "已就绪") : model.readinessState.models.speechDetail,
+                               ready: model.readinessState.models.speechReady)
+                    Button(String(localized: "更换…")) { model.settingsTab = 2 }.controlSize(.small)
+                        .selfTestAnchor("choose-recognizer")
+                }
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "识别模型"))
+                    Text(p.speechModel.title).font(.system(size: 11.5)).foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text(String(localized: "识别"))
+        } footer: {
+            Text(p.speechModel == .apple
+                 ? String(localized: "说话时的字和松开后的终稿都来自系统识别。下载更准的模型后，终稿由它来写，错字少一半以上。")
+                 : String(localized: "说话时的字由系统识别实时显示；松开后由 \(p.speechModel.shortTitle) 写终稿。它出错或太慢时，写系统识别听到的。"))
+        }
 
         SettingsSection {
             LabeledContent(String(localized: "触发")) {
@@ -263,6 +285,11 @@ struct SettingsView: View {
             Toggle(String(localized: "模糊音"), isOn: model.binding(\.pinyinFuzzyEnabled))
                 .help(String(localized: "zh/z、an/ang 等，精确音节优先"))
             RimeDictionaryUpdateView(model: model.pinyinDictionaryUpdates)
+            LabeledContent(String(localized: "学到的词")) {
+                Button(String(localized: "在访达中显示")) { NSWorkspace.shared.open(AppDirectories.rime) }
+                    .controlSize(.small)
+                    .help(String(localized: "打字时选过的词记在这个文件夹里，只在这台 Mac 上。"))
+            }
             if model.ime.protocolMismatch {
                 Text(String(localized: "输入法组件和主程序的版本不一致，请重新运行安装包。")).font(.system(size: 12)).foregroundStyle(.red)
             } else if !model.ime.isConnected {
@@ -389,40 +416,55 @@ struct SettingsView: View {
 
     @ViewBuilder private var models: some View {
         let r = model.readinessState.models
+        let working = model.isPreparingModels || model.isChecking
         SettingsSection {
-            LabeledContent(String(localized: "语音")) { StatusText(text: r.speechDetail, ready: r.speechReady) }
-            LabeledContent(String(localized: "翻译")) { StatusText(text: r.translationDetail, ready: r.translationReady) }
+            ForEach(SpeechModel.listed.filter { shown in
+                shown.isOffered || model.prefs.speechModel == shown
+                    || model.asrModels.installed.contains(shown) || model.asrModels.stored.contains(shown)
+            }) { speechModelRow($0) }
         } header: {
-            Text(String(localized: "状态"))
-        }
-
-        SettingsSection {
-            ForEach(SpeechModel.allCases) { speechModelRow($0) }
-        } header: {
-            Text(String(localized: "识别模型"))
+            Text(String(localized: "语音识别"))
         } footer: {
-            Text(String(localized: "权重按需下载，可分别删除。本地模型按住说话时刷新预览，松开后再出最终结果；每次最多 30 秒，超过时保留已识别的部分。"))
+            Text(String(localized: "说话时的字总是由系统识别实时显示。选了下载的模型，松开后的终稿由它来写；它出错或太慢时，写系统识别听到的。错字数来自 150 段真人普通话录音。模型从 Hugging Face 下载固定版本并校验，只保存在这台 Mac 上。"))
         }
 
         SettingsSection {
-            Toggle(String(localized: "仅识别，不翻译"), isOn: model.binding(\.recognitionOnly))
-                .disabled(model.isListening || model.isChecking || model.isPreparingModels)
-                .help(String(localized: "口误修正、个人词库和大模型校对不受影响"))
-            LabeledContent(String(localized: "当前语言所需模型")) {
-                Button {
-                    Task { await model.downloadModels() }
-                } label: {
-                    HStack(spacing: 6) {
-                        if model.isPreparingModels || model.isChecking { ProgressView().controlSize(.small) }
-                        Text(model.isPreparingModels ? String(localized: "正在准备…") : model.isChecking ? String(localized: "正在检查…") : String(localized: "下载"))
-                    }
+            languageModelRow
+        } header: {
+            Text(String(localized: "拼音"))
+        }
+
+        SettingsSection {
+            LabeledContent(String(localized: "语音")) {
+                HStack(spacing: 10) {
+                    StatusText(text: r.speechDetail, ready: r.speechReady)
+                    if !r.speechReady { prepareButton(working) }
                 }
-                .controlSize(.small)
-                .disabled(model.isPreparingModels || model.isChecking || model.isListening || model.asrModels.isDownloading)
             }
+            LabeledContent(String(localized: "翻译")) {
+                HStack(spacing: 10) {
+                    StatusText(text: r.translationDetail, ready: r.translationReady)
+                    if !r.translationReady { prepareButton(working) }
+                }
+            }
+        } header: {
+            Text(String(localized: "当前语言的状态"))
         } footer: {
-            Text(String(localized: "Apple 资产由系统管理；本地模型从 Hugging Face 下载固定版本并校验。翻译模型下载时会弹出一个小窗口，不需要打开设置。"))
+            Text(String(localized: "系统识别和翻译的语言资源由 macOS 管理。翻译模型下载时会弹出一个小窗口，不需要打开设置。"))
         }
+    }
+
+    private func prepareButton(_ working: Bool) -> some View {
+        Button {
+            Task { await model.downloadModels() }
+        } label: {
+            HStack(spacing: 6) {
+                if working { ProgressView().controlSize(.small) }
+                Text(model.isPreparingModels ? String(localized: "正在准备…") : model.isChecking ? String(localized: "正在检查…") : String(localized: "下载"))
+            }
+        }
+        .controlSize(.small)
+        .disabled(working || model.isListening || model.asrModels.isDownloading)
     }
 
     private func speechModelRow(_ selected: SpeechModel) -> some View {
