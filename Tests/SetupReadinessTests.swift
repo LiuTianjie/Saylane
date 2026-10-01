@@ -13,6 +13,7 @@ import Foundation
         precondition(blocker(mic: false, checking: true) == .microphoneDenied)
         precondition(blocker(enabled: false) == .inputMethodNotEnabled)
         precondition(blocker(checking: true, speech: false) == .modelsChecking)
+        precondition(blocker(checking: true) == nil, "a check, a load or a download in progress refuses nothing that is ready")
         precondition(blocker(speech: false) == .modelsMissing)
         precondition(blocker(translation: false) == .modelsMissing)
         print("PASS: setup blockers distinguish microphone consent, the input method being added, and model readiness")

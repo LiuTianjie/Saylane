@@ -2,6 +2,19 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.6.1 (local testing)
+
+Found on device within minutes of installing 0.6.0, from the diagnostics and from what was said.
+
+- A dictation is no longer refused while a recognizer is being downloaded, verified or loaded. Two presses were answered with "Models for the current language are being prepared" while Qwen3-ASR was being loaded right after its download, although the system recognizer was ready. What is ready now stays usable: the words appear at once, and until the model is loaded the system recognizer's text is written. The model is loaded in the background.
+- Numbers are written the way they are written. The downloaded models spell them out: "M一芯片", "iPhone十五", "三十六G内存" — the preview said "M1" and the release changed it. Where the system recognizer and the model heard the same number, the final text takes the system's way of writing it ("M1芯片", "iPhone 15 Pro", "36G内存", "3.5", "2026年10月2号"). A number the two disagree about stays as the model heard it. (The measurement in 0.6.0 left out sentences with digits, which is how this was missed.)
+- The screen-translation shortcut no longer makes the Mac beep. Only the first press of ⌥T was taken; held a moment longer, the key repeats, and every repeat went on to the application in front, which beeped (or typed the letter). The repeats and the release of the key are now part of the chord, in the main program and in the input method. The shortcut can be changed in Settings → Screen Translation, as before.
+- The diagnostics say who wrote each final text (`final-text model …` or `system:model-too-slow` / `system:model-failed`).
+
+On device with 0.6.0 (two dictations of about three seconds, Qwen3-ASR selected): first character 0.54 s and 0.70 s after the voice started; text 0.25 s and 0.31 s after the release.
+
+Not measured: a Mac slower than the development one (M3 Max). The system recognizer's part is the same on every supported Mac; the model's second pass runs on the GPU and will take longer on an M1 — if it exceeds 2.5 s plus a fifth of the recording, the system recognizer's text is written instead.
+
 ## 0.6.0 (local testing)
 
 "Doubao feels more live, faster and more accurate — find out how, and get there." How such a product gets there (`docs/SPEECH_PIPELINE.md`): recognition runs in the cloud, the streaming result is corrected in further passes, and a "typewriter" lets new characters out one at a time. Saylane now does the same things on the Mac.

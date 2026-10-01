@@ -15,6 +15,10 @@ struct GestureArbiter {
 
     private var voice = VoiceGesture()
     private var rightCommandTap = RightCommandDoubleTap()
+    /// The key of the screen chord, from its press to its release. Its
+    /// auto-repeat belongs to the chord: let through, it makes the application
+    /// in front beep, or type the letter, for as long as the key is held.
+    private var chordKeyHeld: UInt16?
 
     /// A talk-key press is in progress (pending, talking or void until released).
     var voiceGestureActive: Bool { voice.isActive }
@@ -61,6 +65,16 @@ struct GestureArbiter {
             return result
         }
 
+        if let held = chordKeyHeld, event.keyCode == held, event.type == .keyDown || event.type == .keyUp {
+            if event.type == .keyDown, !event.isRepeat {
+                chordKeyHeld = nil // a new press: the release was not seen
+            } else {
+                if event.type == .keyUp { chordKeyHeld = nil }
+                result.consume = true
+                return result
+            }
+        }
+
         // 2. While a selection overlay is up, Esc cancels it from anywhere. A pinned
         //    result never steals keys from other apps; its keys work once it is clicked.
         if c.screenActive, !c.pinVisible, event.type == .keyDown, !event.isRepeat,
@@ -98,6 +112,7 @@ struct GestureArbiter {
             // ⌥T with ⌥ as the talk key: the press was a chord, not a hold.
             result.actions.append(contentsOf: voice.other(.key).map(InputAction.voice))
             result.actions.append(.screenCapture); result.consume = true
+            chordKeyHeld = event.keyCode
             return result
         }
 

@@ -32,6 +32,7 @@ final class ModelCoordinator {
     private var statusChecks = 0 { didSet { publishChecking() } }
     private var revision = 0
     private var task: Task<Void, Never>?
+    private var warming: Task<Void, Never>?
 
     var isChecking: Bool { checkingSettings || statusChecks > 0 }
     var isDownloading: Bool { asrModels.isDownloading }
@@ -92,14 +93,23 @@ final class ModelCoordinator {
                             : String(localized: "请下载 \(config.source.displayName) 的语音模型")
             onReadiness?(.speechModel(ready: installed, detail: detail))
         } else {
-            onReadiness?(.speechModel(ready: false, detail: String(localized: "正在校验并加载 \(config.speechModel.shortTitle)…")))
-            if asrModels.installed.contains(config.speechModel) {
+            let model = config.speechModel
+            // The words on screen come from the system's recognizer. When the Mac
+            // has it for this language a dictation can start now: the model is
+            // loaded in the background and writes the final text once it is there.
+            let live = await SpeechEngine.isInstalled(for: config.source.speechLocale)
+            guard current == revision, !Task.isCancelled else { return }
+            let usable = asrModels.installed.contains(model) && model.supports(locale: config.source.speechLocale)
+                && (try? QwenLanguage.name(for: config.source.speechLocale)) != nil
+            if usable, live {
+                onReadiness?(.speechModel(ready: true, detail: String(localized: "正在加载 \(model.shortTitle)；加载好之前写系统识别听到的")))
+                warm(model, revision: current)
+            } else if usable {
+                onReadiness?(.speechModel(ready: false, detail: String(localized: "正在校验并加载 \(model.shortTitle)…")))
                 do {
-                    guard config.speechModel.supports(locale: config.source.speechLocale) else { throw ASRModelError.unsupportedLanguage }
-                    _ = try QwenLanguage.name(for: config.source.speechLocale)
-                    try await QwenRuntime.shared.prepare(config.speechModel)
+                    try await QwenRuntime.shared.prepare(model)
                     guard current == revision, !Task.isCancelled else { return }
-                    onReadiness?(.speechModel(ready: true, detail: String(localized: "\(config.speechModel.shortTitle) 已就绪：系统识别实时出字，它写终稿")))
+                    onReadiness?(.speechModel(ready: true, detail: String(localized: "\(model.shortTitle) 已就绪")))
                 } catch {
                     guard current == revision, !Task.isCancelled else { return }
                     onReadiness?(.speechModel(ready: false, detail: String(localized: "模型未就绪，请重试或重新下载修复")))
@@ -107,7 +117,9 @@ final class ModelCoordinator {
                 }
             } else {
                 await QwenRuntime.shared.unload()
-                onReadiness?(.speechModel(ready: false, detail: String(localized: "请下载 \(config.speechModel.shortTitle)")))
+                let why = asrModels.installed.contains(model)
+                    ? String(localized: "\(model.shortTitle) 不支持这种语言") : String(localized: "请下载 \(model.shortTitle)")
+                onReadiness?(.speechModel(ready: live, detail: live ? String(localized: "\(why)；现在写系统识别听到的") : why))
             }
         }
         guard current == revision, !Task.isCancelled else { return }
@@ -119,6 +131,23 @@ final class ModelCoordinator {
             translationDetail = translationReady ? String(localized: "翻译模型已就绪") : String(localized: "翻译模型未准备好，请点击下载")
         }
         onReadiness?(.translationModel(ready: translationReady, detail: translationDetail))
+    }
+
+    /// Load the model without holding up anything: a dictation that starts
+    /// meanwhile is written by the system's recognizer.
+    private func warm(_ model: SpeechModel, revision current: Int) {
+        warming?.cancel()
+        warming = Task { [weak self] in
+            do {
+                try await QwenRuntime.shared.prepare(model)
+                guard let self, current == self.revision, !Task.isCancelled else { return }
+                self.onReadiness?(.speechModel(ready: true, detail: String(localized: "\(model.shortTitle) 已就绪：系统识别实时出字，它写终稿")))
+            } catch {
+                guard let self, current == self.revision, !Task.isCancelled else { return }
+                self.onReadiness?(.speechModel(ready: true, detail: String(localized: "\(model.shortTitle) 没有加载成功；现在写系统识别听到的")))
+                self.onNotice?(.actionable(error.localizedDescription, .models))
+            }
+        }
     }
 
     /// Download whatever the current configuration still lacks.

@@ -97,7 +97,9 @@ swiftc Sources/Models/AppLanguage.swift Sources/Core/AppDirectories.swift Source
 build/tests/asr-lifetime
 swiftc Sources/Models/AppLanguage.swift Sources/Core/AppDirectories.swift Sources/Models/SpeechModel.swift Sources/Services/LocalSpeechRuntime.swift Sources/Services/QwenWorkerModel.swift Tests/QwenWorkerIOTests.swift -o build/tests/asr-worker-io
 build/tests/asr-worker-io
-swiftc Sources/Models/SessionState.swift Sources/Models/SpeechHypothesis.swift Sources/Models/SpeechSessionMetrics.swift Sources/Models/SpeechEngineError.swift Sources/Models/AppLanguage.swift Sources/Core/AppDirectories.swift Sources/Models/SpeechModel.swift Sources/Services/AudioLevel.swift Sources/Services/BufferConverter.swift Sources/Services/QwenAudioBuffer.swift Sources/Voice/VoicePolicy.swift Sources/Voice/SessionCoordinator.swift Sources/Services/TwoPassSpeechEngine.swift Tests/TwoPassSpeechEngineTests.swift -o build/tests/two-pass
+swiftc Sources/Models/SessionState.swift Sources/Models/SpeechHypothesis.swift Sources/Models/SpeechSessionMetrics.swift Sources/Models/SpeechEngineError.swift Sources/Models/AppLanguage.swift Sources/Core/AppDirectories.swift Sources/Models/SpeechModel.swift Sources/Services/AudioLevel.swift Sources/Services/BufferConverter.swift Sources/Services/QwenAudioBuffer.swift Sources/Voice/VoicePolicy.swift Sources/Voice/SessionCoordinator.swift Sources/Services/NumeralFormat.swift Sources/Services/TwoPassSpeechEngine.swift Tests/TwoPassSpeechEngineTests.swift -o build/tests/two-pass
+swiftc -parse-as-library Sources/Services/NumeralFormat.swift Tests/NumeralFormatTests.swift -o build/tests/numeral-format
+build/tests/numeral-format
 build/tests/two-pass
 bash scripts/test-native-asr.sh
 bash scripts/test-local-speech.sh

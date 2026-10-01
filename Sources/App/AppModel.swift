@@ -561,7 +561,10 @@ final class AppModel: VoiceSessionHost {
         let model = prefs.speechModel
         if model == .apple { return SpeechEngine(contextualStrings: vocabularyTerms) }
         let prompt = model.isQwen ? SpeechHotwords.context(terms: vocabularyTerms) : nil
-        return Self.twoPass(model, prompt: prompt, contextualStrings: vocabularyTerms)
+        let engine = Self.twoPass(model, prompt: prompt, contextualStrings: vocabularyTerms)
+        // Which recognizer wrote the text is the first thing to know when a result looks wrong.
+        engine.onOutcome = { InputDiagnostics.record("final-text", $0) }
+        return engine
     }
 
     /// The system's recognizer for the words on screen, the downloaded model for the text that is written.

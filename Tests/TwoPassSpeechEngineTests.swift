@@ -84,6 +84,13 @@ final class Calls: @unchecked Sendable {
             check(previews == ["他受到了"], "the preview is the system recognizer's")
             check(calls.seconds == [3.0] && live.feeds == 3, "the whole recording goes to the model once")
         }
+        do { // The model spells numbers out; the system's way of writing them is kept.
+            let live = ScriptedLive(); live.atFinish = [(3, "这个输入法在 M1芯片的机器上")]
+            let e = engine(live) { _ in "这个输入法在M一芯片的机器上。" }
+            try await e.begin(locale: locale)
+            for _ in 0..<3 { try e.feed(second()) }
+            check(try await e.finish() == "这个输入法在M1芯片的机器上。", "numbers are written the way the system writes them")
+        }
         do { // The model fails: what the system's recognizer heard is written.
             let live = ScriptedLive(); live.atFinish = [(2, "你好，世界。")]
             let e = engine(live) { _ in throw ASRModelError.missing }

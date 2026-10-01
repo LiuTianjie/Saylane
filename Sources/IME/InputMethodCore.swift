@@ -49,6 +49,8 @@ final class InputMethodCore {
     /// The last modifier change. Electron clients deliver each one twice
     /// (seen on device: every talk-key edge arrived as a pair).
     private var lastModifier: KeyMeta?
+    /// The key of the screen chord while it is held: its auto-repeat is part of the chord.
+    private var chordKeyHeld: UInt16?
 
     /// A phase that outlives these was left behind by a main program that hung.
     static let listeningLimit: TimeInterval = 240
@@ -133,13 +135,17 @@ final class InputMethodCore {
 
     /// Decisions that cannot wait for the main program.
     private func consumesLocally(_ meta: KeyMeta) -> Bool {
-        guard meta.kind == .keyDown, !meta.isRepeat else { return false }
+        guard meta.kind == .keyDown else { return false }
+        // Held down, the chord key repeats; passed on, it makes the application beep or types the letter.
+        if meta.isRepeat { return meta.keyCode == chordKeyHeld }
+        chordKeyHeld = nil
         if meta.keyCode == UInt16(kVK_Escape), meta.flags & Self.modifierMask == 0 {
             // Esc cancels a dictation or a screen selection and nothing else.
             if context.phase != .idle || context.screenSelecting { return true }
         }
         if !context.appOwnsKeys, let code = context.screenShortcutKeyCode, let flags = context.screenShortcutFlags,
            meta.keyCode == code, meta.flags & Self.modifierMask == flags & Self.modifierMask {
+            chordKeyHeld = meta.keyCode
             return true
         }
         return false

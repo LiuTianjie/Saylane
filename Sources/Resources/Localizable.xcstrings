@@ -11,6 +11,26 @@
         }
       }
     },
+    "%@ 不支持这种语言": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ does not support this language"
+          }
+        }
+      }
+    },
+    "%@ 已就绪": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ready"
+          }
+        }
+      }
+    },
     "%@ 已就绪：系统识别实时出字，它写终稿": {
       "localizations": {
         "en": {
@@ -27,6 +47,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ is reserved by the system and cannot be bound."
+          }
+        }
+      }
+    },
+    "%@ 没有加载成功；现在写系统识别听到的": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ could not be loaded; the system recognizer's text is written for now"
           }
         }
       }
@@ -57,6 +87,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@: I speak %@ → write %@"
+          }
+        }
+      }
+    },
+    "%@；现在写系统识别听到的": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@; the system recognizer's text is written for now"
           }
         }
       }
@@ -2428,6 +2468,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Adding to the input sources…"
+          }
+        }
+      }
+    },
+    "正在加载 %@；加载好之前写系统识别听到的": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading %@; until then the system recognizer's text is written"
           }
         }
       }

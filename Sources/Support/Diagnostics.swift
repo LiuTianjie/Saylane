@@ -227,9 +227,11 @@ import Darwin
 
     private static func benchmarkEngine(_ variant: SpeechModel, arguments: [String]) -> any SpeechRecognizing {
         if variant == .apple { return SpeechEngine() }
+        // The text handed to the model as its context, exactly as given.
+        let context = arguments.firstIndex(of: "--speech-context").flatMap { arguments.count > $0 + 1 ? arguments[$0 + 1] : nil }
         // What a dictation uses: two passes. `--solo` is the model on its own.
-        if arguments.contains("--solo") { return QwenSpeechEngine(variant: variant, context: nil, runtime: QwenRuntime.shared) }
-        let engine = AppModel.twoPass(variant, prompt: nil, contextualStrings: [])
+        if arguments.contains("--solo") { return QwenSpeechEngine(variant: variant, context: context, runtime: QwenRuntime.shared) }
+        let engine = AppModel.twoPass(variant, prompt: context, contextualStrings: [])
         engine.onStretch = { print(String(format: "stretch %.1f s", $0)) }
         return engine
     }

@@ -42,6 +42,8 @@ import Foundation
     private var queue: Task<Void, Never>?
     /// For diagnostics: the length in seconds of each stretch handed to the second pass.
     var onStretch: ((Double) -> Void)?
+    /// For diagnostics: who wrote the final text, and how long the last stretch took.
+    var onOutcome: ((String) -> Void)?
     private var generation = 0
     private var active = false
     /// The model being made ready; a dictation does not wait for it to start.
@@ -130,21 +132,26 @@ import Foundation
         // The recording is complete: the last stretch starts now, while the system's recognizer finishes.
         let last: Piece? = tail.count >= 400 && tail.contains(where: { abs($0) > 0.00001 })
             ? enqueue(tail, fallback: nil) : nil
+        let released = ProcessInfo.processInfo.systemUptime
         let liveText = try await live.finish()
         guard generation == token else { throw CancellationError() }
         let liveTail = liveSinceCut
+        func report(_ writer: String) {
+            onOutcome?(String(format: "%@ stretches=%d last=%.1fs waited=%.0fms", writer, pieces.count, tailSeconds,
+                              (ProcessInfo.processInfo.systemUptime - released) * 1000))
+        }
         // Never leave a decode running into the next dictation: a new request would cancel it.
         let finished = await drain(within: budget(tailSeconds))
         try Task.checkCancellation()
         guard generation == token else { throw CancellationError() }
         // Nothing was said, as far as the system's recognizer can tell: a model asked to transcribe noise invents words.
-        guard !liveText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
-        guard finished else { return liveText }
+        guard !liveText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { report("nothing-heard"); return "" }
+        guard finished else { report("system:model-too-slow"); return liveText }
         var parts: [String] = []
         for piece in pieces where piece !== last {
             if let fallback = piece.fallback, fallback.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { continue }
             guard let text = piece.text, !piece.failed else {
-                guard let fallback = piece.fallback else { return liveText }
+                guard let fallback = piece.fallback else { report("system:model-failed"); return liveText }
                 parts.append(fallback)
                 continue
             }
@@ -157,10 +164,14 @@ import Foundation
                 parts.append(text)
             } else {
                 parts.append(liveTail)
+                report("system:model-failed")
+                return NumeralFormat.followingSystem(model: Self.join(parts), system: liveText)
             }
         }
+        report("model")
         let result = Self.join(parts)
-        return result.isEmpty ? liveText : result
+        // Numbers the way they are written ("M1", "36G"): the model spells them out, the system does not.
+        return result.isEmpty ? liveText : NumeralFormat.followingSystem(model: result, system: liveText)
     }
 
     func cancel() async {

@@ -50,8 +50,17 @@ import Carbon.HIToolbox
             var arbiter = GestureArbiter()
             let result = arbiter.feed(key(UInt16(kVK_ANSI_T), option, 3.0), context: context)
             precondition(result.actions == [.screenCapture] && result.consume)
+            // Held down, the key repeats: that is still the chord, with or without ⌥, and nobody else gets it.
             let repeated = arbiter.feed(key(UInt16(kVK_ANSI_T), option, 3.1, repeatKey: true), context: context)
-            precondition(repeated.actions.isEmpty)
+            precondition(repeated.actions.isEmpty && repeated.consume)
+            let bare = arbiter.feed(key(UInt16(kVK_ANSI_T), 0, 3.2, repeatKey: true), context: context)
+            precondition(bare.actions.isEmpty && bare.consume)
+            var up = key(UInt16(kVK_ANSI_T), 0, 3.3); up.type = .keyUp
+            precondition(arbiter.feed(up, context: context).consume)
+            // After the release the key is an ordinary key again.
+            let typed = arbiter.feed(key(UInt16(kVK_ANSI_T), 0, 3.5), context: context)
+            precondition(typed.actions.isEmpty && !typed.consume)
+            precondition(!arbiter.feed(key(UInt16(kVK_ANSI_T), 0, 3.6, repeatKey: true), context: context).consume)
             passed += 1
         }
         // While a screen session is active the voice key is ignored; Esc cancels a selection.

@@ -20,9 +20,9 @@ import Foundation
         state = ReadinessReducer.reduce(state, .translationModel(ready: true, detail: "ok"))
         precondition(state.isReady)
         precondition(state.requiredSetupComplete)
-        // Preparing or downloading also blocks, and invalidation drops readiness.
-        precondition(ReadinessReducer.reduce(state, .modelsDownloading(true)).blocker == .modelsChecking)
-        precondition(ReadinessReducer.reduce(state, .modelsPreparing(true)).blocker == .modelsChecking)
+        // Preparing or downloading something else blocks nothing that is ready; invalidation drops readiness.
+        precondition(ReadinessReducer.reduce(state, .modelsDownloading(true)).isReady)
+        precondition(ReadinessReducer.reduce(state, .modelsPreparing(true)).isReady)
         let invalidated = ReadinessReducer.reduce(state, .modelsInvalidated)
         precondition(invalidated.blocker == .modelsChecking && !invalidated.models.speechReady)
         // Destinations route the user to the right page.

@@ -26,8 +26,10 @@ struct SetupReadiness {
     var blocker: Blocker? {
         if !microphoneGranted { return microphoneNeverRequested ? .microphoneNotRequested : .microphoneDenied }
         if !inputMethodEnabled { return .inputMethodNotEnabled }
-        if checkingModels { return .modelsChecking }
-        if !speechReady || !translationReady { return .modelsMissing }
+        // What is ready stays usable while something else is checked, loaded or
+        // downloaded: a recognizer being fetched must not refuse a dictation
+        // the system's recognizer can take.
+        if !speechReady || !translationReady { return checkingModels ? .modelsChecking : .modelsMissing }
         return nil
     }
 }
