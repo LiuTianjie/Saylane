@@ -101,7 +101,8 @@ import Carbon.HIToolbox
         readinessState.models.translationReady = true
         readinessState.inputSource = .init(installedLocation: true, installed: true, enabled: true, selected: true)
     }
-    func refreshInputSourceStatus() {}
+    var refreshes = 0
+    func refreshInputSourceStatus() { refreshes += 1 }
     func makeSpeechEngine() -> any SpeechRecognizing { let speech = Speech(); speeches.append(speech); return speech }
     func makeRefine() -> ((String) -> String)? { nil }
     func makePolish() -> ((String, String) async throws -> String)? { nil }
@@ -335,6 +336,13 @@ import Carbon.HIToolbox
             f.voice.press()
             precondition(!f.voice.isListening && !f.audio.running && f.host.speeches.isEmpty)
             precondition(f.host.microphoneRequests == 1 && f.host.notices.isEmpty && f.host.completions == [false])
+            precondition(f.host.refreshes == 1, "what is remembered is checked once more before refusing")
+            passed += 1
+        }
+        do { // A start that may go ahead does not wait for the system's permission answers.
+            let f = Fixture()
+            try await dictate(f)
+            precondition(f.host.refreshes == 0 && f.writer.inserted == ["voice result"])
             passed += 1
         }
         do { // Another input method being the current one is no reason to refuse: the key got here.

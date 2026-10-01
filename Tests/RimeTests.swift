@@ -97,6 +97,22 @@ import Carbon.HIToolbox
         precondition(haha.contains(where: { !$0.comment.isEmpty || $0.word.unicodeScalars.contains { $0.value >= 0x1F300 } }),
                      "emoji OpenCC should annotate 哈: \(haha.map { "\($0.word)/\($0.comment)" })")
         session.cancel()
+        // Pictures never take the first places: the engine offers 可以 🙆‍♂️ 🙆‍♀️ 🉑 刻意 可疑.
+        type("keyi")
+        let keyi = Array(session.candidates.prefix(9))
+        precondition(keyi.first?.word == "可以" && !keyi.prefix(4).contains(where: \.isEmoji),
+                     "words first: \(keyi.map(\.word))")
+        precondition(keyi.filter(\.isEmoji).count == 1 && keyi.last?.isEmoji == true,
+                     "one picture per word, behind the words on the first page: \(keyi.map(\.word))")
+        precondition(keyi.contains { $0.word == "刻意" } && keyi.contains { $0.word == "可疑" })
+        for (text, expected) in [("你好", false), ("GitHub", false), ("👋", true), ("🙆‍♂️", true), ("🇨🇳", true), ("🔟", true),
+                                 ("1️⃣", true), ("12", false), ("©", false), ("→", false)] {
+            precondition(PinyinCandidate(word: text, pinyin: "", inputLength: 0, frequency: 0).isEmoji == expected, text)
+        }
+        session.cancel()
+        type("nihao")
+        precondition(session.candidates.prefix(2).map(\.word) == ["你好", "拟好"], "\(session.candidates.prefix(4).map(\.word))")
+        session.cancel()
         type("nihao")
         precondition(session.candidates.first?.word == "你好")
         session.cancel()

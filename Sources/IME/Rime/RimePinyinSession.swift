@@ -285,6 +285,7 @@ final class RimePinyinSession {
         }
         hasMore = snapshot.has_more != 0
         rankCandidates()
+        demoteEmoji()
         if !resetHighlight, let previousChoice,
            let index = candidates.firstIndex(where: {
                $0.engineIndex == previousChoice.engineIndex && $0.word == previousChoice.word
@@ -310,6 +311,25 @@ final class RimePinyinSession {
             candidates.insert(PinyinCandidate(word: preedit, pinyin: "", inputLength: preedit.count,
                                               frequency: 0), at: index)
         }
+    }
+
+    /// Emoji are a nicety, never the answer. The engine puts each one right
+    /// behind the word it illustrates, which hands the second to fourth places
+    /// to pictures for everyday words (可以 🙆‍♂️ 🙆‍♀️ 🉑 刻意 可疑). One per word
+    /// is kept, and on the first page the pictures go behind the words.
+    /// Candidates keep their engine index, so choosing one is unaffected.
+    private func demoteEmoji() {
+        guard candidates.contains(where: \.isEmoji) else { return }
+        var kept: [PinyinCandidate] = []
+        var previousWasEmoji = false
+        for candidate in candidates {
+            let emoji = candidate.isEmoji
+            if emoji && previousWasEmoji { continue }
+            previousWasEmoji = emoji
+            kept.append(candidate)
+        }
+        let first = kept.prefix(Self.pageSize)
+        candidates = first.filter { !$0.isEmoji } + first.filter(\.isEmoji) + kept.dropFirst(Self.pageSize)
     }
 
     private static func utf16Offset(_ byteOffset: Int32, in text: String) -> Int {

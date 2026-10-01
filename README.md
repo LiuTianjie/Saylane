@@ -67,7 +67,7 @@ Download the `.pkg` and `SHA256SUMS.txt` from [GitHub Releases](https://github.c
 
 > **Distribution status:** the [v0.2.75 release](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.75) contains an app signed with Developer ID Application. Its PKG installer is unsigned and has not been notarized by Apple. See the [installation guide](docs/安装说明.md) for the current installation requirements.
 
-The installer opens the setup guide. Enable Saylane under **System Settings → Keyboard → Input Sources**, grant the required permissions, and prepare any language assets requested by the app. The built-in practice field lets you try a sentence before using another application.
+After the installation Saylane adds itself to the input sources and switches to itself; no trip to System Settings. The welcome page that follows is a single screen: a practice field and three status rows. macOS asks about the microphone the first time you hold the key to talk; Accessibility is optional.
 
 ### 2. Speak into a text field
 
@@ -111,7 +111,7 @@ The **recognition-only** setting skips translation. AI editing has an independen
 
 ## Screen translation
 
-Press **⌥T** (configurable in Settings, with conflict checks against system shortcuts) to start region selection, then select the area to translate. Holding **left Control (⌃)** can be enabled as an alternative trigger. The pinned result floats above other windows and can be dragged; other apps stay usable while it is open. The app pins the captured region and overlays translated text using Vision OCR and Apple Translation. Screen Recording permission is required.
+Press **⌥T** (configurable in Settings, with conflict checks against system shortcuts) to start region selection, then select the area to translate. The pinned result floats above other windows and can be dragged; other apps stay usable while it is open. The app pins the captured region and overlays translated text using Vision OCR and Apple Translation. Screen Recording permission is required.
 
 This is a translated view of a captured image; the underlying application remains unchanged. Dense layouts, small text, and complex backgrounds can affect OCR and text placement. The [screen translation notes](docs/history/SCREEN_TRANSLATE.md) and [scenario checks](docs/history/SCREEN_TRANSLATE_SCENARIOS.md) document the implementation and its remaining visual limitations.
 
@@ -141,7 +141,7 @@ If voice editing fails or reaches its timeout, the ordinary draft is retained. C
 | --- | --- |
 | Enable the input source | Allows native composition through InputMethodKit |
 | Microphone | Records hold-to-talk input |
-| Speech Recognition | Managed in the permission guide for recognition paths that require it |
+| Speech Recognition | Needed for Apple recognition; managed on the Permissions page of the settings |
 | Accessibility (recommended) | Makes the talk key work in every application and under every input source; pastes the text where no input-method client is attached |
 | Screen Recording | Captures the region selected for screen translation |
 

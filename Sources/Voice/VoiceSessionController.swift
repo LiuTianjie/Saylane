@@ -149,9 +149,16 @@ final class VoiceSessionController {
 
     private func start() {
         guard let host, !isListening else { return }
-        host.refreshInputSourceStatus()
         let p = host.prefs
-        let readiness = host.voiceReadiness
+        var readiness = host.voiceReadiness
+        if readiness.blocker != nil {
+            // What is remembered says no, but the user may just have allowed
+            // it: look again before refusing. A start that may go ahead never
+            // waits for the system's answers — asking takes tens of
+            // milliseconds, and seconds right after an installation.
+            host.refreshInputSourceStatus()
+            readiness = host.voiceReadiness
+        }
         let front = environment.frontmostBundleID()
         let owner = host.keyboardOwner(front: front)
         record("start-check", "selected=\(readiness.inputSource.selected) front=\(front ?? "none")\(owner == front ? "" : " keyboard=" + (owner ?? "none")) mic=\(readiness.permissions.microphone == .granted) speech=\(readiness.models.speechReady) translation=\(readiness.models.translationReady) checking=\(readiness.models.busy)")

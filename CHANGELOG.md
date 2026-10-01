@@ -2,6 +2,38 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.4.0 (local testing)
+
+The part of Saylane you see was carried over unchanged by the 0.3 rewrite. This release redoes it, measured against how mature input methods behave (Doubao's installer registers, enables and selects its input source by itself, and it has no permission wizard).
+
+### First run
+
+- After an installation Saylane adds itself to the input sources and switches to itself. Nobody is sent to System Settings for that; the pane is opened only if macOS has not gone along after eight seconds. With Accessibility allowed (the talk key works under every input method) the current input method is left alone.
+- The four-step guide is gone. One welcome page: the practice field, three status rows — input method, microphone, Accessibility — each with the one button that settles it, and "Start". Existing users see it once.
+- The microphone is asked for where it is first needed: hold the talk key before it was ever requested and macOS asks, right there. No page has to be visited first.
+- Another input method being the current one no longer refuses a dictation. Found on device within a minute of installing 0.3.0: the practice field answered three presses with "Saylane is not the selected input method". The key had arrived; there was a place to write. It is now a state shown in the input-method row, with a "Switch to Saylane" button.
+
+### Icon
+
+- The input-menu icon looked like another input method's: a black disc with five white bars. It is now Saylane's own mark, a speech bubble with a text cursor cut out of it. The settings header uses the same mark. Six generations of unused experimental icon files no longer ship in the input method.
+
+### Typing
+
+- Emoji no longer take the first places. The engine puts each picture right behind the word it illustrates (可以 🙆‍♂️ 🙆‍♀️ 🉑 刻意 可疑); one per word is kept, behind the words on the first page.
+
+### Removed
+
+- Screen translation by long-pressing left Control, with its setting. ⌥T and the input-method menu remain.
+
+### Engineering
+
+- A build running in a test home reads, and never changes, which input sources are registered, enabled or selected on the Mac.
+- Design previews render through a real hosting view (scroll views do not draw in `ImageRenderer`).
+
+Not done, and said plainly: whole-sentence accuracy is behind Doubao's, which uses a large language model. Two open n-gram models for Rime were tried in a scratch copy (41 MB and 409 MB); each fixed some sentences and broke others, one of them badly, so neither ships.
+
+Verified on the development Mac: all tests and the three self-tests of the built programs. Still to be confirmed on device: the automatic adding and selecting of the input source on a Mac where it is not yet enabled, and the microphone prompt at first use.
+
 ## 0.3.0 (local testing)
 
 Saylane is rewritten as two programs. Design and reasons: `docs/DESIGN_0.3.md`; structure: `docs/ARCHITECTURE.md`.

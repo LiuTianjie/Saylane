@@ -227,8 +227,10 @@ enum IMESelfTest {
         check(!host.isDictating && client.calls == 0, "a tap of the talk key starts nothing")
 
         // Held on its own: the dictation starts over there, its preview shows up here.
+        // The main program may still be starting (a first launch takes seconds):
+        // the key stays held until it answers, as a person would hold it.
         _ = controller.handle(modifier(trigger, down: true))
-        check(await wait(3) { host.isDictating }, "holding the talk key starts a dictation in the main program")
+        check(await wait(12) { host.isDictating }, "holding the talk key starts a dictation in the main program")
         check(await wait(3) { !client.marked.isEmpty }, "its preview appears at the caret (\"\(client.marked)\")")
         _ = controller.handle(modifier(trigger, down: false))
         check(await wait(5) { client.inserted.last == expected }, "releasing writes the final text (\(client.inserted))")

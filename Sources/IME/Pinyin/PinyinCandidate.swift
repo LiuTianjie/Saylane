@@ -21,4 +21,25 @@ struct PinyinCandidate: Equatable {
         self.engineIndex = engineIndex
         self.comment = comment
     }
+
+    /// Only pictures: no letter, digit or Han character on its own.
+    var isEmoji: Bool {
+        var sawPicture = false
+        for scalar in word.unicodeScalars {
+            let properties = scalar.properties
+            switch scalar.value {
+            case 0x200D, 0xFE0F, 0xE0020...0xE007F:
+                continue // joiner, picture selector, flag tags
+            case 0x20E3:
+                sawPicture = true // keycap: makes a picture of the digit before it
+            case 0x30...0x39, 0x23, 0x2A:
+                continue // a digit, # or * only counts with a keycap behind it
+            default:
+                if properties.isEmojiModifier { continue }
+                guard properties.isEmojiPresentation || (properties.isEmoji && scalar.value >= 0x2190) else { return false }
+                sawPicture = true
+            }
+        }
+        return sawPicture
+    }
 }

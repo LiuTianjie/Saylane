@@ -1,6 +1,6 @@
 # Saylane 架构（当前实现）
 
-更新：2026-10-01（0.3.0）。本文描述仓库的实际结构。为什么拆成两个进程见 `docs/DESIGN_0.3.md`；更早的设计稿在 `docs/history/`。
+更新：2026-10-01（0.4.0）。本文描述仓库的实际结构。为什么拆成两个进程见 `docs/DESIGN_0.3.md`；更早的设计稿在 `docs/history/`。
 
 Saylane 提供三件事：按住快捷键说话并把识别 / 译文写进当前文本框、Rime 拼音打字、划区截屏翻译。识别与翻译全部在本机完成。
 
@@ -44,13 +44,13 @@ Sources/
     GestureArbiter.swift     全部手势的固定优先级
     InputEventRouter.swift   唯一消费者：来源去重、计时器
     GlobalHotkeyMonitor.swift CGEvent tap
-    ScreenHoldHandler / ShortcutValidator
+    RightCommandDoubleTap / ShortcutValidator
   Voice/                   VoiceSessionController、SessionCoordinator、VoiceTarget（写入路线）、
                            PrerollCapture、OverlayController（HUD）、AccessibilityInserter（粘贴）、LocalTextInserter
   Screen/                  截屏翻译：划选、OCR、版面、钉住面板
   Services/                IMEBridgeClient（主程序一侧的桥）、InputSourceInstall、LoginItem、
                            识别 / 翻译引擎、模型安装、权限、润色、词库更新
-  Models/ Views/ Support/  类型、SwiftUI 设置与引导、诊断、自测
+  Models/ Views/ Support/  类型、SwiftUI 设置与欢迎页、诊断、自测
 ```
 
 `project.yml` 有两个 target：`SaylaneIME` = `IME/**` + `Shared/**` + 少量共用文件 + librime；`Saylane` = 除 `IME/**` 以外的全部。
@@ -111,14 +111,24 @@ CGEvent tap（主程序，需辅助功能）────────────
 一个安装包装两个 bundle（`scripts/stage-bundles.sh` 签名，`scripts/component-plist.py` 固定路径）。
 
 - `preinstall`：让主程序退出。不碰输入法进程。
-- `postinstall`：用主程序的可执行文件注册输入源；仍在运行的旧输入法进程只结束一次；以登录用户身份打开主程序（`--installed`：只有还缺必需项时才显示引导）。
+- `postinstall`：用主程序的可执行文件注册输入源；仍在运行的旧输入法进程只结束一次；以登录用户身份打开主程序（`--installed`）。
 - 每次安装输入法进程恰好退出一次。同一台机器 30 分钟内安装不要超过 3 次。
 
-## 8. 并发
+## 8. 首次使用
+
+没有向导。做法和成熟输入法一致（豆包的安装器自己注册、启用并选中输入源，权限用到时才问）：
+
+- 主程序带 `--installed` 启动时调用 `ensureInputSource()`：注册、`TISEnableInputSource`、`TISSelectInputSource`。只有系统 8 秒内没有照办，才打开系统设置的输入法面板并说明怎么手动加。有辅助功能权限（触发键在任何输入法下都有效）时不切换当前输入法。
+- 欢迎页（`WelcomeView`）只有一屏：试说框、三行状态（输入法、麦克风、辅助功能）和一个按钮。完成一次后不再自动出现；`Preferences.currentOnboardingVersion` 加一可以让老用户再看一次。
+- 麦克风在第一次需要时询问：还没问过就按住了触发键，`VoiceSessionController` 不报错，而是让系统弹出询问。
+- 当前输入法不是 Saylane 不算“拦路项”：按键既然到了（自己的窗口，或者全局监听），文字就有地方写。它只是输入法那一行的状态，旁边有“切换到 Saylane”。
+- 在 `SAYLANE_TEST_HOME` 里运行的构建只读取、从不改动本机的输入源。
+
+## 9. 并发
 
 Swift 6 语言模式 + `strict-concurrency: complete`。UI 与编排在主 actor。跨线程边界：CGEvent tap 线程（加锁的仲裁器 + `AsyncStream`）、音频回调（只传帧拷贝）、本地模型推理（actor + 子进程）、桥的发送队列与主程序的接收队列。
 
-## 9. 测试
+## 10. 测试
 
 | 命令 | 内容 |
 |---|---|
@@ -133,7 +143,7 @@ Swift 6 语言模式 + `strict-concurrency: complete`。UI 与编排在主 actor
 
 本机测不到的只有四样：InputMethodKit 到其它应用的传输、TCC 授权、以 root 运行的安装脚本、真实麦克风与识别模型。
 
-## 10. 明确的限制
+## 11. 明确的限制
 
 - 安装包未签名、未公证，没有自动更新。
 - 没有辅助功能权限时，触发键只在 Saylane 是当前输入法且光标在文本框里时有效。
