@@ -23,7 +23,7 @@ struct GlobalHotkeyRouter: Equatable {
         switch action {
         case .press, .armHold, .armTap:
             owningGesture = true
-        case .release, .cancel, .switchTarget:
+        case .disarm, .release, .cancel, .switchTarget:
             owningGesture = false
         case .none:
             break

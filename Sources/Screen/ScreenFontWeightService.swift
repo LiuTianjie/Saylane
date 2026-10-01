@@ -5,7 +5,6 @@ import CoreML
 /// missing/failed predictions preserve the existing rendering behavior.
 actor ScreenFontWeightService {
     static let shared = ScreenFontWeightService()
-    static let preferenceKey = "screenFontWeightExperiment"
     private var model: MLModel?
     private var attemptedLoad = false
     private let modelURL: URL?
@@ -14,9 +13,8 @@ actor ScreenFontWeightService {
         self.modelURL = modelURL
     }
 
-    static func annotate(_ lines: [ScreenOCRLine], image: NSImage) async throws -> [ScreenOCRLine] {
-        guard UserDefaults.standard.object(forKey: preferenceKey) as? Bool ?? true,
-            let pixels = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return lines }
+    static func annotate(_ lines: [ScreenOCRLine], image: NSImage, enabled: Bool = true) async throws -> [ScreenOCRLine] {
+        guard enabled, let pixels = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return lines }
         return try await shared.annotate(lines, pixels: pixels)
     }
 

@@ -15,13 +15,30 @@ assert info['TISInputSourceID'] == 'com.rtranslate.inputmethod.rtranslate'
 assert '@objc(SaylaneInputController)' in read('Sources/IME/SaylaneInputController.swift')
 assert 'PRODUCT_NAME: Saylane' in read('project.yml')
 assert 'PRODUCT_BUNDLE_IDENTIFIER: com.rtranslate.inputmethod.rtranslate' in read('project.yml')
-assert 'com.rtranslate.final-polish' in read('Sources/Services/PolishKeychain.swift')
-assert '"RTranslate/ASRModels"' in read('Sources/Models/SpeechModel.swift')
-for path in ('scripts/pkg/preinstall', 'scripts/uninstall.sh'):
-    text = read(path)
-    assert '/Library/Input Methods/Saylane.app' in text
-    assert '/Library/Input Methods/RTranslate.app' in text
-    assert 'Refusing' in text
+keychain = read('Sources/Services/PolishKeychain.swift')
+assert 'legacyService = "com.rtranslate.final-polish"' in keychain, 'old keychain items must still be readable'
+assert 'service = "com.saylane.final-polish"' in keychain
+directories = read('Sources/Core/AppDirectories.swift')
+assert 'legacyProductName = "RTranslate"' in directories, 'existing RTranslate/ data must migrate or stay readable'
+assert 'productName = "Saylane"' in directories
+assert 'AppDirectories.asrModels' in read('Sources/Models/SpeechModel.swift')
+assert 'AppDirectories.diagnostics' in read('Sources/Support/InputDiagnostics.swift')
+assert 'AppDirectories.glossaryFile' in read('Sources/Services/DictationGlossaryRemote.swift')
+assert 'AppDirectories.rime' in read('Sources/IME/Rime/RimeRuntime.swift')
+assert 'UserDefaults.standard' not in read('Sources/AppModel.swift'), 'preferences go through PreferencesStore'
+for swift in (root / 'Sources').rglob('*.swift'):
+    if swift.name in ('PreferencesStore.swift',):
+        continue
+    assert 'UserDefaults.standard' not in swift.read_text(), f'{swift} bypasses PreferencesStore'
+    assert '@AppStorage' not in swift.read_text(), f'{swift} bypasses PreferencesStore'
+preinstall = read('scripts/pkg/preinstall')
+postinstall = read('scripts/pkg/postinstall')
+uninstall = read('scripts/uninstall.sh')
+lifecycle = preinstall + postinstall + uninstall
+assert '/Library/Input Methods/Saylane.app' in lifecycle
+assert '/Library/Input Methods/RTranslate.app' in lifecycle
+assert 'Refusing' in lifecycle or 'Preserved unexpected bundle' in lifecycle
+assert '/Library/Input Methods/RTranslate.app' not in preinstall, 'legacy copies are removed only after payload publication'
 assert 'Contents/MacOS/Saylane' in read('scripts/pkg/postinstall')
 assert 'Sources/Saylane.entitlements' in read('scripts/package.sh')
 settings = read('Sources/Services/SettingsController.swift')

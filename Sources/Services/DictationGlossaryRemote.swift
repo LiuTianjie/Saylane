@@ -131,10 +131,7 @@ struct DictationGlossaryClient: Sendable {
 final class DictationGlossaryStore: @unchecked Sendable {
     static let shared = DictationGlossaryStore()
 
-    static var defaultFileURL: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("RTranslate/dictation-glossary.json")
-    }
+    static var defaultFileURL: URL { AppDirectories.glossaryFile }
 
     private struct Snapshot: Codable {
         var schema: Int

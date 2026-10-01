@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+export TZ=Asia/Shanghai
 cd "$(dirname "$0")/.."
 python3 scripts/prepare-rime.py
 python3 scripts/prepare-funasr.py

@@ -14,7 +14,7 @@ final class QwenAudioBuffer {
                                          channels: 1, interleaved: false) else { throw SpeechEngineError.invalidFormat }
         let output = try converter.convertBuffer(input, to: format)
         let count = Int(output.frameLength)
-        guard samples.count + count <= Self.maxSamples else { throw ASRModelError.tooLong }
+        guard samples.count + count <= Self.maxSamples else { throw SpeechLengthLimitReached() }
         guard let channel = output.floatChannelData?[0] else { throw SpeechEngineError.invalidFormat }
         let values = UnsafeBufferPointer(start: channel, count: count)
         guard values.allSatisfy(\.isFinite) else { throw SpeechEngineError.invalidFormat }

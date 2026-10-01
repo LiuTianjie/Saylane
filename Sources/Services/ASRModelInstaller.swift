@@ -21,14 +21,15 @@ actor ASRModelInstaller {
         try fm.createDirectory(at: parent, withIntermediateDirectories: true)
         // Also protect against a second application/diagnostic process downloading this variant.
         let lock = open(parent.appendingPathComponent(".download.lock").path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
-        guard lock >= 0 else { throw ASRModelError.invalidDownload("无法创建下载锁") }
+        guard lock >= 0 else { throw ASRModelError.invalidDownload(String(localized: "无法创建下载锁")) }
         defer { close(lock) }
-        guard flock(lock, LOCK_EX | LOCK_NB) == 0 else { throw ASRModelError.invalidDownload("此版本正在其他进程下载") }
+        guard flock(lock, LOCK_EX | LOCK_NB) == 0 else { throw ASRModelError.invalidDownload(String(localized: "此版本正在其他进程下载")) }
         defer { flock(lock, LOCK_UN) }
-        let capacity = try parent.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage
-        if let capacity, capacity < manifest.totalBytes * 2 + 100_000_000 { throw ASRModelError.diskSpace }
         let staging = parent.appendingPathComponent("\(manifest.revision).partial", isDirectory: true)
         try fm.createDirectory(at: staging, withIntermediateDirectories: true)
+        let capacity = try parent.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage
+        let additional = try Self.additionalBytesNeeded(manifest, staging: staging)
+        if let capacity, capacity < additional { throw ASRModelError.diskSpace }
         var completed: Int64 = 0
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 60
@@ -65,9 +66,17 @@ actor ASRModelInstaller {
         }
         try Task.checkCancellation()
         try manifest.revision.write(to: staging.appendingPathComponent(".complete"), atomically: true, encoding: .utf8)
-        // Only publish a fully verified directory. Keep the previous install until this point.
-        if fm.fileExists(atPath: destination.path) { try fm.removeItem(at: destination) }
-        try fm.moveItem(at: staging, to: destination)
+        // Publish only a fully verified directory. Replacement is one filesystem
+        // operation, so a failed repair never deletes the working destination.
+        try Self.publish(staging: staging, to: destination, fileManager: fm)
+        // The requested revision is usable now. Stale cleanup is maintenance and
+        // must not turn a successful install into a reported failure.
+        do {
+            try Self.removeSupersededRevisions(in: parent, keeping: manifest.revision)
+        } catch {
+            NSLog("Saylane: installed ASR revision %@ but could not remove every old revision: %@",
+                  manifest.revision, error.localizedDescription)
+        }
     }
 
     func verify(_ manifest: ASRModelManifest) throws {
@@ -93,6 +102,56 @@ actor ASRModelInstaller {
             hash.update(data: data)
         }
         return hash.finalize().map { String(format: "%02x", $0) }.joined() == file.sha256
+    }
+
+    /// Downloads are sequential. Existing, verified staging files need no more
+    /// space. Downloads are sequential and the temporary download occupies the
+    /// same bytes that will become the next staging file, so the peak on this
+    /// volume is the remaining total plus a safety margin, not an extra copy of
+    /// the largest file.
+    nonisolated static func additionalBytesNeeded(_ manifest: ASRModelManifest, staging: URL) throws -> Int64 {
+        var missing: [Int64] = []
+        for file in manifest.files {
+            if try !verifyFile(staging.appendingPathComponent(file.name), file: file) {
+                missing.append(file.size)
+            }
+        }
+        return missing.reduce(0, +) + 100_000_000
+    }
+
+    /// The staging and destination directories are siblings on the same volume.
+    /// `replaceItemAt` gives repairs safe-save semantics; a failed replacement
+    /// leaves the previous destination available. A first install is a same-volume
+    /// rename through `moveItem`.
+    nonisolated static func publish(staging: URL, to destination: URL,
+                                    fileManager fm: FileManager = .default) throws {
+        if fm.fileExists(atPath: destination.path) {
+            _ = try fm.replaceItemAt(destination, withItemAt: staging,
+                                     backupItemName: nil, options: [.usingNewMetadataOnly])
+        } else {
+            try fm.moveItem(at: staging, to: destination)
+        }
+    }
+
+    /// A model id owns only 40-hex revision directories and their `.partial`
+    /// siblings. Clean those after a successful atomic publish while preserving
+    /// unrelated files and the current revision.
+    nonisolated static func removeSupersededRevisions(in parent: URL, keeping revision: String,
+                                                       fileManager fm: FileManager = .default) throws {
+        let expression = try NSRegularExpression(pattern: "^[0-9a-f]{40}(?:\\.partial)?$")
+        var firstFailure: Error?
+        for url in try fm.contentsOfDirectory(at: parent, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey]) {
+            let name = url.lastPathComponent
+            guard name != revision,
+                  expression.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) != nil else { continue }
+            do {
+                let values = try url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                guard values.isDirectory == true, values.isSymbolicLink != true else { continue }
+                try fm.removeItem(at: url)
+            }
+            catch { if firstFailure == nil { firstFailure = error } }
+        }
+        if let firstFailure { throw firstFailure }
     }
 }
 
@@ -136,7 +195,7 @@ private final class ModelDownloadTransfer: NSObject, URLSessionDownloadDelegate,
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         do {
-            guard let response = downloadTask.response else { throw ASRModelError.invalidDownload("缺少响应") }
+            guard let response = downloadTask.response else { throw ASRModelError.invalidDownload(String(localized: "缺少响应")) }
             // URLSession deletes its location after this callback. Own the verified input until install completes.
             let owned = FileManager.default.temporaryDirectory.appendingPathComponent("saylane-model-" + UUID().uuidString)
             try FileManager.default.moveItem(at: location, to: owned)
@@ -156,7 +215,7 @@ private final class ModelDownloadTransfer: NSObject, URLSessionDownloadDelegate,
             if case .success(let value) = result { try? FileManager.default.removeItem(at: value.0) }
             continuation?.resume(throwing: failure)
         } else {
-            continuation?.resume(with: result ?? .failure(ASRModelError.invalidDownload("下载未完成")))
+            continuation?.resume(with: result ?? .failure(ASRModelError.invalidDownload(String(localized: "下载未完成"))))
         }
     }
 

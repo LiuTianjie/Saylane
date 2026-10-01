@@ -11,7 +11,7 @@ import Carbon.HIToolbox
                 repeatKey: false, trigger: trigger, switchEnabled: enabled, active: active, now: time).0
         }
         precondition(right(true, 0) == .armHold)
-        precondition(right(false, 0.06) == .none)
+        precondition(right(false, 0.06) == .disarm)
         precondition(right(true, 0.15) == .armHold)
         precondition(right(false, 0.21) == .switchTarget)
         precondition(handler.holdDeadline(now: 0.5) == .none)

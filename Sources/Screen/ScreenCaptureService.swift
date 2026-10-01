@@ -9,22 +9,38 @@ enum ScreenCaptureError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notAuthorized: return "截屏翻译需要屏幕录制权限。"
-        case .noDisplay: return "找不到这块屏幕。"
-        case .failed: return "截取屏幕失败，请重试。"
+        case .notAuthorized: return String(localized: "截屏翻译需要屏幕录制权限。")
+        case .noDisplay: return String(localized: "找不到这块屏幕。")
+        case .failed: return String(localized: "截取屏幕失败，请重试。")
         }
     }
 }
 
 enum ScreenCaptureService {
-    static func capture(rectInScreen: CGRect, screen: NSScreen) async throws -> NSImage {
+    /// The few facts about an `NSScreen` the capture needs, so the capture can run off the main actor.
+    struct Display: Sendable {
+        var frame: CGRect
+        var displayID: CGDirectDisplayID
+        var backingScaleFactor: CGFloat
+
+        @MainActor init(_ screen: NSScreen) {
+            frame = screen.frame
+            displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? CGMainDisplayID()
+            backingScaleFactor = screen.backingScaleFactor
+        }
+    }
+
+    @MainActor static func capture(rectInScreen: CGRect, screen: NSScreen) async throws -> NSImage {
+        try await capture(rectInScreen: rectInScreen, display: Display(screen))
+    }
+
+    static func capture(rectInScreen: CGRect, display screen: Display) async throws -> NSImage {
         guard CGPreflightScreenCaptureAccess() else { throw ScreenCaptureError.notAuthorized }
         let source = ScreenTranslate.captureSourceRect(appKitRect: rectInScreen, screenFrame: screen.frame)
         guard source.width >= ScreenTranslate.minimumSelection, source.height >= ScreenTranslate.minimumSelection else {
             throw ScreenCaptureError.failed
         }
-        let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID)
-            ?? CGMainDisplayID()
+        let displayID = screen.displayID
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         guard let display = content.displays.first(where: { $0.displayID == displayID }) else {
             throw ScreenCaptureError.noDisplay

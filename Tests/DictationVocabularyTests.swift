@@ -1,6 +1,6 @@
 import Foundation
 
-@main struct DictationVocabularyTests {
+@MainActor @main struct DictationVocabularyTests {
     static var failures = 0
 
     static func expect(_ vocabulary: DictationVocabulary, _ input: String, _ expected: String, line: Int = #line) {

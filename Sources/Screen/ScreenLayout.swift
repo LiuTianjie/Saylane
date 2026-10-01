@@ -90,7 +90,7 @@ struct ScreenCaptureShortcut: Equatable, Hashable {
         case kVK_ANSI_7: return "7"
         case kVK_ANSI_8: return "8"
         case kVK_ANSI_9: return "9"
-        case kVK_Space: return "空格"
+        case kVK_Space: return String(localized: "空格")
         case kVK_Return: return "↩"
         case kVK_Escape: return "Esc"
         case kVK_F1: return "F1"
@@ -111,7 +111,7 @@ struct ScreenCaptureShortcut: Equatable, Hashable {
         case kVK_F18: return "F18"
         case kVK_F19: return "F19"
         case kVK_F20: return "F20"
-        default: return "键\(keyCode)"
+        default: return String(localized: "键\(keyCode)")
         }
     }
 }
@@ -452,7 +452,9 @@ enum ScreenTranslate {
     static func isMachineText(_ text: String) -> Bool {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if t.isEmpty { return true }
-        if t.count <= 2 { return true }
+        // Vision already rejects ambiguous one-glyph OCR. Keep two-character
+        // controls such as “设置”, “OK” and “AI” so they can be translated.
+        if t.count == 1 { return true }
         let compact = t.filter { !$0.isWhitespace }
         if compact.allSatisfy({ $0.isNumber || ":.,%/+-".contains($0) }) { return true }
 

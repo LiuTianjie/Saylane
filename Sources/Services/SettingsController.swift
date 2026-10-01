@@ -8,6 +8,10 @@ final class SettingsController {
     private var localMonitor: Any?
 
     var isVisible: Bool { window?.isVisible == true }
+    var isFocused: Bool { NSApp.isActive && window?.isKeyWindow == true }
+    var focusedResponderIdentity: ObjectIdentifier? {
+        window?.firstResponder.map(ObjectIdentifier.init)
+    }
 
     func show(model: AppModel) {
         // IMK hosts must stay accessory. `.regular` makes Launch Services report
@@ -56,10 +60,11 @@ final class SettingsController {
     private func installMonitor(model: AppModel) {
         guard localMonitor == nil else { return }
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .flagsChanged]) { [weak model] event in
+            // Local monitors are delivered on the main thread.
+            nonisolated(unsafe) let event = event
             guard let model else { return event }
-            return MainActor.assumeIsolated {
-                model.handleSettingsShortcut(event)
-            }
+            let consumed = MainActor.assumeIsolated { model.handleSettingsShortcut(event) == nil }
+            return consumed ? nil : event
         }
     }
 

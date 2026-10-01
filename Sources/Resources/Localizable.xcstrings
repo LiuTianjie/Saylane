@@ -1,0 +1,4235 @@
+{
+  "sourceLanguage": "zh-Hans",
+  "strings": {
+    "%@ → %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ → %@"
+          }
+        }
+      }
+    },
+    "%@ 已就绪 · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ready · %@"
+          }
+        }
+      }
+    },
+    "%@ 是系统保留组合，不能绑定。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is reserved by the system and cannot be bound."
+          }
+        }
+      }
+    },
+    "%@ 语音模型已安装": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ speech model installed"
+          }
+        }
+      }
+    },
+    "%@，我说%@，写成%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, I speak %@, write %@"
+          }
+        }
+      }
+    },
+    "%@：我说 %@ → 写成 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: I speak %@ → write %@"
+          }
+        }
+      }
+    },
+    "%lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
+          }
+        }
+      }
+    },
+    "%lld %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld %@"
+          }
+        }
+      }
+    },
+    "%lld %@ %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld %@ %@"
+          }
+        }
+      }
+    },
+    "%lld/%lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld/%lld"
+          }
+        }
+      }
+    },
+    "AI 已检查，无需修改": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI checked it; no changes needed"
+          }
+        }
+      }
+    },
+    "AI 改动过大 · 已保留本地结果": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI changed too much · kept the local result"
+          }
+        }
+      }
+    },
+    "AI 改动过大，已保留本地结果。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The AI rewrote too much; the local result was kept."
+          }
+        }
+      }
+    },
+    "AI 润色中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI proofreading"
+          }
+        }
+      }
+    },
+    "AI 润色失败 · 已保留普通结果": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI proofreading failed · kept the plain result"
+          }
+        }
+      }
+    },
+    "AI 润色未完成，已保留普通结果；请检查模型配置或网络。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI proofreading did not finish; the plain result was kept. Check the model settings or your network."
+          }
+        }
+      }
+    },
+    "AI 润色超时 · 已保留普通结果": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI proofreading timed out · kept the plain result"
+          }
+        }
+      }
+    },
+    "AI 润色超时，已保留普通结果。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI proofreading timed out; the plain result was kept."
+          }
+        }
+      }
+    },
+    "API Key": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API Key"
+          }
+        }
+      }
+    },
+    "Apple 听写默认“连按两次 fn”。若同时开启，请在系统设置 → 键盘 → 听写里改掉它，或让 Saylane 使用其他键。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Dictation defaults to “press fn twice”. If both are on, change it in System Settings → Keyboard → Dictation, or give Saylane another key."
+          }
+        }
+      }
+    },
+    "Apple 系统识别": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple system recognition"
+          }
+        }
+      }
+    },
+    "Apple 资产由系统管理；本地模型从 Hugging Face 下载固定版本并校验。翻译模型下载时会弹出一个小窗口，不需要打开设置。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple assets are managed by the system; local models are downloaded from Hugging Face at a pinned revision and verified. A small window appears while a translation model downloads; Settings does not need to be open."
+          }
+        }
+      }
+    },
+    "Esc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esc"
+          }
+        }
+      }
+    },
+    "Fun-ASR-Nano · Q4（试用）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fun-ASR-Nano · Q4 (preview)"
+          }
+        }
+      }
+    },
+    "GitHub 暂时限制了检查频率，请稍后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub is rate-limiting checks right now. Try again later."
+          }
+        }
+      }
+    },
+    "Rime 拼音方案加载失败": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Rime Pinyin schema failed to load"
+          }
+        }
+      }
+    },
+    "Saylane": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saylane"
+          }
+        }
+      }
+    },
+    "Saylane %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saylane %@"
+          }
+        }
+      }
+    },
+    "Saylane 以输入法的方式把文字直接写进光标处，不用剪贴板。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saylane writes text at the cursor as an input method, without the clipboard."
+          }
+        }
+      }
+    },
+    "Saylane 尚未成为当前输入法，请手动选中后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saylane is not the active input source. Select it manually and try again."
+          }
+        }
+      }
+    },
+    "Saylane 没有在限定时间内接入当前输入框，请点进输入框后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saylane could not connect to this text field in time. Click in the field and try again."
+          }
+        }
+      }
+    },
+    "Saylane 设置…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saylane Settings…"
+          }
+        }
+      }
+    },
+    "See you tomorrow at 3 PM.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See you tomorrow at 3 PM."
+          }
+        }
+      }
+    },
+    "SenseVoiceSmall · Q8（试用）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SenseVoiceSmall · Q8 (preview)"
+          }
+        }
+      }
+    },
+    "Tab 切换原文 / 译文，⌘C 复制，D 换方向，Esc 关闭；可拖动": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab toggles original / translation, ⌘C copies, D changes direction, Esc closes; draggable"
+          }
+        }
+      }
+    },
+    "https://…/v1/chat/completions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "https://…/v1/chat/completions"
+          }
+        }
+      }
+    },
+    "librime 初始化失败": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime failed to initialize"
+          }
+        }
+      }
+    },
+    "zh/z、an/ang 等，精确音节优先": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "zh/z, an/ang and similar; exact syllables rank first"
+          }
+        }
+      }
+    },
+    "一次开一项。开启后会自动更新状态，回到这里继续即可。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One at a time. The status updates by itself once granted; just come back here."
+          }
+        }
+      }
+    },
+    "上一步": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back"
+          }
+        }
+      }
+    },
+    "下一步": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next"
+          }
+        }
+      }
+    },
+    "下载": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download"
+          }
+        }
+      }
+    },
+    "下载未完成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download incomplete"
+          }
+        }
+      }
+    },
+    "下载翻译模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download Translation Model"
+          }
+        }
+      }
+    },
+    "不回显已保存的密钥": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved keys are not shown"
+          }
+        }
+      }
+    },
+    "不支持组字的应用改用粘贴写入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste into apps that cannot compose text"
+          }
+        }
+      }
+    },
+    "个人词库": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personal vocabulary"
+          }
+        }
+      }
+    },
+    "为 macOS 而设计": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Designed for macOS"
+          }
+        }
+      }
+    },
+    "也可以直接写下原话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Or write down exactly what you said"
+          }
+        }
+      }
+    },
+    "人名、公司名和你们自己的词。识别后按读音或拼写改成词库写法；Apple 和 Qwen 识别时也优先考虑。中文按拼音匹配并容忍 z/zh、n/l、in/ing；英文容忍少量拼写差异。最多 50 个，排在常见术语前面。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Names, companies and your own terms. After recognition they are rewritten by sound or spelling; Apple and Qwen also favour them while recognizing. Chinese matches by Pinyin and tolerates z/zh, n/l, in/ing; English tolerates small spelling differences. Up to 50 entries, ranked ahead of common terms."
+          }
+        }
+      }
+    },
+    "仅发送文字进行校对。先显示本地结果，校对成功后更新；失败、超时或改动过大时保留原文。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only text is sent for proofreading. The local result shows first and is updated on success; on failure, timeout or excessive changes the original stays."
+          }
+        }
+      }
+    },
+    "仅听写时采集": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Captured only while dictating"
+          }
+        }
+      }
+    },
+    "仅识别，不翻译": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognize only, do not translate"
+          }
+        }
+      }
+    },
+    "仅识别：不翻译": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognition only: no translation"
+          }
+        }
+      }
+    },
+    "你说": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You say"
+          }
+        }
+      }
+    },
+    "使用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use"
+          }
+        }
+      }
+    },
+    "使用 Apple 系统识别时需要；本地模型不需要。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needed for Apple system recognition; local models do not need it."
+          }
+        }
+      }
+    },
+    "使用 Apple 语音识别时需要": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needed for Apple speech recognition"
+          }
+        }
+      }
+    },
+    "使用中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In use"
+          }
+        }
+      }
+    },
+    "使用引导": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guide"
+          }
+        }
+      }
+    },
+    "保存": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        }
+      }
+    },
+    "候选条显示拼音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Pinyin in the candidate bar"
+          }
+        }
+      }
+    },
+    "允许": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow"
+          }
+        }
+      }
+    },
+    "先完成上一项": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish the previous item first"
+          }
+        }
+      }
+    },
+    "全局按键拦截尚未接入，当前功能键无法可靠使用；请改用 Option、Command、Control、Shift 或 fn。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Global key filtering is unavailable, so this function key cannot work reliably. Use Option, Command, Control, Shift, or fn."
+          }
+        }
+      }
+    },
+    "全文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full text"
+          }
+        }
+      }
+    },
+    "全选": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select All"
+          }
+        }
+      }
+    },
+    "关闭提示": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss"
+          }
+        }
+      }
+    },
+    "关闭（Esc）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close (Esc)"
+          }
+        }
+      }
+    },
+    "其它输入法下也能按快捷键": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The shortcut also works under other input methods"
+          }
+        }
+      }
+    },
+    "兼容 Chat Completions 的服务都可以，包括本机的 Ollama / LM Studio。密钥按接口地址分别存在钥匙串。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Any Chat Completions-compatible service works, including local Ollama / LM Studio. Keys are stored in the Keychain per endpoint."
+          }
+        }
+      }
+    },
+    "写成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Write"
+          }
+        }
+      }
+    },
+    "准备中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing"
+          }
+        }
+      }
+    },
+    "准备模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prepare models"
+          }
+        }
+      }
+    },
+    "切到拼音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to Pinyin"
+          }
+        }
+      }
+    },
+    "切到英文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to English"
+          }
+        }
+      }
+    },
+    "切换到拼音中文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to Pinyin (Chinese)"
+          }
+        }
+      }
+    },
+    "切换到英文键盘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to English keyboard"
+          }
+        }
+      }
+    },
+    "切换原文 / 译文（Tab）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toggle original / translation (Tab)"
+          }
+        }
+      }
+    },
+    "切换未完成。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The switch did not complete."
+          }
+        }
+      }
+    },
+    "切换翻译方向": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch translation direction"
+          }
+        }
+      }
+    },
+    "切换这块的翻译方向，不影响说话（D）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change this capture's direction without affecting voice (D)"
+          }
+        }
+      }
+    },
+    "划区翻译": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Region translation"
+          }
+        }
+      }
+    },
+    "划区翻译需要这项权限": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Region translation needs this permission"
+          }
+        }
+      }
+    },
+    "删除": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete"
+          }
+        }
+      }
+    },
+    "删除已下载的语音模型？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete the downloaded speech model?"
+          }
+        }
+      }
+    },
+    "删除模型…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Model…"
+          }
+        }
+      }
+    },
+    "剪切": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cut"
+          }
+        }
+      }
+    },
+    "功能键语音快捷键需要辅助功能权限，才能拦截按键并可靠收到松开事件。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Function-key voice shortcuts need Accessibility permission to filter the key and reliably receive its release."
+          }
+        }
+      }
+    },
+    "单独的功能键在系统设置里可能被映射为亮度、音量等功能。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A bare function key may be mapped to brightness, volume or similar in System Settings."
+          }
+        }
+      }
+    },
+    "单独的字母、数字或标点不能作为快捷键，请加上 ⌘、⌥、⌃ 或 ⇧。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A bare letter, digit or punctuation key cannot be a shortcut. Add ⌘, ⌥, ⌃ or ⇧."
+          }
+        }
+      }
+    },
+    "卸载前无法切换到系统键盘布局。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not switch to a system keyboard layout before uninstalling."
+          }
+        }
+      }
+    },
+    "卸载前的输入源切换未完成。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The input-source switch did not finish before uninstalling."
+          }
+        }
+      }
+    },
+    "原文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Original"
+          }
+        }
+      }
+    },
+    "去处理": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fix"
+          }
+        }
+      }
+    },
+    "去开通": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grant"
+          }
+        }
+      }
+    },
+    "去掉嗯、呃和口吃重复；「不对，我是说…」「不是 A，是 B」直接写成改正后的内容。标记词必须独立成句，「不对称」「这个答案不对，我们再看看」不会被改。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removes fillers and stutters; “no, I mean…” and “not A, B” are written as the corrected content. Marker words must stand alone, so ordinary sentences containing them are left as is."
+          }
+        }
+      }
+    },
+    "双击右 ⌘ 切换方向": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Double-tap right ⌘ to switch direction"
+          }
+        }
+      }
+    },
+    "双击右 ⌘ 在这四种组合之间轮转。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Double-tap right ⌘ to cycle through these four combinations."
+          }
+        }
+      }
+    },
+    "反馈与兼容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Feedback and compatibility"
+          }
+        }
+      }
+    },
+    "发现词库变化：%@。此版本仅支持检查，安装更新仍需新版应用。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dictionary changes found: %@. This version only checks; installing updates needs a newer app."
+          }
+        }
+      }
+    },
+    "取消": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "口误修正、个人词库和大模型校对不受影响": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slip correction, personal vocabulary and AI proofreading are unaffected"
+          }
+        }
+      }
+    },
+    "口误和个人词库均在本机修正，不联网。常见术语默认关闭；开启后每日从维基百科和维基词典更新（CC BY-SA），不上传语音。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slips and personal vocabulary are corrected on this Mac, offline. Common terms are off by default; when on, they update daily from Wikipedia and Wiktionary (CC BY-SA). Audio is never uploaded."
+          }
+        }
+      }
+    },
+    "只删除此版本的本地模型文件。若正在使用它，将切回 Apple；以后可以重新下载。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only this version's local model files are deleted. If it is in use, Saylane switches back to Apple; you can download it again later."
+          }
+        }
+      }
+    },
+    "只在你按住快捷键说话时采集，识别在本机完成。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Captured only while you hold the shortcut and speak; recognition happens on this Mac."
+          }
+        }
+      }
+    },
+    "只在按住说话时使用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used only while holding to talk"
+          }
+        }
+      }
+    },
+    "只差两步，就能开口输入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Two steps away from talking"
+          }
+        }
+      }
+    },
+    "只截你划出的区域": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only the region you select is captured"
+          }
+        }
+      }
+    },
+    "只按 ⇧ 加字母会在输入时误触，请再加一个修饰键。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⇧ plus a letter fires while typing. Add another modifier."
+          }
+        }
+      }
+    },
+    "只用于截屏翻译，只截你划出的区域。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used only for screen translation, and only for the region you select."
+          }
+        }
+      }
+    },
+    "可选": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional"
+          }
+        }
+      }
+    },
+    "可选增强": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional extras"
+          }
+        }
+      }
+    },
+    "可选，但很好用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional, but worth it"
+          }
+        }
+      }
+    },
+    "右 Command（⌘）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right Command (⌘)"
+          }
+        }
+      }
+    },
+    "右 Control（⌃）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right Control (⌃)"
+          }
+        }
+      }
+    },
+    "右 Option（⌥）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right Option (⌥)"
+          }
+        }
+      }
+    },
+    "右 Shift（⇧）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right Shift (⇧)"
+          }
+        }
+      }
+    },
+    "右⇧": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "R⇧"
+          }
+        }
+      }
+    },
+    "右⌃": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "R⌃"
+          }
+        }
+      }
+    },
+    "右⌘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "R⌘"
+          }
+        }
+      }
+    },
+    "右⌥": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "R⌥"
+          }
+        }
+      }
+    },
+    "同语言听写，不调用翻译": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Same-language dictation; translation is not used"
+          }
+        }
+      }
+    },
+    "听写测试输入框": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dictation test field"
+          }
+        }
+      }
+    },
+    "启用输入模式失败。": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enabling the input mode failed."
+          }
+        }
+      }
+    },
+    "在不显示组字的应用（终端、部分网页）里也能看到识别结果。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See the result even in apps that do not show composing text (terminals, some web pages)."
+          }
+        }
+      }
+    },
+    "在其它输入法下按快捷键说话时，说完自动切回去。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When you press the shortcut under another input method, switch back to it afterwards."
+          }
+        }
+      }
+    },
+    "在终端等不支持输入法组字的应用里，说完把文字粘贴进去。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In terminals and other apps that cannot compose text, paste the result when you finish."
+          }
+        }
+      }
+    },
+    "增强与当前快捷键": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enhancements and current shortcut"
+          }
+        }
+      }
+    },
+    "处理超时，本次已取消。请检查模型状态后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Processing timed out and this session was cancelled. Check the model status and try again."
+          }
+        }
+      }
+    },
+    "复制": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy"
+          }
+        }
+      }
+    },
+    "复制图片并关闭（⌘C）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy the image and close (⌘C)"
+          }
+        }
+      }
+    },
+    "复制文字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Text"
+          }
+        }
+      }
+    },
+    "外接键盘上 Apple 听写默认“连按两次 ⌃”。若同时开启，请在系统设置 → 键盘 → 听写里改掉它。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On external keyboards Apple Dictation defaults to “press ⌃ twice”. If both are on, change it in System Settings → Keyboard → Dictation."
+          }
+        }
+      }
+    },
+    "大模型校对": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI proofreading"
+          }
+        }
+      }
+    },
+    "大模型润色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI polish"
+          }
+        }
+      }
+    },
+    "大模型润色在「文字修正」中统一设置。截图不会上传。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI polish is configured under Text Correction. Screenshots are never uploaded."
+          }
+        }
+      }
+    },
+    "完成设置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish setup"
+          }
+        }
+      }
+    },
+    "完整译文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full Translation"
+          }
+        }
+      }
+    },
+    "实时翻译暂不可用，松开后会重试：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live translation is unavailable right now; it retries on release: %@"
+          }
+        }
+      }
+    },
+    "实验功能：按原图字形判断粗细，可能漏识别小字号粗体；更改后下次划选生效": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Experimental: judges weight from the captured glyphs; may miss small bold text. Takes effect on the next selection."
+          }
+        }
+      }
+    },
+    "密钥": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Key"
+          }
+        }
+      }
+    },
+    "尚未保存此接口的 API Key。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No API key has been saved for this endpoint."
+          }
+        }
+      }
+    },
+    "屏幕录制": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen Recording"
+          }
+        }
+      }
+    },
+    "展开候选": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expand candidates"
+          }
+        }
+      }
+    },
+    "左 Command（⌘）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Left Command (⌘)"
+          }
+        }
+      }
+    },
+    "左 Control（⌃）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Left Control (⌃)"
+          }
+        }
+      }
+    },
+    "左 Option（⌥）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Left Option (⌥)"
+          }
+        }
+      }
+    },
+    "左 Shift（⇧）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Left Shift (⇧)"
+          }
+        }
+      }
+    },
+    "左⇧": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L⇧"
+          }
+        }
+      }
+    },
+    "左⌃": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L⌃"
+          }
+        }
+      }
+    },
+    "左⌘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L⌘"
+          }
+        }
+      }
+    },
+    "左⌥": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L⌥"
+          }
+        }
+      }
+    },
+    "已保存": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved"
+          }
+        }
+      }
+    },
+    "已允许": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allowed"
+          }
+        }
+      }
+    },
+    "已允许，只截你划出的区域": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allowed; only the region you select is captured"
+          }
+        }
+      }
+    },
+    "已允许；全局按键拦截尚未接入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permission granted; global key filtering is not connected"
+          }
+        }
+      }
+    },
+    "已删除": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deleted"
+          }
+        }
+      }
+    },
+    "已启用，按快捷键会自动选中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enabled; the shortcut selects it automatically"
+          }
+        }
+      }
+    },
+    "已启用；请先手动选中 Saylane": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enabled; select Saylane manually first"
+          }
+        }
+      }
+    },
+    "已完成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completed"
+          }
+        }
+      }
+    },
+    "已就绪": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready"
+          }
+        }
+      }
+    },
+    "已开启": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On"
+          }
+        }
+      }
+    },
+    "已开启：每天联网一次，从维基百科和维基词典的分类标题获取术语（CC BY-SA）。只下载标题，不上传任何内容。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On: once a day, category titles are fetched from Wikipedia and Wiktionary (CC BY-SA). Only titles are downloaded; nothing is uploaded."
+          }
+        }
+      }
+    },
+    "已接入监听；当前修饰键快捷键可用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening connected; the current modifier shortcut is available"
+          }
+        }
+      }
+    },
+    "已接入监听；当前功能键仍需辅助功能权限": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening connected; this function key still needs Accessibility permission"
+          }
+        }
+      }
+    },
+    "已接入，可监听并拦截全局按键": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected; global keys can be observed and filtered"
+          }
+        }
+      }
+    },
+    "已润色并输入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proofread and inserted"
+          }
+        }
+      }
+    },
+    "已继续键盘输入，本次听写已取消。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keyboard input resumed. This dictation was cancelled."
+          }
+        }
+      }
+    },
+    "已被「%@」使用。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already used by “%@”."
+          }
+        }
+      }
+    },
+    "已输入 · 未启用 AI 润色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inserted · AI proofreading off"
+          }
+        }
+      }
+    },
+    "已达到单次语音时长上限，已提交听到的部分。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The utterance reached its time limit. The recorded speech has been submitted."
+          }
+        }
+      }
+    },
+    "已选中 Saylane": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saylane is selected"
+          }
+        }
+      }
+    },
+    "常见术语": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Common terms"
+          }
+        }
+      }
+    },
+    "开启后，钉住期间不能操作其他应用，直到关闭。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When on, other apps cannot be used while a capture is pinned."
+          }
+        }
+      }
+    },
+    "开启权限": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permissions"
+          }
+        }
+      }
+    },
+    "开始使用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start"
+          }
+        }
+      }
+    },
+    "开始设置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set up"
+          }
+        }
+      }
+    },
+    "当前": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current"
+          }
+        }
+      }
+    },
+    "当前使用的四份词表已是最新。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All four dictionary tables in use are up to date."
+          }
+        }
+      }
+    },
+    "当前功能键需要辅助功能权限才能可靠使用；也可以改用 Option、Command、Control、Shift 或 fn。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This function key needs Accessibility permission to work reliably. You can also use Option, Command, Control, Shift, or fn."
+          }
+        }
+      }
+    },
+    "当前功能键需要辅助功能权限，才能拦截按键并可靠收到松开事件；也可以改用 Option、Command、Control、Shift 或 fn。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This function key needs Accessibility permission for key filtering and reliable release events. You can also use Option, Command, Control, Shift, or fn."
+          }
+        }
+      }
+    },
+    "当前功能键需要辅助功能权限；若不想开启，请改用 Option、Command、Control、Shift 或 fn。其它增强可以稍后开启。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This function key needs Accessibility permission. To leave it off, use Option, Command, Control, Shift, or fn. Other enhancements can be enabled later."
+          }
+        }
+      }
+    },
+    "当前功能键需要这项权限": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Required for the current function key"
+          }
+        }
+      }
+    },
+    "当前应用没有可输入的文本框，或它不支持输入法组字。请点进文本框后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The current app has no text field, or it does not support input-method composing. Click into a text field and try again."
+          }
+        }
+      }
+    },
+    "当前是未安装的构建副本，不能注册为输入法。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is an uninstalled build copy and cannot be registered as an input method."
+          }
+        }
+      }
+    },
+    "当前模式": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current mode"
+          }
+        }
+      }
+    },
+    "当前步骤": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current step"
+          }
+        }
+      }
+    },
+    "当前没有选中 Saylane。若已允许输入监控，按住说话会自动切过来；否则请先手动切到 Saylane。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saylane is not selected. With Input Monitoring allowed, holding the key switches automatically; otherwise switch to Saylane first."
+          }
+        }
+      }
+    },
+    "当前版本 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current version %@"
+          }
+        }
+      }
+    },
+    "当前系统没有该语言的端侧语音模型。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This system has no on-device speech model for that language."
+          }
+        }
+      }
+    },
+    "当前设备不支持 Apple 语音模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device does not support the Apple speech model"
+          }
+        }
+      }
+    },
+    "当前识别模型尚不支持所选语言。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selected recognizer does not support this language yet."
+          }
+        }
+      }
+    },
+    "当前语言所需模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Models for the current language"
+          }
+        }
+      }
+    },
+    "当前语言的模型尚未就绪，请先下载模型，再开始听写。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Models for the current language are not ready. Download them before dictating."
+          }
+        }
+      }
+    },
+    "待完成设置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Setup pending"
+          }
+        }
+      }
+    },
+    "必需": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Required"
+          }
+        }
+      }
+    },
+    "快捷键": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shortcut"
+          }
+        }
+      }
+    },
+    "快捷键需要一个字母、数字或功能键作为主键。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A shortcut needs a letter, digit or function key as its main key."
+          }
+        }
+      }
+    },
+    "恢复默认": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset"
+          }
+        }
+      }
+    },
+    "我们明天下午三点见。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Let's meet tomorrow at 3 PM."
+          }
+        }
+      }
+    },
+    "我说": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I speak"
+          }
+        }
+      }
+    },
+    "截取屏幕失败，请重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturing the screen failed. Try again."
+          }
+        }
+      }
+    },
+    "截屏翻译": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen Translation"
+          }
+        }
+      }
+    },
+    "截屏翻译需要屏幕录制权限。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen translation needs the Screen Recording permission."
+          }
+        }
+      }
+    },
+    "截屏翻译需要屏幕录制权限。允许后再按 %@ 划区。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen translation needs the Screen Recording permission. Allow it, then press %@ to select a region."
+          }
+        }
+      }
+    },
+    "手动检查雾凇词库，不会自动下载或修改个人词库。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checks the Rime-Ice dictionary manually; nothing is downloaded and your personal dictionary is untouched."
+          }
+        }
+      }
+    },
+    "打开 Rime 用户词库目录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Rime User Dictionary Folder"
+          }
+        }
+      }
+    },
+    "打开 Saylane 的设置引导和语音试用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Saylane's setup guide and voice trial"
+          }
+        }
+      }
+    },
+    "找不到这块屏幕。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That display could not be found."
+          }
+        }
+      }
+    },
+    "拼音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin"
+          }
+        }
+      }
+    },
+    "拼音中文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin (Chinese)"
+          }
+        }
+      }
+    },
+    "拼音引擎未就绪：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin engine is not ready: %@"
+          }
+        }
+      }
+    },
+    "拼音打字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin typing"
+          }
+        }
+      }
+    },
+    "拼音方案切换失败，请重新启动输入法后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Pinyin schema could not be changed. Restart the input method and try again."
+          }
+        }
+      }
+    },
+    "按下新快捷键…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press the new shortcut…"
+          }
+        }
+      }
+    },
+    "按住 %@，说完松开即可。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hold %@, then release when you finish."
+          }
+        }
+      }
+    },
+    "按住左 ⌃ 约 0.3 秒进入划选。终端用户常先按住 ⌃，默认关闭以免误触。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hold left ⌃ for about 0.3 s to start selecting. Terminal users often hold ⌃ first, so this is off by default."
+          }
+        }
+      }
+    },
+    "按住说话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hold to talk"
+          }
+        }
+      }
+    },
+    "按住说话，松开提交": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hold to talk, release to insert"
+          }
+        }
+      }
+    },
+    "按住说话，松开提交；和其他键一起按不会触发。按下的那一刻就已经在录音，不会丢掉开头。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hold to talk, release to insert; chords with other keys do not trigger. Recording starts the moment you press, so nothing at the start is lost."
+          }
+        }
+      }
+    },
+    "接口地址": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Endpoint"
+          }
+        }
+      }
+    },
+    "提示里显示识别和译文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show recognized text and translation in the HUD"
+          }
+        }
+      }
+    },
+    "撤销": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo"
+          }
+        }
+      }
+    },
+    "操作": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actions"
+          }
+        }
+      }
+    },
+    "收起候选": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapse candidates"
+          }
+        }
+      }
+    },
+    "数学、科学、计算机、编程、生物化学和互联网热词。识别后按读音或拼写改回标准写法；人名和你们自己的词仍用个人词库。不含微信、翻译这类同音日常词。开启后每天从中文维基百科、维基词典的分类标题补新词（CC BY-SA）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maths, science, computing, programming, biochemistry and internet slang. After recognition, terms are rewritten to their standard form by sound or spelling; names and your own words belong in the personal vocabulary. When on, new terms are fetched daily from Chinese Wikipedia and Wiktionary category titles (CC BY-SA)."
+          }
+        }
+      }
+    },
+    "文件已安装，但系统尚未发现输入法组件。不能开始语音输入。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The files are installed, but the system has not found the input-method component yet. Voice input cannot start."
+          }
+        }
+      }
+    },
+    "文件已安装，但系统尚未启用 Saylane。请完成系统的允许或添加操作；若添加列表仍不可见，请保存工作后注销并重新登录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The files are installed, but the system has not enabled Saylane. Finish the allow/add step; if it still does not appear in the list, save your work, log out and log in again."
+          }
+        }
+      }
+    },
+    "文字修正": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text Correction"
+          }
+        }
+      }
+    },
+    "无法切换到 Saylane 输入法，请先手动选中后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not switch to Saylane. Select it manually and try again."
+          }
+        }
+      }
+    },
+    "无法创建下载锁": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not create the download lock"
+          }
+        }
+      }
+    },
+    "无法匹配麦克风与语音识别的音频格式。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The microphone and recognizer audio formats could not be matched."
+          }
+        }
+      }
+    },
+    "无法将识别结果写入当前输入框，请检查焦点和辅助功能权限后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not insert the recognized text. Check the focused field and Accessibility permission, then try again."
+          }
+        }
+      }
+    },
+    "无法访问润色服务密钥，请在设置中重新保存 API Key。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The proofreading key could not be read. Save the API key again in Settings."
+          }
+        }
+      }
+    },
+    "无法读取当前词库版本或词表，请重新安装应用后再检查。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The current dictionary version or tables could not be read. Reinstall the app and check again."
+          }
+        }
+      }
+    },
+    "无法连接词库服务器，请检查网络后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not reach the dictionary server. Check your network and try again."
+          }
+        }
+      }
+    },
+    "无输入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No input"
+          }
+        }
+      }
+    },
+    "最多使用三个键（两个修饰键加一个主键）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use at most three keys (two modifiers plus one main key)."
+          }
+        }
+      }
+    },
+    "未启用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disabled"
+          }
+        }
+      }
+    },
+    "未开启": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
+          }
+        }
+      }
+    },
+    "未开始": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not started"
+          }
+        }
+      }
+    },
+    "本地修正": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On-device correction"
+          }
+        }
+      }
+    },
+    "本地字重识别": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On-device font weight detection"
+          }
+        }
+      }
+    },
+    "本地模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local Models"
+          }
+        }
+      }
+    },
+    "本地模型单次最多 30 秒，已提交听到的部分。": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local models take at most 30 s per utterance; what was heard has been inserted."
+          }
+        }
+      }
+    },
+    "本地模型单次最多识别 30 秒，已保留听到的部分。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local models recognize at most 30 s per utterance; what was heard was kept."
+          }
+        }
+      }
+    },
+    "本地识别未完成或已取消，请重试；长句可分段输入。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local recognition did not finish or was cancelled. Try again, splitting long sentences."
+          }
+        }
+      }
+    },
+    "本机服务可不填": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional for local services"
+          }
+        }
+      }
+    },
+    "权重按需下载，可分别删除。本地模型按住说话时刷新预览，松开后再出最终结果；每次最多 30 秒，超过时保留已识别的部分。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weights download on demand and can be deleted individually. Local models refresh a preview while you hold, then produce the final result on release; at most 30 s each time, keeping what was recognized beyond that."
+          }
+        }
+      }
+    },
+    "权限": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permissions"
+          }
+        }
+      }
+    },
+    "权限已开，监听还没接上": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permission granted, but the listener is not attached yet"
+          }
+        }
+      }
+    },
+    "权限管理": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permissions"
+          }
+        }
+      }
+    },
+    "松开后出字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "text appears on release"
+          }
+        }
+      }
+    },
+    "松开翻译": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Release to translate"
+          }
+        }
+      }
+    },
+    "松开鼠标即翻译，Esc 取消。钉图浮在最上层，可以继续使用其他应用。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Release the mouse to translate, Esc to cancel. The pin floats on top; other apps stay usable."
+          }
+        }
+      }
+    },
+    "查看 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View %@"
+          }
+        }
+      }
+    },
+    "检查失败（HTTP %lld），请稍后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The check failed (HTTP %lld). Try again later."
+          }
+        }
+      }
+    },
+    "检查更新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for Updates"
+          }
+        }
+      }
+    },
+    "检查权限": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check permissions"
+          }
+        }
+      }
+    },
+    "检查超时，请稍后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The check timed out. Try again later."
+          }
+        }
+      }
+    },
+    "模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model"
+          }
+        }
+      }
+    },
+    "模型 ID": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model ID"
+          }
+        }
+      }
+    },
+    "模型文件下载失败（%@），请检查网络后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloading a model file failed (%@). Check your network and try again."
+          }
+        }
+      }
+    },
+    "模型文件校验失败（%@），请重新下载修复。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A model file failed verification (%@). Download it again to repair."
+          }
+        }
+      }
+    },
+    "模型未就绪，请重试或重新下载修复": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model not ready; retry or download again to repair"
+          }
+        }
+      }
+    },
+    "模型连接": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model connection"
+          }
+        }
+      }
+    },
+    "模糊音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuzzy Pinyin"
+          }
+        }
+      }
+    },
+    "欢迎使用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome"
+          }
+        }
+      }
+    },
+    "正在下载翻译模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloading translation model"
+          }
+        }
+      }
+    },
+    "正在准备…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing…"
+          }
+        }
+      }
+    },
+    "正在准备当前语言的模型，请等待准备检查完成后重新按住快捷键。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Models for the current language are being prepared. Wait for the check to finish, then hold the shortcut again."
+          }
+        }
+      }
+    },
+    "正在准备翻译模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing the translation model"
+          }
+        }
+      }
+    },
+    "正在准备翻译模型，好了再试语音翻译。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing the translation model. Try voice translation when it is ready."
+          }
+        }
+      }
+    },
+    "正在准备语音模型，好了再按住说。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The speech model is being prepared. Hold to talk once it is ready."
+          }
+        }
+      }
+    },
+    "正在取消…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelling…"
+          }
+        }
+      }
+    },
+    "正在听": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening"
+          }
+        }
+      }
+    },
+    "正在听你说…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening…"
+          }
+        }
+      }
+    },
+    "正在整理": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finishing"
+          }
+        }
+      }
+    },
+    "正在校验并加载 %@…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifying and loading %@…"
+          }
+        }
+      }
+    },
+    "正在检查…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking…"
+          }
+        }
+      }
+    },
+    "正在检查模型…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking models…"
+          }
+        }
+      }
+    },
+    "正在检查词库更新…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking for dictionary updates…"
+          }
+        }
+      }
+    },
+    "正在润色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Polishing"
+          }
+        }
+      }
+    },
+    "正在翻译": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translating"
+          }
+        }
+      }
+    },
+    "正在识别": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognizing"
+          }
+        }
+      }
+    },
+    "正在识别…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognizing…"
+          }
+        }
+      }
+    },
+    "正在连接下载源…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting to the download source…"
+          }
+        }
+      }
+    },
+    "正在连接输入框…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting to the text field…"
+          }
+        }
+      }
+    },
+    "正常": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normal"
+          }
+        }
+      }
+    },
+    "此版本正在其他进程下载": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This version is being downloaded by another process"
+          }
+        }
+      }
+    },
+    "每行一个词；常被听错的写法用 | 标在后面，如 Saylane|赛兰|塞蓝": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One term per line; put common mishearings after |, e.g. Saylane|赛兰|塞蓝"
+          }
+        }
+      }
+    },
+    "没有识别到文字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No text recognized"
+          }
+        }
+      }
+    },
+    "没有识别到语音，请检查麦克风后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No speech was recognized. Check the microphone and try again."
+          }
+        }
+      }
+    },
+    "润色服务没有返回完整、有效的文字。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The proofreading service did not return complete, valid text."
+          }
+        }
+      }
+    },
+    "润色服务返回 HTTP %lld。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The proofreading service returned HTTP %lld."
+          }
+        }
+      }
+    },
+    "润色请求或响应超过长度限制。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The proofreading request or response exceeds the length limit."
+          }
+        }
+      }
+    },
+    "清理旧下载…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cleaning up old downloads…"
+          }
+        }
+      }
+    },
+    "清空": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear"
+          }
+        }
+      }
+    },
+    "点「去开通」会打开对应的系统设置；开启后这里会自动更新。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Grant” opens the matching System Settings pane; this list updates by itself once granted."
+          }
+        }
+      }
+    },
+    "点一下开始录音，再按任意键提交。按下的那一刻就已经在录音，不会丢掉开头。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap once to start recording, press any key to insert. Recording starts the moment you press, so nothing at the start is lost."
+          }
+        }
+      }
+    },
+    "点击后按下新的截屏快捷键，Esc 取消": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click, then press the new capture shortcut; Esc cancels"
+          }
+        }
+      }
+    },
+    "点击展开，或在这段文字内滚动": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click to expand, or scroll inside this text"
+          }
+        }
+      }
+    },
+    "点击框住窗口，拖动自己划": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click to frame the window, or drag to select"
+          }
+        }
+      }
+    },
+    "点击框住，拖动自选": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click to frame, drag to select"
+          }
+        }
+      }
+    },
+    "点按 %@，说完按任意键提交。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap %@, then press any key to insert when you finish."
+          }
+        }
+      }
+    },
+    "点按开始": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to start"
+          }
+        }
+      }
+    },
+    "点按开始，再按任意键提交": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to start, press any key to insert"
+          }
+        }
+      }
+    },
+    "点按说话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to talk"
+          }
+        }
+      }
+    },
+    "点这里，说说你今天的计划…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click here and tell me about your plans for today…"
+          }
+        }
+      }
+    },
+    "状态": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Status"
+          }
+        }
+      }
+    },
+    "现在，说一句试试": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Now, say something"
+          }
+        }
+      }
+    },
+    "磁盘空间不足，请腾出足够空间后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not enough disk space. Free some space and try again."
+          }
+        }
+      }
+    },
+    "移到窗口上或拖动划选": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hover over a window or drag to select"
+          }
+        }
+      }
+    },
+    "稍后设置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Later"
+          }
+        }
+      }
+    },
+    "空格": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space"
+          }
+        }
+      }
+    },
+    "空格确认，数字选词，Shift 切换中英文。每个窗口各自记住正在输入的拼音，切换窗口不会误提交。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space confirms, digits pick candidates, Shift toggles Chinese/English. Each window keeps its own composing text, so switching windows never inserts by mistake."
+          }
+        }
+      }
+    },
+    "第 %lld 步，共 4 步：%@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "new",
+            "value": "第 %1$lld 步，共 4 步：%2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Step %lld of 4: %@"
+          }
+        }
+      }
+    },
+    "第%lld/%lld页": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page %lld of %lld"
+          }
+        }
+      }
+    },
+    "等待授权…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for approval…"
+          }
+        }
+      }
+    },
+    "等待确认…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for confirmation…"
+          }
+        }
+      }
+    },
+    "粘贴": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste"
+          }
+        }
+      }
+    },
+    "系统不支持这对语言。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The system does not support this language pair."
+          }
+        }
+      }
+    },
+    "系统会询问是否下载这对语言的离线翻译模型。下载完成后这个窗口会自动关闭。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The system will ask whether to download the offline translation model for this pair. This window closes by itself when the download finishes."
+          }
+        }
+      }
+    },
+    "系统尚未发现输入法。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The system has not found the input method yet."
+          }
+        }
+      }
+    },
+    "系统拒绝停用输入模式（%d）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The system refused to disable the input mode (%d)."
+          }
+        }
+      }
+    },
+    "系统拒绝停用输入法组件（%d）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The system refused to disable the input-method component (%d)."
+          }
+        }
+      }
+    },
+    "系统拒绝启用语音输入模式（%d）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The system refused to enable the voice input mode (%d)."
+          }
+        }
+      }
+    },
+    "系统拒绝启用输入法组件（%d）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The system refused to enable the input-method component (%d)."
+          }
+        }
+      }
+    },
+    "系统管理 · 实时组字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System managed · live composing"
+          }
+        }
+      }
+    },
+    "系统设置 → 键盘 → 输入法": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Settings → Keyboard → Input Sources"
+          }
+        }
+      }
+    },
+    "系统设置 → 隐私与安全性 → 语音识别": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Settings → Privacy & Security → Speech Recognition"
+          }
+        }
+      }
+    },
+    "系统设置 → 隐私与安全性 → 辅助功能": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Settings → Privacy & Security → Accessibility"
+          }
+        }
+      }
+    },
+    "系统设置 → 隐私与安全性 → 输入监控": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Settings → Privacy & Security → Input Monitoring"
+          }
+        }
+      }
+    },
+    "系统设置 → 隐私与安全性 → 麦克风": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Settings → Privacy & Security → Microphone"
+          }
+        }
+      }
+    },
+    "系统输入法注册失败（错误码 %d）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registering the input method failed (error %d)."
+          }
+        }
+      }
+    },
+    "系统还没发现组件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The system has not found the component yet"
+          }
+        }
+      }
+    },
+    "约 254 MB · 中英粤日韩 · 边说边出字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About 254 MB · zh/en/yue/ja/ko · live text"
+          }
+        }
+      }
+    },
+    "约 724 MB · 较小体积 · 边说边出字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About 724 MB · smaller · live text"
+          }
+        }
+      }
+    },
+    "约 873 MB · 较低量化损失 · 边说边出字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About 873 MB · less quantization loss · live text"
+          }
+        }
+      }
+    },
+    "约 954 MB · 中英日 · 边说边出字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About 954 MB · zh/en/ja · live text"
+          }
+        }
+      }
+    },
+    "终端等应用不接受输入法组字时，说完用辅助功能把文字粘贴进去。需要辅助功能权限。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When terminals and similar apps reject input-method composing, paste the text through Accessibility when you finish. Needs the Accessibility permission."
+          }
+        }
+      }
+    },
+    "结合周边文字修正划选区域的译文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refine the selected region's translation using the surrounding text"
+          }
+        }
+      }
+    },
+    "编辑": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
+          }
+        }
+      }
+    },
+    "缺少响应": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missing response"
+          }
+        }
+      }
+    },
+    "缺少拼音资源：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missing Pinyin resource: %@"
+          }
+        }
+      }
+    },
+    "网络检查失败，请稍后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The network check failed. Try again later."
+          }
+        }
+      }
+    },
+    "翻译": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation"
+          }
+        }
+      }
+    },
+    "翻译模型已就绪": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation model ready"
+          }
+        }
+      }
+    },
+    "翻译模型未准备好，请点击下载": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation model not ready; click Download"
+          }
+        }
+      }
+    },
+    "翻译模型还没准备好。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The translation model is not ready yet."
+          }
+        }
+      }
+    },
+    "联想": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggestions"
+          }
+        }
+      }
+    },
+    "联想 第%lld/%lld页": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggestions, page %lld of %lld"
+          }
+        }
+      }
+    },
+    "自动修正口误": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fix slips automatically"
+          }
+        }
+      }
+    },
+    "英文键盘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English keyboard"
+          }
+        }
+      }
+    },
+    "触发": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trigger"
+          }
+        }
+      }
+    },
+    "让你在豆包、系统拼音等其它输入法下也能直接按快捷键说话。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lets you press the shortcut and talk while Doubao, the system Pinyin or any other input method is active."
+          }
+        }
+      }
+    },
+    "设置…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings…"
+          }
+        }
+      }
+    },
+    "设置进度": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Setup progress"
+          }
+        }
+      }
+    },
+    "识别模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognizers"
+          }
+        }
+      }
+    },
+    "识别输出过长": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognition output too long"
+          }
+        }
+      }
+    },
+    "词库服务器返回的数据不完整，请稍后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The dictionary server returned incomplete data. Try again later."
+          }
+        }
+      }
+    },
+    "译文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation"
+          }
+        }
+      }
+    },
+    "试一下": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try it"
+          }
+        }
+      }
+    },
+    "语言": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Languages"
+          }
+        }
+      }
+    },
+    "语音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speech"
+          }
+        }
+      }
+    },
+    "语音模型清单缺失或无效，请重新安装应用。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The speech model manifest is missing or invalid. Reinstall the app."
+          }
+        }
+      }
+    },
+    "语音识别": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speech Recognition"
+          }
+        }
+      }
+    },
+    "语音识别启动失败。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speech recognition failed to start."
+          }
+        }
+      }
+    },
+    "语音试用区": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voice trial"
+          }
+        }
+      }
+    },
+    "语音输入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voice Input"
+          }
+        }
+      }
+    },
+    "语音输入、拼音打字，还有随手可用的翻译。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voice input, Pinyin typing, and translation whenever you need it."
+          }
+        }
+      }
+    },
+    "语音输入快捷键": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voice input shortcut"
+          }
+        }
+      }
+    },
+    "说写语言相同时只修同音错字、口误和标点，不改措辞；需要翻译时用整句原文修正译文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When speaking and writing the same language, only homophone typos, slips and punctuation are fixed, never the wording; when translating, the whole original sentence guides the translation"
+          }
+        }
+      }
+    },
+    "说出来，就写好了。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Say it, and it's written."
+          }
+        }
+      }
+    },
+    "说完后回到原来的输入法": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Return to the previous input method afterwards"
+          }
+        }
+      }
+    },
+    "说话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Talking"
+          }
+        }
+      }
+    },
+    "说话和拼音所需权限已开启。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permissions for talking and Pinyin are granted."
+          }
+        }
+      }
+    },
+    "说话时显示底部提示": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the bottom HUD while talking"
+          }
+        }
+      }
+    },
+    "请下载 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download %@"
+          }
+        }
+      }
+    },
+    "请下载 %@ 的语音模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download the %@ speech model"
+          }
+        }
+      }
+    },
+    "请先在设置中下载并准备所选本地模型。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download and prepare the selected local model in Settings first."
+          }
+        }
+      }
+    },
+    "请先用安装包安装": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install with the package first"
+          }
+        }
+      }
+    },
+    "请填写完整的 HTTPS chat/completions 接口地址和模型名；仅本机服务允许 HTTP。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a complete HTTPS chat/completions endpoint and a model name; plain HTTP is allowed only for local services."
+          }
+        }
+      }
+    },
+    "跳过": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip"
+          }
+        }
+      }
+    },
+    "转换失败 · 请重试或查看设置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conversion failed · try again or check Settings"
+          }
+        }
+      }
+    },
+    "较弱": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        }
+      }
+    },
+    "较强": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "High"
+          }
+        }
+      }
+    },
+    "辅助功能": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accessibility"
+          }
+        }
+      }
+    },
+    "输入法": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Input Method"
+          }
+        }
+      }
+    },
+    "输入法尚未启用，不能切换。请在系统输入法设置中完成添加或允许。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The input method is not enabled, so it cannot be selected. Add or allow it in the system Input Sources settings."
+          }
+        }
+      }
+    },
+    "输入法尚未启用，请先完成系统输入法添加。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The input method is not enabled. Add it in the system Input Sources settings first."
+          }
+        }
+      }
+    },
+    "输入法已启用，但切换未完成（%d）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The input method is enabled, but selecting it did not complete (%d)."
+          }
+        }
+      }
+    },
+    "输入监控": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Input Monitoring"
+          }
+        }
+      }
+    },
+    "输入监控已允许，但全局按键监听没有成功。请再试一次，或先手动切到 Saylane。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Input Monitoring is allowed, but the global key listener could not start. Try again, or switch to Saylane manually."
+          }
+        }
+      }
+    },
+    "输入目标已改变，本次听写已取消。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The input target changed; this dictation was cancelled."
+          }
+        }
+      }
+    },
+    "边说边出字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "live text"
+          }
+        }
+      }
+    },
+    "还没有允许屏幕录制。允许后可以用 %@ 划区翻译。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen Recording is not allowed yet. Once allowed, press %@ to translate a region."
+          }
+        }
+      }
+    },
+    "还没有允许输入监控。允许后，在其它输入法下按住快捷键就会切到 Saylane 并开始语音。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Input Monitoring is not allowed yet. Once allowed, holding the shortcut under another input method switches to Saylane and starts listening."
+          }
+        }
+      }
+    },
+    "还没有允许麦克风。请完成授权，然后回到输入框重新按住快捷键。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The microphone is not allowed yet. Grant access, then return to the text field and hold the shortcut again."
+          }
+        }
+      }
+    },
+    "这个应用不支持组字，说完后会以粘贴方式写入。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This app cannot compose text; the result will be pasted when you finish."
+          }
+        }
+      }
+    },
+    "这个组合常被其他应用占用，可能在部分应用里失效。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This combination is often taken by other apps and may not work everywhere."
+          }
+        }
+      }
+    },
+    "这些权限让 Saylane 在其它输入法和更多应用里也能用。都可以跳过。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These permissions let Saylane work under other input methods and in more apps. All can be skipped."
+          }
+        }
+      }
+    },
+    "这是未安装的构建副本，请先用安装包安装。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is an uninstalled build copy. Install with the package first."
+          }
+        }
+      }
+    },
+    "连接尚未配置完整；会保留本地结果，不会向未配置的地址发送文本。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The connection is not fully configured; the local result is kept and nothing is sent to an unconfigured address."
+          }
+        }
+      }
+    },
+    "退出 Saylane": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit Saylane"
+          }
+        }
+      }
+    },
+    "都可以稍后在「权限管理」里开启，不影响在 Saylane 输入法下说话和打字。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All of these can be granted later under Permissions; talking and typing with the Saylane input method work without them."
+          }
+        }
+      }
+    },
+    "重新下载修复": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download Again to Repair"
+          }
+        }
+      }
+    },
+    "重新接入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnect"
+          }
+        }
+      }
+    },
+    "重试": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        }
+      }
+    },
+    "钉住后": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "While pinned"
+          }
+        }
+      }
+    },
+    "钉住时冻结其他窗口": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Freeze other windows while pinned"
+          }
+        }
+      }
+    },
+    "键%u": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Key %u"
+          }
+        }
+      }
+    },
+    "键盘输入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keyboard Input"
+          }
+        }
+      }
+    },
+    "长按左 ⌃ 也能划选": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hold left ⌃ to select as well"
+          }
+        }
+      }
+    },
+    "阅读并复制完整译文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read and copy the full translation"
+          }
+        }
+      }
+    },
+    "雾凇词库": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime-Ice dictionary"
+          }
+        }
+      }
+    },
+    "音频处理跟不上录音，本次已取消。请重试或使用更轻的模型。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio processing could not keep up with recording; this session was cancelled. Try again or use a lighter model."
+          }
+        }
+      }
+    },
+    "麦克风": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone"
+          }
+        }
+      }
+    },
+    "麦克风权限未开启，无法录音。请在“隐私与安全性 → 麦克风”中允许 Saylane。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The microphone permission is off, so recording is impossible. Allow Saylane under Privacy & Security → Microphone."
+          }
+        }
+      }
+    },
+    "麦克风电平": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone level"
+          }
+        }
+      }
+    },
+    "麦克风电平：说话时应当跳动": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone level: it should move while you speak"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

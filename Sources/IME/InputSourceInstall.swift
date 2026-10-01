@@ -5,7 +5,8 @@ import Foundation
 /// File placement, TIS discovery, enablement, and selection are distinct states.
 /// In particular, a mode's default-enabled flag is not proof its parent is enabled.
 enum InputSourceInstall {
-    static var lastFailure: String?
+    /// Last failure text for the UI. TIS calls are made from the main thread only.
+    nonisolated(unsafe) static var lastFailure: String?
     static var bundleID: String { Bundle.main.bundleIdentifier ?? "com.rtranslate.inputmethod.rtranslate" }
     static var modeID: String { bundleID + ".voice" }
     static var isInstalledLocation: Bool {
@@ -18,12 +19,12 @@ enum InputSourceInstall {
     static func registerBundle() -> OSStatus {
         lastFailure = nil
         guard isInstalledLocation else {
-            lastFailure = "当前是未安装的构建副本，不能注册为输入法。"
+            lastFailure = String(localized: "当前是未安装的构建副本，不能注册为输入法。")
             return OSStatus(paramErr)
         }
         let status = TISRegisterInputSource(Bundle.main.bundleURL as CFURL)
         NSLog("Saylane: register status=%d path=%@", status, Bundle.main.bundlePath)
-        if status != noErr { lastFailure = "系统输入法注册失败（错误码 \(status)）。" }
+        if status != noErr { lastFailure = String(localized: "系统输入法注册失败（错误码 \(status)）。") }
         return status
     }
 
@@ -32,37 +33,37 @@ enum InputSourceInstall {
     static func requestEnable() -> Bool {
         guard registerBundle() == noErr else { return false }
         guard let parent = parentSource else {
-            lastFailure = "文件已安装，但系统尚未发现输入法组件。不能开始语音输入。"
+            lastFailure = String(localized: "文件已安装，但系统尚未发现输入法组件。不能开始语音输入。")
             return false
         }
         if !bool(parent, kTISPropertyInputSourceIsEnabled) {
             let status = TISEnableInputSource(parent)
             guard status == noErr else {
-                lastFailure = "系统拒绝启用输入法组件（\(status)）。"
+                lastFailure = String(localized: "系统拒绝启用输入法组件（\(status)）。")
                 return false
             }
         }
-        // Do not select or trust a child until the parent actually became enabled.
-        guard parentEnabled else { return true }
-        return requestModeEnable()
+        // Parent and child state is observed asynchronously.  The GUI poller
+        // enables the mode only after fresh TIS objects show the parent ready.
+        return true
     }
 
     static func requestModeEnable() -> Bool {
         guard parentEnabled, let source = modeSource else { return false }
         let status = TISEnableInputSource(source)
-        if status != noErr { lastFailure = "系统拒绝启用语音输入模式（\(status)）。" }
+        if status != noErr { lastFailure = String(localized: "系统拒绝启用语音输入模式（\(status)）。") }
         return status == noErr
     }
 
     static func selectEnabledMode() -> Bool {
         guard isEnabled, let source = modeSource else {
-            lastFailure = "输入法尚未启用，不能切换。请在系统输入法设置中完成添加或允许。"
+            lastFailure = String(localized: "输入法尚未启用，不能切换。请在系统输入法设置中完成添加或允许。")
             return false
         }
         let status = TISSelectInputSource(source)
         // TIS accept is enough; selection is observed asynchronously.
         if status != noErr {
-            lastFailure = "输入法已启用，但切换未完成（\(status)）。"
+            lastFailure = String(localized: "输入法已启用，但切换未完成（\(status)）。")
             return false
         }
         return true
@@ -71,7 +72,36 @@ enum InputSourceInstall {
     // Kept for CLI diagnostics. GUI installation uses the asynchronous coordinator.
     static func enableAndSelect() -> Bool {
         guard requestEnable() else { return false }
+        for _ in 0..<40 where !isEnabled {
+            if parentEnabled { _ = requestModeEnable() }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
         return selectEnabledMode()
+    }
+
+    /// Explicit uninstall path. Move away from this source before disabling its
+    /// mode and parent so System Settings does not retain a selected ghost entry.
+    static func disableForUninstall() -> Bool {
+        lastFailure = nil
+        var ok = true
+        if isSelected, !selectASCIILayout() {
+            lastFailure = String(localized: "卸载前无法切换到系统键盘布局。")
+            ok = false
+        } else if isSelected {
+            for _ in 0..<20 where isSelected {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.025))
+            }
+            if isSelected { lastFailure = String(localized: "卸载前的输入源切换未完成。"); ok = false }
+        }
+        if let mode = modeSource, bool(mode, kTISPropertyInputSourceIsEnabled) {
+            let status = TISDisableInputSource(mode)
+            if status != noErr { lastFailure = String(localized: "系统拒绝停用输入模式（\(status)）。"); ok = false }
+        }
+        if let parent = parentSource, bool(parent, kTISPropertyInputSourceIsEnabled) {
+            let status = TISDisableInputSource(parent)
+            if status != noErr { lastFailure = String(localized: "系统拒绝停用输入法组件（\(status)）。"); ok = false }
+        }
+        return ok
     }
 
     static func ours(includeDisabled: Bool) -> [TISInputSource] {
@@ -98,6 +128,34 @@ enum InputSourceInstall {
         return string(current, kTISPropertyInputSourceID)
     }
     static var isSelected: Bool { currentID == modeID }
+
+    static var asciiLayoutSource: TISInputSource? {
+        guard let source = TISCopyCurrentASCIICapableKeyboardLayoutInputSource()?.takeRetainedValue(),
+              bool(source, kTISPropertyInputSourceIsEnabled),
+              bool(source, kTISPropertyInputSourceIsSelectCapable) else { return nil }
+        return source
+    }
+    static var asciiLayoutID: String? {
+        asciiLayoutSource.flatMap { string($0, kTISPropertyInputSourceID) }
+    }
+
+    /// Reconnecting a stale IMK receiver needs an actual source transition.
+    /// Use an already enabled system layout; never enable another input method.
+    static func selectASCIILayout() -> Bool {
+        guard let source = asciiLayoutSource else { return false }
+        return TISSelectInputSource(source) == noErr
+    }
+
+    /// Select any enabled keyboard input source by ID (used to go back to the
+    /// user's own input method after a global wake).
+    @discardableResult
+    static func select(inputSourceID: String) -> Bool {
+        if inputSourceID == modeID { return selectEnabledMode() }
+        let filter = [kTISPropertyInputSourceID as String: inputSourceID]
+        guard let list = TISCreateInputSourceList(filter as CFDictionary, false)?.takeRetainedValue() as? [TISInputSource],
+              let source = list.first(where: { bool($0, kTISPropertyInputSourceIsSelectCapable) }) else { return false }
+        return TISSelectInputSource(source) == noErr
+    }
     private static func string(_ source: TISInputSource, _ key: CFString) -> String? {
         guard let raw = TISGetInputSourceProperty(source, key) else { return nil }
         return Unmanaged<CFString>.fromOpaque(raw).takeUnretainedValue() as String

@@ -2,23 +2,21 @@ import Foundation
 
 /// Process-wide Rime service. InputMethodKit and the candidate UI call it on the
 /// main thread. The native engine owns decoding, ranking and persistent learning.
-final class RimeRuntime {
+final class RimeRuntime: @unchecked Sendable {
     enum SetupError: LocalizedError {
         case missingData(String), initialization, schema
         var errorDescription: String? {
             switch self {
-            case .missingData(let path): return "缺少拼音资源：\(path)"
-            case .initialization: return "librime 初始化失败"
-            case .schema: return "Rime 拼音方案加载失败"
+            case .missingData(let path): return String(localized: "缺少拼音资源：\(path)")
+            case .initialization: return String(localized: "librime 初始化失败")
+            case .schema: return String(localized: "Rime 拼音方案加载失败")
             }
         }
     }
     static let shared: Result<RimeRuntime, Error> = Result {
         let resource = Bundle.main.resourceURL?.appendingPathComponent("Rime", isDirectory: true)
         guard let resource else { throw SetupError.missingData("Rime") }
-        let user = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
-                                              appropriateFor: nil, create: true)
-            .appendingPathComponent("Saylane/Rime", isDirectory: true)
+        let user = AppDirectories.rime
         return try RimeRuntime(sharedData: resource, userData: user)
     }
     let userData: URL

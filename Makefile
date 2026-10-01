@@ -1,5 +1,6 @@
 APP_NAME=Saylane
 DERIVED=build
+export TZ := Asia/Shanghai
 
 .PHONY: generate build release pkg open-pkg test clean
 

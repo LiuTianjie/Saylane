@@ -9,6 +9,10 @@ import Darwin
 @MainActor enum Diagnostics {
     static func run(_ arguments: [String]) async -> Int32 {
         do {
+            if arguments.contains("--microphone-check") {
+                try await checkMicrophone()
+                return 0
+            }
             if let index = arguments.firstIndex(of: "--qwen-worker") {
                 guard arguments.count > index + 1,
                       let variant = SpeechModel(rawValue: arguments[index + 1]), variant.isQwen else { return 2 }
@@ -152,6 +156,36 @@ import Darwin
             return 1
         }
     }
+    /// Explicit hardware smoke test of the real tap, without saving audio or text.
+    private static func checkMicrophone() async throws {
+        guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
+            fputs("Microphone access is not authorized; grant it in Saylane settings first.\n", stderr)
+            throw SpeechEngineError.setupFailed
+        }
+        for cycle in 1...3 {
+            let capture = AudioCaptureService()
+            let stream = try capture.startStream()
+            let deadline = Task {
+                try? await Task.sleep(for: .seconds(5))
+                guard !Task.isCancelled else { return }
+                capture.stop()
+            }
+            defer { deadline.cancel(); capture.stop() }
+            var frames = 0
+            var samples: UInt64 = 0
+            for try await frame in stream {
+                guard frame.buffer.frameLength > 0, frame.buffer.format.sampleRate > 0 else {
+                    throw SpeechEngineError.invalidFormat
+                }
+                frames += 1
+                samples += UInt64(frame.buffer.frameLength)
+                if frames == 8 { break }
+            }
+            guard frames == 8 else { throw SpeechEngineError.setupFailed }
+            print("Microphone cycle \(cycle): \(frames) buffers, \(samples) samples; capture/stop passed")
+        }
+    }
+
     private static func memoryReport(_ label: String) { print("\(label) | \(memoryDescription())") }
 
     private static func memoryDescription() -> String {

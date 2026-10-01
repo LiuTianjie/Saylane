@@ -18,6 +18,9 @@ import Foundation
     private var generation = 0
     private var active = false
     private var preview: Task<Void, Never>?
+    /// A preview failure unloads the disposable worker. Remember it so the final
+    /// pass can reload once instead of necessarily discarding the utterance.
+    private var previewFailed = false
 
     init(variant: SpeechModel, context: String? = nil, runtime: LocalSpeechRuntime,
          previewInterval: Duration? = nil) {
@@ -35,6 +38,7 @@ import Foundation
         preview = nil
         inFlightSamples = nil
         lastDecoded = nil
+        previewFailed = false
         audio = QwenAudioBuffer()
         self.locale = locale
         guard variant.supports(locale: locale) else { throw ASRModelError.unsupportedLanguage }
@@ -50,6 +54,7 @@ import Foundation
 
     func feed(_ buffer: AVAudioPCMBuffer) throws {
         guard active else { throw CancellationError() }
+        // At the length limit the session finalizes what was heard; later audio is not recorded.
         try audio.append(buffer)
     }
 
@@ -74,6 +79,11 @@ import Foundation
         if let decoded = lastDecoded, decoded.samples == samples.count, !decoded.text.isEmpty {
             return decoded.text
         }
+        if previewFailed {
+            try await runtime.prepare(variant)
+            try Task.checkCancellation()
+            guard generation == token else { throw CancellationError() }
+        }
         let result = try await runtime.transcribe(samples, language: language, variant: variant, context: context)
         try Task.checkCancellation()
         guard generation == token else { throw CancellationError() }
@@ -89,6 +99,7 @@ import Foundation
         audio = QwenAudioBuffer()
         lastDecoded = nil
         inFlightSamples = nil
+        previewFailed = false
     }
 
     private func emitLivePartials(_ token: Int) async {
@@ -115,7 +126,16 @@ import Foundation
             } catch is CancellationError {
                 if generation != token || !active { return }
             } catch {
-                if generation != token || !active { return }
+                // `finish()` deliberately flips `active` before awaiting an
+                // exact in-flight preview.  A worker failure during that wait
+                // still invalidates the runtime and must force the final pass
+                // to prepare a replacement worker.  An explicit cancel bumps
+                // `generation`, so it cannot leak this flag into a later turn.
+                if generation != token { return }
+                previewFailed = true
+                // LocalSpeechRuntime has already invalidated the failed worker.
+                // Preserve the accumulated audio and retry once in `finish()`.
+                return
             }
         }
     }

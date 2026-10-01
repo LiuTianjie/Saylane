@@ -25,12 +25,12 @@ enum CompletionFeedback: Equatable {
 
     var message: String {
         switch self {
-        case .ordinary: return "已输入 · 未启用 AI 润色"
-        case .polished: return "已润色并输入"
-        case .unchanged: return "AI 已检查，无需修改"
-        case .polishFailed: return "AI 润色失败 · 已保留普通结果"
-        case .polishTimedOut: return "AI 润色超时 · 已保留普通结果"
-        case .polishRejected: return "AI 改动过大 · 已保留本地结果"
+        case .ordinary: return String(localized: "已输入 · 未启用 AI 润色")
+        case .polished: return String(localized: "已润色并输入")
+        case .unchanged: return String(localized: "AI 已检查，无需修改")
+        case .polishFailed: return String(localized: "AI 润色失败 · 已保留普通结果")
+        case .polishTimedOut: return String(localized: "AI 润色超时 · 已保留普通结果")
+        case .polishRejected: return String(localized: "AI 改动过大 · 已保留本地结果")
         }
     }
     var isWarning: Bool { self == .polishFailed || self == .polishTimedOut || self == .polishRejected }

@@ -75,7 +75,9 @@ Saylane 运行在 macOS 系统输入法中。平时用 Rime 拼音打字，按�
 3. 按住**右 Option（⌥）**说话。波形胶囊显示录音状态，草稿直接出现在输入框中。
 4. 松开完成输入；按 **Esc** 取消当前会话。
 
-按住说话的快捷键可以修改。需要在其他输入法下唤起 Saylane 时，在设置中开启**输入监控**权限。
+按住说话的快捷键可以修改。按下的那一刻就开始录音，不会丢掉句首。需要在其他输入法下唤起 Saylane 时，在设置中开启**输入监控**权限；说完后会自动切回原来的输入法（可在设置中关闭）。
+
+底部提示胶囊会显示当前状态（准备中 / 正在听 / 正在整理）和识别、译文两行文字，在终端等不显示组字的应用里也能看到结果。终端等不支持输入法组字的应用，可在设置里开启「改用粘贴写入」（需要辅助功能权限）。
 
 ### 3. 切换语言模式
 
@@ -110,9 +112,9 @@ Saylane 运行在 macOS 系统输入法中。平时用 Rime 拼音打字，按�
 
 ## 截屏翻译
 
-按住**左 Control（⌃）**进入框选，再选择需要翻译的区域。应用固定截取的画面，使用 Vision OCR 与 Apple Translation 将译文覆盖到相应文字区域。此功能需要屏幕录制权限。
+按 **⌥T**（可在设置中修改，录制时会检查是否与系统快捷键冲突）进入框选，再选择需要翻译的区域；也可以在设置里开启「长按左 Control（⌃）」作为额外入口。钉住的结果浮在最上层、可以拖动，期间其他应用照常可用。应用固定截取的画面，使用 Vision OCR 与 Apple Translation 将译文覆盖到相应文字区域。此功能需要屏幕录制权限。
 
-结果是截图的翻译视图，不会修改底层应用。密集排版、小字和复杂背景会影响 OCR 与译文位置。[截屏翻译说明](docs/SCREEN_TRANSLATE.md)与[场景验证记录](docs/SCREEN_TRANSLATE_SCENARIOS.md)记录了实现方式及尚存的视觉限制。
+结果是截图的翻译视图，不会修改底层应用。密集排版、小字和复杂背景会影响 OCR 与译文位置。[截屏翻译说明](docs/history/SCREEN_TRANSLATE.md)与[场景验证记录](docs/history/SCREEN_TRANSLATE_SCENARIOS.md)记录了实现方式及尚存的视觉限制。
 
 可选的截屏润色有独立开关，使用已配置的 AI 接口，可能发送识别文字、译文草稿和邻近识别上下文，默认关闭。
 
@@ -186,7 +188,7 @@ make build
 | `make release` | 构建 Release，不安装 |
 | `make pkg` | 构建 Release 并生成 `dist/Saylane-<version>.pkg` |
 
-打包需要 **Developer ID Application** 身份，脚本会拒绝 ad-hoc 签名。无法自动确定签名身份时，设置 `SAYLANE_SIGNING_IDENTITY`。`SAYLANE_INSTALLER_IDENTITY` 单独用于可用时的 PKG 签名。应用签名、安装器签名、公证以及系统输入源成功启用是不同的检查项。
+打包必须设置 `SAYLANE_SIGNING_IDENTITY`（**Developer ID Application**）、`SAYLANE_INSTALLER_IDENTITY`（**Developer ID Installer**）和 `SAYLANE_NOTARY_PROFILE`（已有的 notarytool 配置）。脚本在签名前检查这三项，拒绝 ad-hoc 签名，并在公证、装订验证通过后才生成最终 PKG。应用签名、安装器签名、公证以及系统输入源成功启用是不同的检查项。
 
 构建结果位于 Git 忽略的 `build/` 和 `dist/`。构建出应用不等于已注册为可用的系统输入法，安装与启用步骤请参阅[安装指南](docs/安装说明.md)。
 
@@ -204,13 +206,15 @@ make build
 
 | 文档 | 内容 |
 | --- | --- |
+| [架构](docs/ARCHITECTURE.md) | 当前模块划分、状态流、输入路由、语音会话与并发模型 |
+| [变更记录](CHANGELOG.md) | 每个版本用户可见的变化 |
 | [安装指南](docs/安装说明.md) | 分发状态、输入源启用与权限 |
-| [语音体验与评测](docs/VOICE_INPUT_OPTIMIZATION.md) | 实时结果、终稿收尾、诊断与可复现的 ASR 评测 |
+| [语音体验与评测](docs/history/VOICE_INPUT_OPTIMIZATION.md) | 实时结果、终稿收尾、诊断与可复现的 ASR 评测 |
 | [Rime 拼音](docs/RIME_PINYIN.md) | 候选行为、学习、固定依赖与词库许可 |
 | [本地识别器](docs/ASR_COMPARISON.md) | 后端差异与验证边界 |
 | [Qwen3-ASR](docs/QWEN_ASR.md) | 模型清单、MLX 接入与运行时生命周期 |
-| [截屏翻译](docs/SCREEN_TRANSLATE.md) | 渲染行为与后续实现记录 |
-| [语音设计历史](docs/VOICE_INPUT_V2.md) | 持续演进的交互契约与分阶段验证记录 |
+| [截屏翻译](docs/history/SCREEN_TRANSLATE.md) | 渲染行为与后续实现记录 |
+| [语音设计历史](docs/history/VOICE_INPUT_V2.md) | 持续演进的交互契约与分阶段验证记录 |
 
 较早的设计文档包含历史计划和交接记录，判断已发布行为时应以当前源码和版本说明为准。
 
@@ -220,7 +224,8 @@ make build
 Saylane 的旧名称是 RTranslate。应用、可执行文件、Scheme 和新安装包均使用 Saylane；以下标识为了升级兼容而保留：
 
 - `com.rtranslate.*` Bundle / 输入源 ID、Keychain service 与安装器 receipt ID。
-- `~/Library/Application Support/RTranslate` 下已有的模型和诊断目录。
+- 现在所有数据都放在 `~/Library/Application Support/Saylane/`（`ASRModels`、`Diagnostics`、`Rime`、`Glossary`）。首次启动会把旧的 `RTranslate/` 目录移过来；移动失败时仍会从旧位置读取。
+- 润色接口密钥的钥匙串服务名改为 `com.saylane.final-polish`，旧名下的密钥首次使用时自动迁移。
 - 独立的 `~/Library/Application Support/Saylane/Rime` 用户词库目录。
 - `RTRANSLATE_SIGNING_IDENTITY`，作为 `SAYLANE_SIGNING_IDENTITY` 的兼容别名。
 
@@ -233,6 +238,8 @@ Saylane 的旧名称是 RTranslate。应用、可执行文件、Scheme 和新安
 欢迎提交聚焦的修复、可复现的问题与文档改进。反馈时请提供 macOS 版本、Mac 架构、Saylane 版本、识别模型、语言对和目标应用，并移除日志中的私人文字、录音、截图与接口凭据。
 
 代码改动请运行 `make test`。输入法、快捷键、权限和覆盖层改动还需在真实 macOS 会话及受影响应用中验证。文件识别评测和单元测试不能证明麦克风到上屏的延迟或跨应用兼容性。
+
+`bash scripts/build-ime-test-host.sh` 会生成 `build/tests/IMEIntegrationHost.app`，提供两个独立的原生 AppKit 输入框，只选择已启用的输入源。用真实按键检查拼音组字、切换输入框、语音上屏和取消；粘贴文字或直接设置辅助功能的值不算输入法测试。已安装的程序还支持 `--microphone-check`，连续执行三次真实采集 / 停止，不保存录音。
 
 ## 许可证
 

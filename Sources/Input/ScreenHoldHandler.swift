@@ -92,6 +92,10 @@ struct ScreenHoldHandler {
     ) -> Action {
         let forbidden = UInt64(NSEvent.ModifierFlags([.option, .command, .shift, .function]).rawValue) | trigger.siblingMask
 
+        if type == .leftMouseDown || type == .rightMouseDown {
+            return abortGesture()
+        }
+
         if type == .keyUp {
             pressedKeys.remove(keyCode)
             return .none

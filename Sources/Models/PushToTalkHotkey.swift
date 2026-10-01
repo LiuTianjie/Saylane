@@ -30,14 +30,14 @@ enum PushToTalkHotkey: String, CaseIterable, Identifiable, Hashable {
 
     var displayName: String {
         switch self {
-        case .rightOption: return "右 Option（⌥）"
-        case .leftOption: return "左 Option（⌥）"
-        case .rightShift: return "右 Shift（⇧）"
-        case .leftShift: return "左 Shift（⇧）"
-        case .rightCommand: return "右 Command（⌘）"
-        case .leftCommand: return "左 Command（⌘）"
-        case .rightControl: return "右 Control（⌃）"
-        case .leftControl: return "左 Control（⌃）"
+        case .rightOption: return String(localized: "右 Option（⌥）")
+        case .leftOption: return String(localized: "左 Option（⌥）")
+        case .rightShift: return String(localized: "右 Shift（⇧）")
+        case .leftShift: return String(localized: "左 Shift（⇧）")
+        case .rightCommand: return String(localized: "右 Command（⌘）")
+        case .leftCommand: return String(localized: "左 Command（⌘）")
+        case .rightControl: return String(localized: "右 Control（⌃）")
+        case .leftControl: return String(localized: "左 Control（⌃）")
         case .function: return "fn"
         case .f8: return "F8"
         case .f9: return "F9"
@@ -52,14 +52,14 @@ enum PushToTalkHotkey: String, CaseIterable, Identifiable, Hashable {
 
     var shortLabel: String {
         switch self {
-        case .rightOption: return "右⌥"
-        case .leftOption: return "左⌥"
-        case .rightShift: return "右⇧"
-        case .leftShift: return "左⇧"
-        case .rightCommand: return "右⌘"
-        case .leftCommand: return "左⌘"
-        case .rightControl: return "右⌃"
-        case .leftControl: return "左⌃"
+        case .rightOption: return String(localized: "右⌥")
+        case .leftOption: return String(localized: "左⌥")
+        case .rightShift: return String(localized: "右⇧")
+        case .leftShift: return String(localized: "左⇧")
+        case .rightCommand: return String(localized: "右⌘")
+        case .leftCommand: return String(localized: "左⌘")
+        case .rightControl: return String(localized: "右⌃")
+        case .leftControl: return String(localized: "左⌃")
         case .function: return "fn"
         case .f8: return "F8"
         case .f9: return "F9"

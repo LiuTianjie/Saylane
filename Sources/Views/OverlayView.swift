@@ -6,8 +6,8 @@ struct OverlayView: View {
     var body: some View {
         content
             .frame(minWidth: waveformVisible ? 210 : 160)
-            .padding(.horizontal, waveformVisible ? 12 : 18)
-            .padding(.vertical, waveformVisible ? 10 : 9)
+            .padding(.horizontal, waveformVisible ? 14 : 18)
+            .padding(.vertical, textVisible ? 10 : (waveformVisible ? 10 : 9))
             .overlay {
                 CapsuleSweep(token: model.sweepID)
                     .clipShape(Capsule(style: .continuous))
@@ -22,27 +22,46 @@ struct OverlayView: View {
             && model.phase != .finalizing
     }
 
+    private var textVisible: Bool {
+        model.showsText && (!model.sourceText.isEmpty || !model.translatedText.isEmpty)
+            && (model.phase == .listening || model.phase == .preparing || model.phase == .finalizing || model.phase == .polishing)
+    }
+
+    private var statusWord: String {
+        switch model.phase {
+        case .preparing: return String(localized: "准备中")
+        case .listening: return String(localized: "正在听")
+        case .finalizing: return String(localized: "正在整理")
+        case .polishing: return String(localized: "AI 润色中")
+        default: return ""
+        }
+    }
+
     @ViewBuilder
     private var content: some View {
         if model.phase == .error {
-            overlayLine(icon: "exclamationmark.circle.fill", iconColor: .orange, text: model.statusText)
+            overlayLine(icon: model.noticeIsWarning ? "exclamationmark.circle.fill" : "info.circle.fill",
+                        iconColor: model.noticeIsWarning ? .orange : .secondary, text: model.statusText)
         } else if let feedback = model.completion {
             overlayLine(icon: feedback.isWarning ? "exclamationmark.circle.fill" : "checkmark.circle.fill",
                         iconColor: feedback.isWarning ? Color.orange : Color(red: 0.18, green: 0.70, blue: 0.48),
                         text: feedback.message)
         } else if model.phase == .polishing || model.phase == .finalizing {
-            HStack(spacing: 8) {
-                ProgressView().controlSize(.small)
-                Text(model.phase == .polishing ? "AI 润色中" : "正在整理")
-                    .font(.system(size: 12, weight: .medium))
-                Text("Esc")
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 2)
-                    .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-                Text("取消")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text(statusWord)
+                        .font(.system(size: 12, weight: .medium))
+                    Text("Esc")
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    Text(String(localized: "取消"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+                if textVisible { textLines }
             }
             .accessibilityElement(children: .combine)
         } else if let notice = model.languageSwitch {
@@ -50,18 +69,59 @@ struct OverlayView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .accessibilityLabel(notice.from == notice.to
                     ? notice.title
-                    : "\(notice.title)，我说\(notice.from)，写成\(notice.to)")
+                    : String(localized: "\(notice.title)，我说\(notice.from)，写成\(notice.to)"))
         } else {
-            Waveform(levels: model.levels, active: model.phase == .listening || model.phase == .preparing)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 10) {
+                    Waveform(levels: model.levels, active: model.phase == .listening || model.phase == .preparing)
+                    Text(statusWord)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(model.phase == .listening ? .primary : .secondary)
+                        .fixedSize()
+                    if model.sourceLanguageName != model.targetLanguageName, !model.targetLanguageName.isEmpty {
+                        Text("\(model.sourceLanguageName) → \(model.targetLanguageName)")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .fixedSize()
+                    }
+                }
+                if textVisible { textLines }
+            }
+            .accessibilityElement(children: .combine)
         }
+    }
+
+    private var textLines: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if !model.sourceText.isEmpty, model.translatedText != model.sourceText {
+                Text(model.sourceText)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+            }
+            if !model.translatedText.isEmpty {
+                Text(model.translatedText)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(2)
+                    .truncationMode(.head)
+            } else if !model.sourceText.isEmpty {
+                Text(model.sourceText)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(2)
+                    .truncationMode(.head)
+            }
+        }
+        .frame(maxWidth: 420, alignment: .leading)
     }
 
     private func overlayLine(icon: String, iconColor: Color, text: String) -> some View {
         HStack(spacing: 7) {
             Image(systemName: icon).foregroundStyle(iconColor)
-            Text(text)
+            Text(text).lineLimit(2)
         }
         .font(.system(size: 12, weight: .medium))
+        .frame(maxWidth: 460)
         .accessibilityElement(children: .combine)
     }
 }
@@ -94,7 +154,6 @@ private struct Waveform: View {
     }
 
     private func barColor(for index: Int) -> Color {
-        // Subtle edge attenuation for beautiful natural taper
         let edgeDist = min(index, visible - 1 - index)
         let alpha = edgeDist < 3 ? Double(edgeDist + 1) / 4.0 : 1.0
         return active ? Color.primary.opacity(0.88 * alpha) : Color.primary.opacity(0.28 * alpha)
@@ -103,7 +162,6 @@ private struct Waveform: View {
     private func height(for level: Float, at index: Int) -> CGFloat {
         let floor: Float = active ? 0.12 : 0.06
         let rawHeight = minBar + (maxBar - minBar) * CGFloat(max(0, min(1, max(level, floor))))
-        // Soft curve falloff at the very edges so the waveform fits the capsule round ends
         let edgeDist = min(index, visible - 1 - index)
         let taper: CGFloat = edgeDist == 0 ? 0.6 : (edgeDist == 1 ? 0.85 : 1.0)
         return rawHeight * taper

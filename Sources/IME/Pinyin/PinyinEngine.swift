@@ -1,44 +1,181 @@
 import AppKit
 import Carbon.HIToolbox
 
+/// A small, UI-independent identity state machine shared by the IMK controller
+/// and its tests. Object identity says which IMK proxy owns the lease; the UUID
+/// also distinguishes two activations that reuse the same proxy object.
+struct IMEClientLeaseState {
+    private(set) var id: UUID?
+    private(set) var identity: ObjectIdentifier?
+    private var leases: [ObjectIdentifier: (client: AnyObject, id: UUID)] = [:]
+
+    @discardableResult
+    mutating func bind(_ client: AnyObject, renew: Bool = false) -> (id: UUID, changed: Bool) {
+        let nextIdentity = ObjectIdentifier(client)
+        let changed = renew || id == nil || identity != nextIdentity
+        let nextID: UUID
+        if renew || leases[nextIdentity] == nil {
+            nextID = UUID()
+            leases[nextIdentity] = (client, nextID)
+        } else {
+            nextID = leases[nextIdentity]!.id
+        }
+        id = nextID
+        identity = nextIdentity
+        return (nextID, changed)
+    }
+
+    func lease(matching client: AnyObject?) -> UUID? {
+        guard let client else { return nil }
+        guard let entry = leases[ObjectIdentifier(client)], entry.client === client else { return nil }
+        return entry.id
+    }
+
+    @discardableResult
+    mutating func invalidate(_ lease: UUID) -> Bool {
+        guard let entry = leases.first(where: { $0.value.id == lease }) else { return false }
+        leases.removeValue(forKey: entry.key)
+        if id == lease {
+            id = nil
+            identity = nil
+        }
+        return true
+    }
+
+    mutating func invalidate() {
+        id = nil
+        identity = nil
+        leases.removeAll()
+    }
+}
+
+/// Pinyin front end. Like Squirrel, every IMK client gets its own Rime session so
+/// switching windows never commits one client's composition into another; the
+/// candidate window is shared. Preferences arrive from the store, never from defaults.
 @MainActor
 final class PinyinEngine {
-    private let session: RimePinyinSession?
+    private final class ClientSession {
+        let rime: RimePinyinSession
+        var undeliveredCommit = ""
+
+        init(_ rime: RimePinyinSession) {
+            self.rime = rime
+        }
+    }
+
+    private let runtime: Result<RimeRuntime, Error>
     private(set) var initializationError: String?
     private let window = CandidateWindowController()
-    var englishMode: Bool { session?.englishMode ?? UserDefaults.standard.bool(forKey: "pinyinEnglishMode") }
-    var associationEnabled: Bool { session?.associationEnabled ?? false }
-    private(set) var barPreeditEnabled: Bool
-    private(set) var fuzzyEnabled: Bool
-    var isComposing: Bool { session?.isComposing ?? false }
+    private var sessions: [UUID: ClientSession] = [:]
+    private var order: [UUID] = []
+    private var activeKey: UUID?
+    private var englishModePreference = false
+    private(set) var fuzzyEnabled = true
+    private(set) var barPreeditEnabled = false
+    var onEnglishModeChanged: ((Bool) -> Void)?
+    private static let maxSessions = 12
 
-    init() {
-        let stored = UserDefaults.standard.bool(forKey: "pinyinEnglishMode")
-        barPreeditEnabled = UserDefaults.standard.bool(forKey: "pinyinBarPreeditEnabled")
-        fuzzyEnabled = UserDefaults.standard.object(forKey: "pinyinFuzzyEnabled") as? Bool ?? true
-        do {
-            session = try RimePinyinSession(runtime: RimeRuntime.shared.get(), englishMode: stored, fuzzyEnabled: fuzzyEnabled)
-        } catch {
-            session = nil
-            initializationError = error.localizedDescription
-        }
-        session?.onModeChange = { enabled in
-            UserDefaults.standard.set(enabled, forKey: "pinyinEnglishMode")
-        }
+    private var active: ClientSession? { activeKey.flatMap { sessions[$0] } }
+    var englishMode: Bool { active?.rime.englishMode ?? englishModePreference }
+    var isComposing: Bool { active?.rime.isComposing ?? false }
+
+    init(runtime: Result<RimeRuntime, Error> = RimeRuntime.shared) {
+        self.runtime = runtime
+        if case .failure(let error) = runtime { initializationError = error.localizedDescription }
         window.setOnPick { [weak self] index in
-            guard let self else { return }
-            self.session?.selectCandidate(at: index)
+            guard let self, let key = self.activeKey,
+                  IMEManager.shared.isCurrentLease(key) else { return }
+            self.active?.rime.selectCandidate(at: index)
             self.publish()
         }
         window.setOnPage { [weak self] delta in
-            guard let self else { return }
-            self.session?.pageCandidates(delta)
+            guard let self, let key = self.activeKey,
+                  IMEManager.shared.isCurrentLease(key) else { return }
+            self.active?.rime.pageCandidates(delta)
             self.publish()
         }
     }
 
+    func applyPreferences(_ p: Preferences) {
+        englishModePreference = p.pinyinEnglishMode
+        barPreeditEnabled = p.pinyinBarPreeditEnabled
+        if fuzzyEnabled != p.pinyinFuzzyEnabled {
+            fuzzyEnabled = p.pinyinFuzzyEnabled
+        }
+        synchronizeActivePreferences()
+        publish()
+    }
+
+    /// A different client is now in front. Hide the candidates of the old one
+    /// and continue with (or create) the session that belongs to the new one.
+    func switchClient(to key: UUID?) {
+        window.hide()
+        guard let key else { activeKey = nil; return }
+        if sessions[key] != nil {
+            activeKey = key
+            touch(key)
+            synchronizeActivePreferences()
+            publish()
+            return
+        }
+        guard case .success(let runtime) = runtime else { activeKey = nil; return }
+        do {
+            let session = try RimePinyinSession(runtime: runtime, englishMode: englishModePreference, fuzzyEnabled: fuzzyEnabled)
+            session.onModeChange = { [weak self] enabled in
+                self?.englishModePreference = enabled
+                self?.onEnglishModeChanged?(enabled)
+            }
+            sessions[key] = ClientSession(session)
+            activeKey = key
+            touch(key)
+            evictIfNeeded()
+            publish()
+        } catch {
+            initializationError = error.localizedDescription
+            activeKey = nil
+        }
+    }
+
+    /// The controller is going away for good.
+    func forgetClient(_ key: UUID) {
+        if sessions.removeValue(forKey: key) != nil, activeKey == key {
+            activeKey = nil
+            window.hide()
+        }
+        order.removeAll { $0 == key }
+    }
+
+    private func touch(_ key: UUID) {
+        order.removeAll { $0 == key }
+        order.append(key)
+    }
+
+    private func evictIfNeeded() {
+        while order.count > Self.maxSessions {
+            guard let victim = order.first(where: { key in
+                guard key != activeKey, let state = sessions[key] else { return false }
+                return !state.rime.isComposing && state.undeliveredCommit.isEmpty
+            }) else { break }
+            sessions.removeValue(forKey: victim)
+            order.removeAll { $0 == victim }
+        }
+    }
+
+    /// Preference changes may force Rime to resolve its current composition.
+    /// Apply them only after that session's IMK client is attached, so any raw
+    /// commit is written back to the client that owns the composition.
+    private func synchronizeActivePreferences() {
+        guard let session = active?.rime else { return }
+        if session.fuzzyEnabled != fuzzyEnabled, !session.setFuzzyEnabled(fuzzyEnabled) {
+            initializationError = String(localized: "拼音方案切换失败，请重新启动输入法后重试。")
+        }
+        if session.englishMode != englishModePreference {
+            session.setEnglishMode(englishModePreference)
+        }
+    }
+
     func handle(_ event: NSEvent, pushToTalk: PushToTalkHotkey) -> Bool {
-        guard let session else { return false }
+        guard let session = active?.rime else { return false }
         let shiftEnabled = shiftToggleEnabled(event.keyCode, pushToTalk: pushToTalk)
         let consumed = session.handle(PinyinKeyEvent(event), shiftToggleEnabled: shiftEnabled)
         if consumed { publish() }
@@ -46,59 +183,50 @@ final class PinyinEngine {
     }
 
     func commit() {
-        session?.commit()
+        active?.rime.commit()
         publish()
     }
 
     func commitRaw() {
-        session?.commitRaw()
+        active?.rime.commitRaw()
         publish()
     }
 
     func cancel() {
-        session?.cancel()
-        publish()
-    }
-
-    func setEnglishMode(_ enabled: Bool) {
-        session?.setEnglishMode(enabled)
-        publish()
-    }
-
-    func setAssociationEnabled(_ enabled: Bool) {
-        // Prediction requires a separate model/plugin; the shipped core does not
-        // expose this capability. Preserve the saved preference for a later upgrade.
-        publish()
-    }
-
-    func setBarPreeditEnabled(_ enabled: Bool) {
-        barPreeditEnabled = enabled
-        UserDefaults.standard.set(enabled, forKey: "pinyinBarPreeditEnabled")
-        publish()
-    }
-
-    func setFuzzyEnabled(_ enabled: Bool) {
-        guard session?.setFuzzyEnabled(enabled) == true else { return }
-        fuzzyEnabled = enabled
-        UserDefaults.standard.set(enabled, forKey: "pinyinFuzzyEnabled")
+        active?.rime.cancel()
         publish()
     }
 
     private func publish() {
-        guard let session else { window.hide(); return }
-        let committed = session.takeCommit()
-        if !committed.isEmpty { IMEManager.shared.insertPinyin(committed) }
-        IMEManager.shared.setPinyinMarked(session.markedText, caret: session.markedCaret, highlight: session.markedHighlight)
+        guard let key = activeKey, let state = active else { window.hide(); return }
+        let session = state.rime
+        state.undeliveredCommit += session.takeCommit()
+        guard IMEManager.shared.isCurrentLease(key) else {
+            window.hide()
+            return
+        }
+        if !state.undeliveredCommit.isEmpty {
+            guard IMEManager.shared.insertPinyin(state.undeliveredCommit, leaseID: key) else {
+                window.hide()
+                return
+            }
+            state.undeliveredCommit = ""
+        }
+        guard IMEManager.shared.setPinyinMarked(session.markedText, caret: session.markedCaret,
+                                                highlight: session.markedHighlight, leaseID: key) else {
+            window.hide()
+            return
+        }
         if session.showsCandidates {
             window.update(candidates: session.candidates, highlight: session.highlighted,
-                          caret: IMEManager.shared.caretScreenRect(),
-                          preedit: barPreeditEnabled ? session.preeditDisplay : "",
-                          associating: session.isAssociating)
+                          caret: IMEManager.shared.caretScreenRect(leaseID: key),
+                          preedit: barPreeditEnabled ? session.preeditDisplay : "")
         } else {
             window.hide()
         }
     }
 
+    /// Shift toggles Chinese/English unless that very key is the talk trigger.
     private func shiftToggleEnabled(_ keyCode: UInt16, pushToTalk: PushToTalkHotkey) -> Bool {
         if keyCode == UInt16(kVK_Shift) { return pushToTalk != .leftShift }
         if keyCode == UInt16(kVK_RightShift) { return pushToTalk != .rightShift }

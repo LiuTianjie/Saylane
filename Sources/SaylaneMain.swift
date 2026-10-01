@@ -7,7 +7,8 @@ import SwiftUI
 
 @main
 enum SaylaneMain {
-    private static var inputServer: IMKServer?
+    /// Retained for the process lifetime; only ever touched from `main` on the main thread.
+    nonisolated(unsafe) private static var inputServer: IMKServer?
 
     static func main() {
         if CommandLine.arguments.contains("--pinyin-self-test") {
@@ -21,7 +22,12 @@ enum SaylaneMain {
             fputs(ok ? "Saylane input source enabled and selected\n" : "\(InputSourceInstall.lastFailure ?? "Input source not found")\n", stderr)
             exit(ok ? EXIT_SUCCESS : EXIT_FAILURE)
         }
-        if CommandLine.arguments.contains(where: { ["--diagnose", "--recognize-file", "--translation-check", "--download-speech-model", "--asr-memory-check", "--qwen-worker"].contains($0) }) {
+        if CommandLine.arguments.contains("--disable-input-source") {
+            let ok = InputSourceInstall.disableForUninstall()
+            if !ok { fputs("\(InputSourceInstall.lastFailure ?? "Input source could not be disabled")\n", stderr) }
+            exit(ok ? EXIT_SUCCESS : EXIT_FAILURE)
+        }
+        if CommandLine.arguments.contains(where: { ["--diagnose", "--microphone-check", "--recognize-file", "--translation-check", "--download-speech-model", "--asr-memory-check", "--qwen-worker"].contains($0) }) {
             Task { @MainActor in exit(await Diagnostics.run(CommandLine.arguments)) }
             RunLoop.main.run()
             return

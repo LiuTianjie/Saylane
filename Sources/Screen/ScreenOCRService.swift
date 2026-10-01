@@ -5,20 +5,14 @@ enum ScreenOCRService {
     static func recognize(_ image: NSImage, languages: [String]) async throws -> [ScreenOCRLine] {
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return [] }
         let initial = try await scan(cgImage, languages: languages)
-        guard max(cgImage.width, cgImage.height) > 2200 || ScreenTranslate.isDocument(initial), !initial.isEmpty else {
+        guard max(cgImage.width, cgImage.height) > 2200 || ScreenTranslate.isDocument(initial) else {
             return ScreenTranslate.mergeFragments(initial)
         }
         // Vision downsamples a full 5K desktop enough to lose small glyphs.
         // Refine whole text columns at native resolution, with overlapping
         // vertical tiles. Never split a line at an arbitrary horizontal grid.
         let width = CGFloat(cgImage.width), height = CGFloat(cgImage.height)
-        let intervals = initial.map { ($0.visionBox.minX * width, $0.visionBox.maxX * width) }.sorted { $0.0 < $1.0 }
-        var columns: [(CGFloat, CGFloat)] = []
-        for interval in intervals {
-            if let last = columns.last, interval.0 <= last.1 + 16 {
-                columns[columns.count - 1].1 = max(last.1, interval.1)
-            } else { columns.append(interval) }
-        }
+        let columns = refinementColumns(width: width, initial: initial)
         struct Tile {
             let crop: CGRect
             let startY: CGFloat
@@ -94,15 +88,13 @@ enum ScreenOCRService {
                         if let space = raw.firstIndex(of: " ") {
                             let prefix = String(raw[..<space])
                             let rest = raw.index(after: space)..<raw.endIndex
-                            let ordinaryWords: Set<String> = ["A", "a", "I", "i", "An", "an", "In", "in", "On", "on", "To", "to", "Of", "of", "As", "as", "Is", "is", "It", "it"]
-                            if prefix.count <= 2, !ordinaryWords.contains(prefix), raw[rest].count >= 3,
+                            if isLikelyIconPrefix(prefix), raw[rest].count >= 3,
                                let suffix = try? candidate.boundingBox(for: rest) {
                                 text = String(raw[rest])
                                 box = suffix.boundingBox
                             }
                         }
-                        let letters = text.unicodeScalars.filter { CharacterSet.letters.contains($0) }.count
-                        guard text.count > 2, letters > 1 else { return nil }
+                        guard shouldKeep(text, confidence: candidate.confidence) else { return nil }
                         return ScreenOCRLine(text: text, visionBox: box, confidence: candidate.confidence,
                             startsListItem: raw.range(of: #"^\s*[•●◦▪‣·]\s+"#, options: .regularExpression) != nil)
                     }
@@ -115,5 +107,55 @@ enum ScreenOCRService {
                 catch { continuation.resume(throwing: error) }
             }
         }
+    }
+
+    /// Keep short UI labels and numeric values without turning every icon-shaped
+    /// glyph into text. Vision confidence is only used for the ambiguous one-
+    /// character and numeric cases; ordinary words keep the existing behavior.
+    static func shouldKeep(_ text: String, confidence: VNConfidence) -> Bool {
+        let scalars = text.unicodeScalars.filter { !CharacterSet.whitespacesAndNewlines.contains($0) }
+        guard !scalars.isEmpty else { return false }
+        let letters = scalars.filter { CharacterSet.letters.contains($0) }
+        if letters.count >= 2 { return true } // “OK”, “AI”, “设置”
+        if let letter = letters.first, letters.count == 1, letter.value > 0x7f { return confidence >= 0.45 }
+        let digits = scalars.filter { CharacterSet.decimalDigits.contains($0) }
+        let numericPunctuation = CharacterSet(charactersIn: ".,:%+-/年月日时分秒")
+        if !digits.isEmpty,
+           scalars.allSatisfy({ CharacterSet.decimalDigits.contains($0) || numericPunctuation.contains($0) }) {
+            return confidence >= 0.60
+        }
+        return false
+    }
+
+    static func isLikelyIconPrefix(_ prefix: String) -> Bool {
+        let scalars = prefix.unicodeScalars
+        guard !scalars.isEmpty else { return false }
+        if scalars.count == 1 {
+            let scalar = scalars[scalars.startIndex]
+            // A/I are real words; a lone digit, symbol or other ASCII letter is
+            // commonly Vision's reading of a sidebar icon.
+            return !["A", "a", "I", "i"].contains(prefix)
+                && (scalar.isASCII || CharacterSet.symbols.contains(scalar) || CharacterSet.punctuationCharacters.contains(scalar))
+        }
+        return scalars.allSatisfy { CharacterSet.decimalDigits.contains($0)
+            || CharacterSet.symbols.contains($0) || CharacterSet.punctuationCharacters.contains($0) }
+    }
+
+    /// Native-resolution refinement columns.  An empty broad OCR result on a
+    /// large image still needs a full-width pass; otherwise small text that was
+    /// missed once can never be recovered.  Kept pure for regression tests.
+    static func refinementColumns(width: CGFloat, initial: [ScreenOCRLine]) -> [(CGFloat, CGFloat)] {
+        let intervals = initial
+            .map { ($0.visionBox.minX * width, $0.visionBox.maxX * width) }
+            .sorted { $0.0 < $1.0 }
+        var columns: [(CGFloat, CGFloat)] = initial.isEmpty ? [(0, width)] : []
+        for interval in intervals {
+            if let last = columns.last, interval.0 <= last.1 + 16 {
+                columns[columns.count - 1].1 = max(last.1, interval.1)
+            } else {
+                columns.append(interval)
+            }
+        }
+        return columns
     }
 }

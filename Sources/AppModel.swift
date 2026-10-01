@@ -2,278 +2,137 @@ import AppKit
 import Carbon
 import Foundation
 import Observation
-import Speech
 import SwiftUI
-import Translation
 
+/// Composition root and the single object views observe. It owns no feature
+/// logic itself: preferences live in `PreferencesStore`, readiness in
+/// `Readiness` (reduced from events), input in `InputEventRouter`, voice in
+/// `VoiceSessionController`, models in `ModelCoordinator`, screen translation in
+/// `ScreenTranslateController` and pinyin in `PinyinEngine`.
 @MainActor @Observable
-final class AppModel {
+final class AppModel: VoiceSessionHost {
     static let shared = AppModel()
-    private var updatingLanguagePair = false
-    var sourceLanguage: AppLanguage {
-        didSet { UserDefaults.standard.set(sourceLanguage.rawValue, forKey: "sourceLanguage"); if !updatingLanguagePair { settingsChanged() } }
-    }
-    var targetLanguage: AppLanguage {
-        didSet { UserDefaults.standard.set(targetLanguage.rawValue, forKey: "targetLanguage"); if !updatingLanguagePair { settingsChanged() } }
-    }
-    /// The two languages chosen in settings. Shortcut cycles A→A / A→B / B→A / B→B.
-    var pairSource: AppLanguage {
-        didSet {
-            UserDefaults.standard.set(pairSource.rawValue, forKey: "pairSourceLanguage")
-            if !updatingLanguagePair { applyPairAsTranslateMode() }
-        }
-    }
-    var pairTarget: AppLanguage {
-        didSet {
-            UserDefaults.standard.set(pairTarget.rawValue, forKey: "pairTargetLanguage")
-            if !updatingLanguagePair { applyPairAsTranslateMode() }
-        }
-    }
-    var currentDirection: TranslationDirection {
-        TranslationDirection(source: sourceLanguage, target: targetLanguage)
-    }
-    var overlayEnabled: Bool {
-        didSet { UserDefaults.standard.set(overlayEnabled, forKey: "overlayEnabled") }
-    }
-    var screenCaptureShortcut: ScreenCaptureShortcut {
-        didSet {
-            UserDefaults.standard.set(Int(screenCaptureShortcut.keyCode), forKey: "screenCaptureKeyCode")
-            UserDefaults.standard.set(Int(screenCaptureShortcut.modifierFlags), forKey: "screenCaptureModifiers")
-            globalHotkey.setScreenCaptureShortcut(screenCaptureShortcut)
-        }
-    }
-    var isRecordingScreenShortcut = false
-    var pushToTalk: PushToTalkHotkey {
-        didSet {
-            coordinator.cancel(); resetShortcuts()
-            UserDefaults.standard.set(pushToTalk.rawValue, forKey: "pushToTalkHotkey")
-            overlay.setHotkeyLabel(pushToTalk.shortLabel)
-        }
-    }
-    var languageSwitchEnabled: Bool {
-        didSet { UserDefaults.standard.set(languageSwitchEnabled, forKey: "languageSwitchEnabled"); resetShortcuts() }
-    }
-    var tapToTalk: Bool {
-        didSet { UserDefaults.standard.set(tapToTalk, forKey: "tapToTalk"); resetShortcuts(); refreshInputSourceStatus() }
-    }
-    var lastLanguageSwitch: String?
-    var finalPolishEnabled: Bool {
-        didSet { UserDefaults.standard.set(finalPolishEnabled, forKey: "finalPolishEnabled") }
-    }
-    var finalPolishEndpoint: String {
-        didSet { UserDefaults.standard.set(finalPolishEndpoint, forKey: "finalPolishEndpoint") }
-    }
-    var finalPolishModel: String {
-        didSet { UserDefaults.standard.set(finalPolishModel, forKey: "finalPolishModel") }
-    }
-    var recognitionOnly = UserDefaults.standard.bool(forKey: "recognitionOnly") {
-        didSet {
-            UserDefaults.standard.set(recognitionOnly, forKey: "recognitionOnly")
-            settingsChanged()
-        }
-    }
-    var speechHotwordsEnabled = UserDefaults.standard.bool(forKey: "speechHotwordsEnabled") {
-        didSet { UserDefaults.standard.set(speechHotwordsEnabled, forKey: "speechHotwordsEnabled") }
-    }
-    /// On-device repair of fillers, stutters and spoken corrections; on by default.
-    var dictationCleanupEnabled = UserDefaults.standard.object(forKey: "dictationCleanupEnabled") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(dictationCleanupEnabled, forKey: "dictationCleanupEnabled") }
-    }
-    /// Built-in domain terms plus a daily Wikimedia harvest; on by default, independent of the personal list.
-    var dictationGlossaryEnabled = UserDefaults.standard.object(forKey: "dictationGlossaryEnabled") as? Bool ?? true {
-        didSet {
-            UserDefaults.standard.set(dictationGlossaryEnabled, forKey: "dictationGlossaryEnabled")
-            if dictationGlossaryEnabled {
-                Task { await DictationGlossaryStore.shared.refreshIfStale() }
-            }
-        }
-    }
-    var speechHotwords = UserDefaults.standard.string(forKey: "speechHotwords") ?? "" {
-        didSet { UserDefaults.standard.set(speechHotwords, forKey: "speechHotwords") }
-    }
-    var screenPolishEnabled: Bool {
-        didSet { UserDefaults.standard.set(screenPolishEnabled, forKey: "screenPolishEnabled") }
-    }
-    var lastError: String?
-    var translationConfiguration: TranslationSession.Configuration?
-    private(set) var speechModel = SpeechModel(rawValue: UserDefaults.standard.string(forKey: "speechModel") ?? "") ?? .apple
-    let asrModels = ASRModelStore()
-    var speechModelReady = false
-    var translationModelReady = false
-    var speechModelDetail = "正在检查…"
-    var translationModelDetail = "正在检查…"
-    var isPreparingModels = false
-    var installationPathValid = false
-    var inputSourceInstalled = false
-    var inputSourceEnabled = false
-    var inputSourceSelected = false
-    var completedSessions = 0
-    private var checkingSettings = false
-    private var speechStatusChecks = 0
-    var isChecking: Bool { checkingSettings || speechStatusChecks > 0 }
-    let permissions = PermissionService()
-    let translationEngine = TranslationEngine()
-    let coordinator = SessionCoordinator()
-    var sessionState: SessionState { coordinator.state }
-    var isListening: Bool { sessionState != .idle }
-    var readiness: SetupReadiness {
-        SetupReadiness(microphoneGranted: permissions.allCriticalGranted,
-            microphoneNeverRequested: permissions.microphone == .notDetermined,
-            inputMethodEnabled: inputSourceEnabled, inputMethodSelected: inputSourceSelected,
-            checkingModels: isChecking || isPreparingModels || asrModels.isDownloading,
-            speechReady: speechModelReady, translationReady: translationModelReady,
-            globalInvokeAvailable: globalHotkey.isListeningToEvents)
-    }
-    var ready: Bool { readiness.blocker == nil }
-    var setupCompleted = UserDefaults.standard.bool(forKey: "setupVerifiedV7") {
-        didSet { UserDefaults.standard.set(setupCompleted, forKey: "setupVerifiedV7") }
-    }
-    /// Settings-panel trial field. Voice writes here; the host is not an IMK client.
-    var testText = ""
-    private var settingsCapture: SettingsCaptureTarget?
-    var isShowingSetup = false
-    var settingsTab = 1
-    private var lastBlockedPromptTime: TimeInterval = 0
-    private let overlay = OverlayController()
-    let screenTranslate = ScreenTranslateController()
-    private var listeningStartedAt: TimeInterval?
-    private let settingsWindow = SettingsController()
-    private var keys = InputShortcutHandler()
-    private let globalHotkey = GlobalHotkeyMonitor.shared
-    var globalHotkeyActive: Bool { globalHotkey.isListeningToEvents }
+
+    // MARK: State
+
+    let preferences: PreferencesStore
+    var prefs: Preferences { preferences.current }
+    private(set) var readinessState = Readiness()
+    /// The one user-facing message. `post(_:)` decides how it is shown.
+    var notice: UserNotice?
+
+    // MARK: Features
+
+    let permissionsController = PermissionsController()
+    var permissions: PermissionService { permissionsController.service }
+    let translation = TranslationProvider()
+    let models: ModelCoordinator
+    let voice: VoiceSessionController
+    let screen = ScreenFeature()
+    var screenTranslate: ScreenTranslateController { screen.controller }
     let pinyin = PinyinEngine()
     let pinyinDictionaryUpdates = RimeDictionaryUpdateModel()
-    var pinyinEnglishMode = UserDefaults.standard.bool(forKey: "pinyinEnglishMode")
-    var pinyinAssociationEnabled = UserDefaults.standard.bool(forKey: "pinyinAssociationEnabled")
-    var pinyinBarPreeditEnabled = UserDefaults.standard.bool(forKey: "pinyinBarPreeditEnabled")
-    var pinyinFuzzyEnabled = UserDefaults.standard.object(forKey: "pinyinFuzzyEnabled") as? Bool ?? true
-    private var holdTask: Task<Void, Never>?
-    private var screenHoldTask: Task<Void, Never>?
-    private var modelTask: Task<Void, Never>?
-    private var globalStartTask: Task<Void, Never>?
-    private var settingsRevision = 0
+    let router = InputEventRouter()
+    private let settingsWindow = SettingsController()
+
+    // MARK: Settings UI state
+
+    var settingsTab = 1
+    var isShowingSetup = false
+    /// Settings-panel trial field. Voice writes here; the host is not an IMK client.
+    var testText = ""
+    private(set) var dictationTrialVisible = false
+    var isRecordingScreenShortcut: Bool { screen.isRecordingShortcut }
+    var shortcutRecordingVerdict: ShortcutValidator.Verdict? { screen.recordingVerdict }
+    var lastLanguageSwitch: String?
+    var isActivatingInputSource: Bool { permissionsController.isActivatingInputSource }
+    private var settingsCapture: SettingsCaptureTarget?
+    private var noticeExpiry: Task<Void, Never>?
     private var workspaceObserver: NSObjectProtocol?
     private var inputSourceObserver: NSObjectProtocol?
-    private var suppressWorkspaceCancel = false
-    private var shortcutDirectActive = false
-    private var lastTapAttempt: TimeInterval = 0
+    private struct DeferredIMEInput {
+        let event: NSEvent
+        let leaseID: UUID
+        let clientGeneration: Int
+    }
+    private var deferredIMEInput: [DeferredIMEInput] = []
+    private let deferredInputDeadline = InputDeferralDeadline()
+    private struct DeferredSettingsInput {
+        let event: NSEvent
+        let responder: ObjectIdentifier?
+    }
+    private var deferredSettingsInput: [DeferredSettingsInput] = []
+    private var replayingSettingsInput = false
+
+    // MARK: Derived
+
+    var currentDirection: TranslationDirection { prefs.currentDirection }
+    var sessionState: SessionState { voice.state }
+    var isListening: Bool { voice.isListening }
+    var isChecking: Bool { models.isChecking }
+    var isPreparingModels: Bool { models.isPreparing }
+    var asrModels: ASRModelStore { models.asrModels }
+    var readiness: SetupReadiness { readinessState.setup }
+    var ready: Bool { readinessState.isReady }
+    var completedSessions: Int { voice.completedSessions }
+    var globalHotkeyActive: Bool { readinessState.globalInvokeAvailable }
+    var isSettingsWindowVisible: Bool { settingsWindow.isVisible }
+    var isVoiceTrialActive: Bool { dictationTrialVisible && settingsWindow.isFocused }
+    var setupCompleted: Bool { prefs.onboardingCompleted }
+    var pinyinEnglishMode: Bool { prefs.pinyinEnglishMode }
 
     private init() {
-        // Carry only product preferences across the input-method bundle-ID migration.
-        let legacy = UserDefaults.standard.persistentDomain(forName: "com.rtranslate.app") ?? [:]
-        for key in ["sourceLanguage", "targetLanguage", "pushToTalkHotkey", "overlayEnabled"] {
-            if UserDefaults.standard.object(forKey: key) == nil, let value = legacy[key] {
-                UserDefaults.standard.set(value, forKey: key)
-            }
-        }
-        finalPolishEnabled = UserDefaults.standard.bool(forKey: "finalPolishEnabled")
-        finalPolishEndpoint = UserDefaults.standard.string(forKey: "finalPolishEndpoint") ?? ""
-        finalPolishModel = UserDefaults.standard.string(forKey: "finalPolishModel") ?? ""
-        screenPolishEnabled = UserDefaults.standard.bool(forKey: "screenPolishEnabled")
-        languageSwitchEnabled = UserDefaults.standard.object(forKey: "languageSwitchEnabled") as? Bool ?? true
-        tapToTalk = UserDefaults.standard.bool(forKey: "tapToTalk")
-        let initialSource = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "sourceLanguage") ?? "") ?? .zhHans
-        let initialTarget = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "targetLanguage") ?? "") ?? .en
-        let initialPairSource = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "pairSourceLanguage") ?? "") ?? initialSource
-        let initialPairTarget = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "pairTargetLanguage") ?? "")
-            ?? (initialTarget != initialSource ? initialTarget : (initialSource == .en ? .zhHans : .en))
-        updatingLanguagePair = true
-        sourceLanguage = initialSource
-        targetLanguage = initialTarget
-        pairSource = initialPairSource
-        pairTarget = initialPairTarget
-        updatingLanguagePair = false
-        pushToTalk = PushToTalkHotkey(rawValue: UserDefaults.standard.string(forKey: "pushToTalkHotkey") ?? "") ?? .rightOption
-        overlayEnabled = (UserDefaults.standard.object(forKey: "overlayEnabled") as? Bool) ?? true
-        if let key = UserDefaults.standard.object(forKey: "screenCaptureKeyCode") as? Int {
-            let flags: UInt64
-            if let stored = UserDefaults.standard.object(forKey: "screenCaptureModifiers") as? Int {
-                flags = UInt64(stored)
-            } else {
-                flags = ScreenCaptureShortcut.optionT.modifierFlags
-            }
-            let shortcut = ScreenCaptureShortcut(keyCode: UInt16(key), modifierFlags: flags)
-            screenCaptureShortcut = shortcut.isUsable ? shortcut : .optionT
-        } else {
-            screenCaptureShortcut = .optionT
-        }
+        AppDirectories.migrateLegacyLayout()
+        preferences = PreferencesStore()
+        models = ModelCoordinator(preferences: preferences.current, translation: translation)
+        voice = VoiceSessionController()
+        voice.host = self
     }
 
+    // MARK: - Bootstrap
+
     func bootstrap() {
-        InputDiagnostics.record("app-start", "version=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") ?? "unknown") trigger=\(pushToTalk.rawValue)")
+        InputDiagnostics.record("app-start", "version=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") ?? "unknown") trigger=\(prefs.pushToTalk.rawValue)")
         NSApp.setActivationPolicy(.accessory)
-        overlay.prepare()
-        overlay.setHotkeyLabel(pushToTalk.shortLabel)
-        pinyinAssociationEnabled = pinyin.associationEnabled
+        voice.overlay.prepare()
+        voice.overlay.setHotkeyLabel(prefs.pushToTalk.shortLabel)
+        pinyin.applyPreferences(prefs)
         if let error = pinyin.initializationError {
             InputDiagnostics.record("pinyin-init-failed", error)
         } else {
             InputDiagnostics.record("pinyin-ready", "librime")
         }
-        coordinator.onState = { [weak self] state in
+        pinyin.onEnglishModeChanged = { [weak self] enabled in
+            self?.preferences.update { $0.pinyinEnglishMode = enabled }
+        }
+        models.onReadiness = { [weak self] event in self?.reduce(event) }
+        models.onNotice = { [weak self] notice in self?.post(notice) }
+        router.onAction = { [weak self] action in self?.perform(action) }
+        router.onGlobalCapabilityChanged = { [weak self] listening, _ in
             guard let self else { return }
-            InputDiagnostics.record("session-state", String(describing: state))
-            switch state {
-            case .idle:
-                self.listeningStartedAt = nil
-            case .preparing:
-                self.overlay.hide()
-                if self.overlayEnabled {
-                    self.overlay.show(source: self.sourceLanguage.shortName, target: self.targetLanguage.shortName,
-                                      liveInject: true, hotkeyLabel: self.pushToTalk.shortLabel)
-                }
-            case .listening:
-                self.listeningStartedAt = ProcessInfo.processInfo.systemUptime
-                self.overlay.setPhase(.listening)
-            case .finalizing: self.overlay.setPhase(.finalizing)
-            case .polishing: self.overlay.setPhase(.polishing)
-            case .cancelling:
-                self.listeningStartedAt = nil
-                self.overlay.hide()
-            }
+            self.reduce(.globalInvoke(available: listening))
+            self.syncRouterContext()
         }
-        coordinator.onCompletion = { [weak self] feedback in
-            guard let self else { return }
-            InputDiagnostics.record("completion", String(describing: feedback))
-            guard self.overlayEnabled else {
-                self.overlay.hide()
-                return
-            }
-            if feedback.isWarning {
-                self.overlay.showCompletion(feedback)
-            } else {
-                self.overlay.playFinishSweepThenHide()
-            }
-        }
-        coordinator.onLevel = { [weak self] in self?.overlay.setLevel($0) }
-        coordinator.onError = { [weak self] message in
-            guard let self else { return }
-            self.report(message)
-            // Live-preview errors can still recover on release. Only terminal errors
-            // show a failure notice; AI fallback already has its more specific notice.
-            if self.overlayEnabled, self.coordinator.state == .idle {
-                self.overlay.showConversionFailure()
-            }
-        }
-        coordinator.onMetrics = { InputDiagnostics.record("speech-metrics", $0.logValue) }
-        coordinator.onCommit = { [weak self] in self?.completedSessions += 1; self?.lastError = nil
-            self?.setupCompleted = true
-            InputDiagnostics.record("text-committed") }
-        IMEManager.shared.onWillSwitchClient = { [weak self] in self?.pinyin.commit() }
-        IMEManager.shared.onTargetLost = { [weak self] in
-            guard let self, !self.suppressWorkspaceCancel else { return }
-            self.coordinator.cancel(); self.resetShortcuts()
-        }
+        permissionsController.onNotice = { [weak self] notice in self?.post(notice) }
+        permissionsController.onChanged = { [weak self] in self?.refreshInputSourceStatus() }
+        wireScreen()
+
+        IMEManager.shared.onWillSwitchClient = { [weak self] controller in self?.pinyin.switchClient(to: controller?.sessionID) }
+        IMEManager.shared.onTargetLost = { [weak self] in self?.voice.targetLost() }
+        // IMK may activate before applicationDidFinishLaunching wires these
+        // observers. Synchronize an already attached client as well.
+        pinyin.switchClient(to: IMEManager.shared.controller?.sessionID)
+
         workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
-        ) { [weak self] _ in
+        ) { [weak self] note in
+            let application = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            let bundleID = application?.bundleIdentifier
+            let pid = application?.processIdentifier
             Task { @MainActor in
                 guard let self else { return }
-                if self.suppressWorkspaceCancel {
-                    self.refreshInputSourceStatus()
-                    return
-                }
-                self.coordinator.cancel(); self.resetShortcuts(); self.refreshInputSourceStatus()
+                self.voice.frontmostAppChanged(to: bundleID, pid: pid)
+                self.refreshInputSourceStatus()
             }
         }
         inputSourceObserver = DistributedNotificationCenter.default.addObserver(
@@ -283,359 +142,357 @@ final class AppModel {
             Task { @MainActor in
                 guard let self else { return }
                 self.refreshInputSourceStatus()
-                // The input source may change while the key is held: reselect it until the deadline.
-                if (self.isListening || self.shortcutDirectActive),
-                   InputSourceInstall.isEnabled, !InputSourceInstall.isSelected {
-                    let ok = InputSourceInstall.selectEnabledMode()
-                    InputDiagnostics.record("global-reselect", ok ? "ok" : (InputSourceInstall.lastFailure ?? "failed"))
-                    self.refreshInputSourceStatus()
-                }
-                if !self.globalHotkey.isListeningToEvents {
-                    self.startGlobalHotkeyMonitor()
-                }
+                self.voice.inputSourceChanged()
+                if !self.router.isGlobalTapListening { self.startGlobalHotkeyMonitor() }
             }
         }
         startGlobalHotkeyMonitor()
         refreshInputSourceStatus()
-        settingsChanged()
+        models.apply(prefs)
         refreshGlossaryIfNeeded()
     }
 
-    func beginSetup() {
-        isShowingSetup = true
-        refreshInputSourceStatus()
-        settingsTab = 0
-        lastError = nil
-        openSettings()
-    }
-
-    /// PTT while the settings window is up. Does not compose pinyin — this process is not its own IMK client.
-    func handleSettingsShortcut(_ event: NSEvent) -> NSEvent? {
-        guard settingsWindow.isVisible else { return event }
-        let (action, consumed) = keys.handle(type: event.type, keyCode: event.keyCode,
-            flags: UInt64(event.modifierFlags.rawValue), repeatKey: event.type == .keyDown && event.isARepeat,
-            trigger: pushToTalk, switchEnabled: languageSwitchEnabled,
-            active: isListening, now: ProcessInfo.processInfo.systemUptime, tapToTalk: tapToTalk)
-        performShortcut(action, fromGlobal: false)
-        return consumed ? nil : event
-    }
-
-    func openInputMethodPermission() {
-        InputSourceInstall.openSystemInputSourceSettings()
-        if installationPathValid {
-            enableInputSource()
-        }
-    }
-
-    func requestSpeechRecognitionPermission() async {
-        await permissions.requestSpeechRecognition()
-        refreshInputSourceStatus()
-        if permissions.speechRecognition == .granted { lastError = nil }
-    }
-
-    func requestMicrophonePermission() async {
-        await permissions.requestMicrophone()
-        refreshInputSourceStatus()
-        if permissions.microphone == .granted { lastError = nil }
-        else if !settingsWindow.isVisible { report(SetupReadiness.Blocker.microphoneDenied.message) }
-    }
-
-    func requestInputMonitoring() {
-        permissions.requestInputMonitoring()
-        startGlobalHotkeyMonitor()
-        refreshInputSourceStatus()
-        if globalHotkey.isListeningToEvents {
-            lastError = nil
-        } else if !permissions.inputMonitoringGranted {
-            report("还没有允许输入监控。允许后，在其它输入法下按住快捷键就会切到 Saylane 并开始语音。")
-        } else {
-            report("输入监控已允许，但全局按键监听没有成功。请再试一次，或先手动切到 Saylane。")
-        }
-    }
-
     private func startGlobalHotkeyMonitor() {
-        globalHotkey.onAction = { [weak self] action in
-            Task { @MainActor in self?.performShortcut(action, fromGlobal: true) }
+        syncRouterContext()
+        let ok = router.startGlobalTap()
+        reduce(.globalInvoke(available: router.isGlobalTapListening))
+        // Filtering can change while availability stays true (listen-only →
+        // consumable). Read it after the monitor has negotiated its backend.
+        syncRouterContext()
+        InputDiagnostics.record("global-tap", ok ? (router.isGlobalTapFiltering ? "filter" : "listen") : "failed")
+    }
+
+    // MARK: - Readiness
+
+    private func reduce(_ event: ReadinessEvent) {
+        let next = ReadinessReducer.reduce(readinessState, event)
+        guard next != readinessState else { return }
+        readinessState = next
+        // A blocker the user was told about has been resolved: drop the banner.
+        if let notice, notice.level == .actionable, next.isReady,
+           notice.destination == .permissions || notice.destination == .models {
+            self.notice = nil
         }
-        globalHotkey.onScreenCapture = { [weak self] in
-            Task { @MainActor in self?.handleScreenCaptureHotkey() }
+        syncRouterContext()
+    }
+
+    func refreshInputSourceStatus() {
+        let monitoringWasGranted = readinessState.permissions.inputMonitoring
+        permissionsController.refresh()
+        let currentPermissions = permissionsController.permissions
+        reduce(.permissions(currentPermissions))
+        reduce(.inputSource(permissionsController.inputSource))
+        // Returning from System Settings is the normal point at which an input
+        // monitoring grant becomes visible.  A listen-only fallback created
+        // before the grant does not upgrade itself, so rebuild the tap once on
+        // the permission transition.
+        if currentPermissions.inputMonitoring && !monitoringWasGranted {
+            startGlobalHotkeyMonitor()
         }
-        globalHotkey.onScreenHold = { [weak self] action in
-            Task { @MainActor in self?.handleScreenHold(action) }
+        reduce(.globalInvoke(available: router.isGlobalTapListening))
+    }
+
+    private func syncRouterContext() {
+        let p = prefs
+        // Never acquire the monitor's state lock from inside the router's shared
+        // arbiter lock; the event-tap callback takes them in the opposite order.
+        let globalEventsCanBeConsumed = router.isGlobalTapFiltering
+        router.updateContext {
+            $0.trigger = p.pushToTalk
+            $0.switchEnabled = p.languageSwitchEnabled
+            $0.tapToTalk = p.tapToTalk
+            $0.isListening = isListening || voice.isWaking
+            $0.voiceCapturing = voice.isCapturing
+            $0.accessibilityTarget = voice.usesAccessibilityTarget
+            $0.voiceEnabled = readinessState.inputSource.enabled || isVoiceTrialActive
+            $0.isOursSelected = readinessState.inputSource.selected
+            $0.globalEventsCanBeConsumed = globalEventsCanBeConsumed
+            $0.screenShortcut = p.screenCaptureShortcut
+            $0.screenHoldEnabled = p.screenHoldEnabled
+            $0.screenActive = screenTranslate.isActive
+            $0.pinVisible = screenTranslate.isPinVisible
+            $0.recordingShortcut = isRecordingScreenShortcut
         }
-        globalHotkey.onRecordedShortcut = { [weak self] shortcut in
-            Task { @MainActor in
-                guard let self else { return }
-                self.isRecordingScreenShortcut = false
-                self.globalHotkey.setRecordingShortcut(false)
-                if let shortcut { self.screenCaptureShortcut = shortcut }
+    }
+
+    // MARK: - Notices
+
+    func post(_ notice: UserNotice) {
+        InputDiagnostics.record("notice", "\(notice.level) \(notice.message)")
+        NSLog("Saylane: %@", notice.message)
+        noticeExpiry?.cancel(); noticeExpiry = nil
+        switch notice.level {
+        case .diagnostic:
+            return
+        case .transient:
+            voice.showNotice(notice)
+            if settingsWindow.isVisible {
+                self.notice = notice
+                noticeExpiry = Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(notice.hudDuration))
+                    guard let self, self.notice?.id == notice.id else { return }
+                    self.notice = nil
+                }
             }
-        }
-        globalHotkey.setScreenCaptureShortcut(screenCaptureShortcut)
-        globalHotkey.updateContext(selected: InputSourceInstall.isSelected, trigger: pushToTalk,
-                                   switchEnabled: languageSwitchEnabled, listening: isListening,
-                                   tapToTalk: tapToTalk)
-        let ok = globalHotkey.start()
-        lastTapAttempt = ProcessInfo.processInfo.systemUptime
-        InputDiagnostics.record("global-tap", ok ? (globalHotkey.isFiltering ? "filter" : "listen") : "failed")
-    }
-
-    private func showBlockedStart(_ blocker: SetupReadiness.Blocker) {
-        report(blocker.message)
-        let now = ProcessInfo.processInfo.systemUptime
-        guard now - lastBlockedPromptTime > 1.5 else { return }
-        lastBlockedPromptTime = now
-        switch blocker {
-        case .modelsMissing, .modelsChecking:
-            settingsTab = 2
-            openSettings()
-        case .microphoneNotRequested, .microphoneDenied, .inputMethodNotEnabled, .inputMethodNotSelected:
-            settingsTab = 0
-            openSettings()
+        case .actionable:
+            self.notice = notice
+            voice.showNotice(notice)
         }
     }
 
-    func openSettings() {
-        pinyin.commit()
-        coordinator.cancel()
-        settingsWindow.show(model: self)
-        refreshInputSourceStatus()
+    func dismissNotice() { notice = nil }
+
+    // MARK: - Preferences
+
+    /// Two-way binding for settings views. Side effects run in `preferencesDidChange`.
+    func binding<T: Equatable>(_ keyPath: WritableKeyPath<Preferences, T>) -> Binding<T> {
+        Binding(get: { self.prefs[keyPath: keyPath] }, set: { self.set(keyPath, $0) })
     }
 
-    func commitPinyin() {
-        // Caps Lock often makes IMK call commitComposition before flagsChanged.
-        // Commit the typed letters, not the highlighted Chinese candidate.
-        if NSEvent.modifierFlags.contains(.capsLock) {
-            pinyin.commitRaw()
-        } else {
-            pinyin.commit()
+    func set<T: Equatable>(_ keyPath: WritableKeyPath<Preferences, T>, _ value: T) {
+        update { $0[keyPath: keyPath] = value }
+    }
+
+    func update(_ mutate: (inout Preferences) -> Void) {
+        let old = prefs
+        preferences.update(mutate)
+        let new = prefs
+        guard new != old else { return }
+        preferencesDidChange(from: old, to: new)
+    }
+
+    private func preferencesDidChange(from old: Preferences, to new: Preferences) {
+        if new.sourceLanguage != old.sourceLanguage || new.targetLanguage != old.targetLanguage
+            || new.speechModel != old.speechModel || new.recognitionOnly != old.recognitionOnly {
+            voice.cancel(); router.reset()
+            models.apply(new)
         }
+        if new.pushToTalk != old.pushToTalk || new.tapToTalk != old.tapToTalk || new.languageSwitchEnabled != old.languageSwitchEnabled {
+            voice.cancel(); router.reset()
+            voice.overlay.setHotkeyLabel(new.pushToTalk.shortLabel)
+        }
+        if new.dictationGlossaryEnabled && !old.dictationGlossaryEnabled {
+            Task { await DictationGlossaryStore.shared.refreshIfStale() }
+        }
+        if new.pinyinEnglishMode != old.pinyinEnglishMode || new.pinyinBarPreeditEnabled != old.pinyinBarPreeditEnabled
+            || new.pinyinFuzzyEnabled != old.pinyinFuzzyEnabled {
+            pinyin.applyPreferences(new)
+        }
+        if new.screenPinFreezesScreen != old.screenPinFreezesScreen || new.screenFontWeightExperiment != old.screenFontWeightExperiment {
+            screen.apply(new)
+        }
+        syncRouterContext()
     }
 
-    func togglePinyinEnglishMode() {
-        pinyin.setEnglishMode(!pinyinEnglishMode)
-        pinyinEnglishMode = pinyin.englishMode
-    }
-
-    func setPinyinAssociationEnabled(_ enabled: Bool) {
-        pinyin.setAssociationEnabled(enabled)
-        pinyinAssociationEnabled = pinyin.associationEnabled
-    }
-
-    func setPinyinBarPreeditEnabled(_ enabled: Bool) {
-        pinyin.setBarPreeditEnabled(enabled)
-        pinyinBarPreeditEnabled = pinyin.barPreeditEnabled
-    }
-
-    func setPinyinFuzzyEnabled(_ enabled: Bool) {
-        pinyin.setFuzzyEnabled(enabled)
-        pinyinFuzzyEnabled = pinyin.fuzzyEnabled
-    }
-
-    private func resetShortcuts() {
-        holdTask?.cancel(); holdTask = nil
-        screenHoldTask?.cancel(); screenHoldTask = nil
-        globalStartTask?.cancel(); globalStartTask = nil
-        keys.reset()
-        globalHotkey.resetGesture()
+    /// One change, one model reload, whichever of the two languages moved.
+    func setLanguagePair(a: AppLanguage, b: AppLanguage) {
+        update {
+            $0.pairSource = a
+            $0.pairTarget = b
+            $0.sourceLanguage = a
+            $0.targetLanguage = b
+        }
     }
 
     func setVoiceMode(_ direction: TranslationDirection) {
-        guard !isListening, !isPreparingModels else { return }
-        guard currentDirection != direction else { return }
-        updatingLanguagePair = true
-        sourceLanguage = direction.source
-        targetLanguage = direction.target
-        updatingLanguagePair = false
-        settingsChanged()
-        overlay.showLanguageSwitch(from: sourceLanguage.displayName, to: targetLanguage.displayName, title: direction.title)
-        lastLanguageSwitch = "\(direction.title)：我说 \(sourceLanguage.displayName) → 写成 \(targetLanguage.displayName)"
+        guard !isListening, !isPreparingModels, currentDirection != direction else { return }
+        update { $0.sourceLanguage = direction.source; $0.targetLanguage = direction.target }
+        announceDirection(direction)
     }
 
     func swapTranslationDirection() {
         guard !isListening, !isPreparingModels else { return }
-        let next = TranslationDirection.cycled(
-            current: currentDirection, a: pairSource, b: pairTarget)
-        updatingLanguagePair = true
-        sourceLanguage = next.source
-        targetLanguage = next.target
-        updatingLanguagePair = false
-        settingsChanged()
-        overlay.showLanguageSwitch(from: sourceLanguage.displayName, to: targetLanguage.displayName, title: next.title)
-        lastLanguageSwitch = "\(next.title)：我说 \(sourceLanguage.displayName) → 写成 \(targetLanguage.displayName)"
-        InputDiagnostics.record("translation-direction-cycled", "\(sourceLanguage.rawValue)->\(targetLanguage.rawValue)")
+        let next = TranslationDirection.cycled(current: currentDirection, a: prefs.pairSource, b: prefs.pairTarget)
+        update { $0.sourceLanguage = next.source; $0.targetLanguage = next.target }
+        announceDirection(next)
+        InputDiagnostics.record("translation-direction-cycled", next.id)
     }
 
-    private func applyPairAsTranslateMode() {
-        updatingLanguagePair = true
-        sourceLanguage = pairSource
-        targetLanguage = pairTarget
-        updatingLanguagePair = false
-        settingsChanged()
+    private func announceDirection(_ direction: TranslationDirection) {
+        voice.overlay.showLanguageSwitch(from: direction.source.displayName, to: direction.target.displayName, title: direction.title)
+        lastLanguageSwitch = String(localized: "\(direction.title)：我说 \(direction.source.displayName) → 写成 \(direction.target.displayName)")
     }
 
+    func selectSpeechModel(_ selected: SpeechModel) {
+        guard !isListening, models.canSelect(selected) else { return }
+        notice = nil
+        set(\.speechModel, selected)
+    }
+
+    func removeSpeechModel(_ selected: SpeechModel) async {
+        guard !isListening else { return }
+        if await models.removeSpeechModel(selected) { set(\.speechModel, .apple) } else { models.apply(prefs) }
+    }
+
+    func downloadSpeechModel(_ selected: SpeechModel) async {
+        guard !isListening else { return }
+        notice = nil
+        await models.downloadSpeechModel(selected)
+    }
+
+    func downloadModels() async {
+        guard !isListening else { return }
+        notice = nil
+        await models.downloadModels()
+    }
+
+    func refreshModelStatus() async { await models.refreshStatus() }
+
+    // MARK: - Input
+
+    /// IMK delivered a key while Saylane is the selected input source.
     func consumeIMEEvent(_ event: NSEvent) -> Bool {
-        // When the monitor tap is alive it owns the
-        // voice shortcut. IMK only composes pinyin so we cannot miss a wake
-        // after the user has switched to another input source.
-        if globalHotkey.isListeningToEvents {
-            if isListening { return false }
-            let handled = pinyin.handle(event, pushToTalk: pushToTalk)
-            pinyinEnglishMode = pinyin.englishMode
-            return handled
+        if router.feed(event, source: .imk) { return true }
+        if event.type == .keyDown { voice.userResumedTyping() }
+        // Optional polish never blocks typing: the ordinary result is already
+        // complete and can be committed before handling this same event.
+        if voice.state == .polishing {
+            _ = voice.commitCompletedOutputForUserInput()
         }
-        return handleShortcutEvent(event, fromGlobal: false)
-    }
-
-    @discardableResult
-    private func handleShortcutEvent(_ event: NSEvent, fromGlobal: Bool) -> Bool {
-        let (action, consumed) = keys.handle(type: event.type, keyCode: event.keyCode,
-            flags: UInt64(event.modifierFlags.rawValue), repeatKey: event.type == .keyDown && event.isARepeat,
-            trigger: pushToTalk, switchEnabled: languageSwitchEnabled,
-            active: isListening, now: ProcessInfo.processInfo.systemUptime, tapToTalk: tapToTalk)
-        if action == .press { pinyin.commit() }
-        if fromGlobal && action != .none {
-            let captured = action
-            DispatchQueue.main.async { self.performShortcut(captured, fromGlobal: true) }
-        } else {
-            performShortcut(action, fromGlobal: false)
+        if voice.state == .finalizing {
+            let key = PinyinKeyEvent(event)
+            guard key.canDeferForVoiceFinalization,
+                  let snapshot = IMEManager.shared.deferredInputSnapshot else {
+                // Commands cannot be reconstructed through IMKTextInput. Clear
+                // marked voice text synchronously, then let the original IMK
+                // callback return false if Pinyin also declines it.
+                voice.cancel()
+                replayDeferredIMEInput()
+                return pinyin.handle(event, pushToTalk: prefs.pushToTalk)
+            }
+            guard deferredIMEInput.count < 64 else {
+                voice.cancel()
+                replayDeferredIMEInput()
+                return pinyin.handle(event, pushToTalk: prefs.pushToTalk)
+            }
+            deferredIMEInput.append(DeferredIMEInput(event: event, leaseID: snapshot.leaseID,
+                                                      clientGeneration: snapshot.generation))
+            armDeferredIMEFence()
+            return true
         }
-        if consumed { return true }
+        // Cancellation has already removed the run and cleared its marked text;
+        // speech cleanup may continue without blocking ordinary Pinyin input.
+        if voice.state == .cancelling {
+            return pinyin.handle(event, pushToTalk: prefs.pushToTalk)
+        }
         if isListening { return false }
-        if fromGlobal { return consumed }
-        let handled = pinyin.handle(event, pushToTalk: pushToTalk)
-        pinyinEnglishMode = pinyin.englishMode
-        return handled
+        return pinyin.handle(event, pushToTalk: prefs.pushToTalk)
     }
 
-    private func performShortcut(_ action: InputShortcutHandler.Action, fromGlobal: Bool = false) {
-        if action != .none { InputDiagnostics.record("shortcut-action", "\(String(describing: action)) global=\(fromGlobal)") }
+    /// Key events while the settings window is key.
+    func handleSettingsShortcut(_ event: NSEvent) -> NSEvent? {
+        guard settingsWindow.isVisible else { return event }
+        if replayingSettingsInput { return event }
+        if router.feed(event, source: .settingsWindow) { return nil }
+        guard event.type == .keyDown else { return event }
+        if voice.state == .polishing {
+            _ = voice.commitCompletedOutputForUserInput()
+        }
+        if voice.state == .finalizing {
+            guard PinyinKeyEvent(event).canDeferForVoiceFinalization,
+                  deferredSettingsInput.count < 64 else {
+                voice.cancel()
+                replayDeferredSettingsInput()
+                return event
+            }
+            deferredSettingsInput.append(DeferredSettingsInput(
+                event: event, responder: settingsWindow.focusedResponderIdentity))
+            armDeferredIMEFence()
+            return nil
+        }
+        return event
+    }
+
+    private func perform(_ action: InputAction) {
+        InputDiagnostics.record("input-action", String(describing: action))
         switch action {
-        case .armHold, .armTap:
-            if screenTranslate.isActive { return }
-            let delay = action == .armTap ? InputShortcutHandler.doubleTapGap : InputShortcutHandler.holdDelay
-            holdTask?.cancel()
-            holdTask = Task { [weak self] in
-                do { try await Task.sleep(for: .seconds(delay)) } catch { return }
-                guard let self else { return }
-                let next = fromGlobal
-                    ? self.globalHotkey.holdDeadline(now: ProcessInfo.processInfo.systemUptime)
-                    : self.keys.holdDeadline(now: ProcessInfo.processInfo.systemUptime)
-                self.performShortcut(next, fromGlobal: fromGlobal)
-            }
-        case .press:
-            if screenTranslate.isActive { return }
-            startSession(fromGlobal: fromGlobal)
-        case .release:
-            holdTask?.cancel(); globalStartTask?.cancel()
-            coordinator.release()
-            endShortcutDirect()
-        case .cancel:
-            holdTask?.cancel(); globalStartTask?.cancel()
-            coordinator.cancel()
-            endShortcutDirect()
-        case .switchTarget:
-            holdTask?.cancel()
-            if screenTranslate.isActive {
-                screenTranslate.cycleDirection(a: pairSource, b: pairTarget)
-            } else {
-                swapTranslationDirection()
-            }
-        case .none: break
-        }
-    }
-
-    func endSession() { coordinator.release(); endShortcutDirect() }
-
-    private func startSession(fromGlobal: Bool = false) {
-        guard !isListening else { return }
-        guard !screenTranslate.isActive else { return }
-        if settingsWindow.isVisible {
-            beginShortcutDirect()
-            startSessionNow(openSettingsIfNeeded: false)
-            if !isListening { endShortcutDirect() }
-            return
-        }
-        if fromGlobal {
-            beginShortcutDirect()
-            InputDiagnostics.record("global-press", "current=\(InputSourceInstall.currentID ?? "none")")
-            if InputSourceInstall.isEnabled && !InputSourceInstall.isSelected {
-                let ok = InputSourceInstall.selectEnabledMode()
-                InputDiagnostics.record("global-select", ok ? "ok" : (InputSourceInstall.lastFailure ?? "failed"))
-                refreshInputSourceStatus()
-            }
-            globalStartTask?.cancel()
-            globalStartTask = Task { [weak self] in
-                await self?.waitForClientAndStart()
-            }
-            return
-        }
-        startSessionNow(openSettingsIfNeeded: true)
-    }
-
-    /// Select ourselves, wait
-    /// for IMK attach, and keep an ignore window so deactivateServer cannot cancel ASR.
-    private func waitForClientAndStart() async {
-        beginShortcutDirect()
-        for _ in 0..<80 {
-            if Task.isCancelled { return }
-            if !InputSourceInstall.isSelected && InputSourceInstall.isEnabled {
-                _ = InputSourceInstall.selectEnabledMode()
-            }
-            refreshInputSourceStatus()
-            if IMEManager.shared.hasClient && InputSourceInstall.isSelected { break }
-            try? await Task.sleep(for: .milliseconds(40))
-        }
-        if Task.isCancelled {
-            endShortcutDirect()
-            return
-        }
-        startSessionNow(openSettingsIfNeeded: false)
-        if !isListening { endShortcutDirect() }
-    }
-
-    private func beginShortcutDirect() {
-        shortcutDirectActive = true
-        suppressWorkspaceCancel = true
-    }
-
-    private func endShortcutDirect() {
-        shortcutDirectActive = false
-        if !isListening { suppressWorkspaceCancel = false }
-    }
-
-    private func startSessionNow(openSettingsIfNeeded: Bool) {
-        guard !isListening else { return }
-        refreshInputSourceStatus()
-        let inSettings = settingsWindow.isVisible
-        InputDiagnostics.record("start-check", "settings=\(inSettings) selected=\(inputSourceSelected) client=\(IMEManager.shared.hasClient) mic=\(permissions.allCriticalGranted) speech=\(speechModelReady) translation=\(translationModelReady) checking=\(isChecking)")
-        let target: any CompositionTarget
-        if inSettings {
-            guard let captured = settingsCaptureTarget() else { return }
-            target = captured
-        } else {
-            if let blocker = readiness.blocker {
-                showBlockedStart(blocker)
-                return
-            }
-            guard let captured = IMEManager.shared.captureTarget() else {
-                report("没有可输入的目标。请先点击普通文本框，再按住快捷键。")
-                if openSettingsIfNeeded {
-                    settingsTab = 0
-                    openSettings()
+        case .resumeKeyboardInput:
+            voice.cancel()
+            post(.transient(String(localized: "已继续键盘输入，本次听写已取消。")))
+        case .voice(let gesture):
+            switch gesture {
+            case .armHold, .armTap:
+                guard !screenTranslate.isActive else { return }
+                voice.arm()
+            case .disarm:
+                voice.disarm()
+            case .press:
+                guard !screenTranslate.isActive else { return }
+                if !prefs.pushToTalk.isModifier && !router.isGlobalTapFiltering {
+                    voice.disarm()
+                    post(.actionable(String(localized: "功能键语音快捷键需要辅助功能权限，才能拦截按键并可靠收到松开事件。"), .permissions))
+                    return
                 }
-                return
+                voice.press()
+            case .release:
+                voice.release()
+            case .cancel:
+                voice.cancel()
+            case .switchTarget:
+                voice.disarm()
+                cycleDirection()
+            case .none:
+                break
             }
-            target = captured
+        case .switchDirection:
+            cycleDirection()
+        case .screenCapture:
+            screen.handleCaptureHotkey()
+        case .screenHold(let hold):
+            screen.handleHold(hold)
+        case .screenPin(let key):
+            screen.handlePinKey(key)
+        case .recordedShortcut(let shortcut):
+            screen.finishRecordingShortcut(shortcut)
         }
-        lastError = nil
-        // Freeze the request destination and languages for this utterance. No network
-        // or Keychain reads occur for ordinary recognition or interim translations.
-        let endpoint = finalPolishEndpoint, model = finalPolishModel
-        let sourceCode = sourceLanguage.rawValue, targetCode = targetLanguage.rawValue
+    }
+
+    private func cycleDirection() {
+        if screen.isActive { screen.cycleDirection() } else { swapTranslationDirection() }
+    }
+
+    func endSession() { voice.release() }
+
+    // MARK: VoiceSessionHost
+
+    func makeSpeechEngine() -> any SpeechRecognizing {
+        // Apple biases recognition with contextual strings, Qwen with its prompt; the FunASR
+        // CLIs accept no hotwords, so those engines rely on post-recognition vocabulary repair.
+        let model = prefs.speechModel
+        if model == .apple { return SpeechEngine(contextualStrings: vocabularyTerms) }
+        let prompt = model.isQwen ? SpeechHotwords.context(terms: vocabularyTerms) : nil
+        return QwenSpeechEngine(variant: model, context: prompt, runtime: QwenRuntime.shared)
+    }
+
+    private var vocabularyTerms: [String] {
+        DictationGlossary.biasTerms(userRaw: prefs.speechHotwords, includeUser: prefs.speechHotwordsEnabled,
+                                    includeGlossary: prefs.dictationGlossaryEnabled,
+                                    remote: DictationGlossaryStore.shared.terms)
+    }
+
+    /// Deterministic, on-device repair applied only to the final recognized text.
+    func makeRefine() -> ((String) -> String)? {
+        let p = prefs
+        let glossary = p.dictationGlossaryEnabled
+            ? DictationVocabulary(entries: DictationGlossary.combined(remote: DictationGlossaryStore.shared.terms)) : nil
+        let vocabulary = p.speechHotwordsEnabled ? DictationVocabulary(raw: p.speechHotwords) : nil
+        guard p.dictationCleanupEnabled || glossary?.isEmpty == false || vocabulary?.isEmpty == false else { return nil }
+        return { text in
+            var result = p.dictationCleanupEnabled ? DictationCleanup.clean(text) : text
+            if let glossary { result = glossary.apply(to: result) }
+            if let vocabulary { result = vocabulary.apply(to: result) }
+            return result
+        }
+    }
+
+    func makePolish() -> ((String, String) async throws -> String)? {
+        let p = prefs
+        guard p.finalPolishEnabled else { return nil }
+        // Freeze the request destination and languages for this utterance.
+        let endpoint = p.finalPolishEndpoint, model = p.finalPolishModel
+        let sourceCode = p.sourceLanguage.rawValue, targetCode = p.targetLanguage.rawValue
         let terms = vocabularyTerms
-        // "仅识别" only skips translation; the model proofread has its own switch.
-        let polish: ((String, String) async throws -> String)? = finalPolishEnabled ? { original, draft in
+        return { original, draft in
             let config = try FinalPolishConfiguration(endpoint: endpoint, model: model)
             let key = try PolishKeychain.read(endpoint: config.endpoint)
             let result = try await FinalPolishService.polish(configuration: config, apiKey: key,
@@ -643,397 +500,273 @@ final class AppModel {
             // Same-language proofreading may only touch a little; anything more is a rewrite.
             if sourceCode == targetCode, !FinalPolishService.isPlausibleProofread(original: draft, polished: result) { throw PolishRejected() }
             return result
-        } : nil
-        coordinator.start(locale: sourceLanguage.speechLocale, speech: makeSpeechEngine(), capture: AudioCaptureService(),
-                          target: target,
-                          passthrough: recognitionOnly || sourceLanguage == targetLanguage || (inSettings && !translationModelReady),
-                          refine: makeRefine(), polish: polish, model: speechModel.rawValue) { [translationEngine] text in
-            try await translationEngine.translate(text)
         }
     }
 
-    private func settingsCaptureTarget() -> (any CompositionTarget)? {
-        if permissions.microphone != .granted {
-            report(permissions.microphone == .denied
+    func translate(_ text: String) async throws -> String { try await translation.translate(text) }
+    func captureTarget() -> (any CompositionTarget)? { IMEManager.shared.captureTarget() }
+    var hasIMKClient: Bool { IMEManager.shared.hasClient }
+    var clientBundleID: String? { IMEManager.shared.clientBundleID }
+    var clientGeneration: Int { IMEManager.shared.clientGeneration }
+    var keyboardInputRevision: UInt64 { router.deliveredKeyboardRevision }
+
+    func voiceSessionStateDidChange() { syncRouterContext() }
+
+    func setDictationTrialVisible(_ visible: Bool) {
+        dictationTrialVisible = visible
+        syncRouterContext()
+    }
+
+    func settingsCaptureTarget() -> (any CompositionTarget)? {
+        let r = readinessState
+        if r.permissions.microphone != .granted {
+            post(.actionable(r.permissions.microphone == .denied
                 ? SetupReadiness.Blocker.microphoneDenied.message
-                : SetupReadiness.Blocker.microphoneNotRequested.message)
+                : SetupReadiness.Blocker.microphoneNotRequested.message, .permissions))
             return nil
         }
-        if isChecking || isPreparingModels || asrModels.isDownloading {
-            report("正在准备语音模型，好了再按住说。")
+        if r.models.busy {
+            post(.transient(String(localized: "正在准备语音模型，好了再按住说。")))
             return nil
         }
-        if !speechModelReady {
-            report("正在准备语音模型，好了再按住说。")
+        if !r.models.speechReady {
+            post(.transient(String(localized: "正在准备语音模型，好了再按住说。")))
             Task { await downloadModels() }
             return nil
         }
-        if let settingsCapture { return settingsCapture }
-        let target = SettingsCaptureTarget(model: self)
+        if !r.models.translationReady {
+            post(.transient(String(localized: "正在准备翻译模型，好了再试语音翻译。")))
+            Task { await downloadModels() }
+            return nil
+        }
+        // The user may have typed or edited the trial field since the previous
+        // session. Snapshot that text for each capture instead of keeping a
+        // second, stale long-lived copy.
+        let target = SettingsCaptureTarget(model: self, initialText: testText)
         settingsCapture = target
         return target
     }
 
-    private var vocabularyTerms: [String] {
-        DictationGlossary.biasTerms(userRaw: speechHotwords, includeUser: speechHotwordsEnabled,
-                                    includeGlossary: dictationGlossaryEnabled,
-                                    remote: DictationGlossaryStore.shared.terms)
+    func voiceSessionDidEnd(committed: Bool) {
+        if committed {
+            notice = nil
+            if !prefs.onboardingCompleted { preferences.update { $0.onboardingVersion = Preferences.currentOnboardingVersion } }
+        }
+        router.reset()
+        syncRouterContext()
+        deferredInputDeadline.cancel()
+        replayDeferredIMEInput()
+        replayDeferredSettingsInput()
     }
 
-    /// Deterministic, on-device repair applied only to the final recognized text.
-    /// Cleanup runs first so vocabulary matches see spoken corrections already applied.
-    private func makeRefine() -> ((String) -> String)? {
-        let cleanup = dictationCleanupEnabled
-        let glossary = dictationGlossaryEnabled
-            ? DictationVocabulary(entries: DictationGlossary.combined(remote: DictationGlossaryStore.shared.terms))
-            : nil
-        let vocabulary = speechHotwordsEnabled ? DictationVocabulary(raw: speechHotwords) : nil
-        guard cleanup || glossary?.isEmpty == false || vocabulary?.isEmpty == false else { return nil }
-        return { text in
-            var result = cleanup ? DictationCleanup.clean(text) : text
-            if let glossary { result = glossary.apply(to: result) }
-            if let vocabulary { result = vocabulary.apply(to: result) }
-            return result
+    private func armDeferredIMEFence() {
+        deferredInputDeadline.arm(after: voice.policy.userInputFence) { [weak self] in
+            guard let self else { return }
+            if self.voice.state == .polishing {
+                _ = self.voice.commitCompletedOutputForUserInput()
+            } else if self.voice.state == .finalizing {
+                self.voice.cancel()
+                self.post(.transient(String(localized: "已继续键盘输入，本次听写已取消。")))
+            }
+            self.replayDeferredIMEInput()
+            self.replayDeferredSettingsInput()
         }
+    }
+
+    private func replayDeferredIMEInput() {
+        deferredInputDeadline.cancel()
+        let pending = deferredIMEInput
+        deferredIMEInput.removeAll(keepingCapacity: true)
+        for item in pending {
+            guard IMEManager.shared.matchesDeferredInput(leaseID: item.leaseID,
+                                                         generation: item.clientGeneration) else { continue }
+            if !pinyin.handle(item.event, pushToTalk: prefs.pushToTalk) {
+                _ = IMEManager.shared.insertDeferredText(item.event.characters ?? "",
+                                                         leaseID: item.leaseID,
+                                                         generation: item.clientGeneration)
+            }
+        }
+    }
+
+    private func replayDeferredSettingsInput() {
+        let pending = deferredSettingsInput
+        deferredSettingsInput.removeAll(keepingCapacity: true)
+        guard !pending.isEmpty, settingsWindow.isFocused else { return }
+        replayingSettingsInput = true
+        defer { replayingSettingsInput = false }
+        for item in pending where item.responder == settingsWindow.focusedResponderIdentity {
+            NSApp.sendEvent(item.event)
+        }
+    }
+
+    func commitPinyinBeforeVoice() { pinyin.commit() }
+
+    // MARK: - Pinyin
+
+    func commitPinyin() {
+        // Caps Lock often makes IMK call commitComposition before flagsChanged.
+        // Commit the typed letters, not the highlighted Chinese candidate.
+        if NSEvent.modifierFlags.contains(.capsLock) { pinyin.commitRaw() } else { pinyin.commit() }
+    }
+
+    func togglePinyinEnglishMode() { set(\.pinyinEnglishMode, !prefs.pinyinEnglishMode) }
+
+    // MARK: - Permissions and setup
+
+    func beginSetup() {
+        isShowingSetup = true
+        refreshInputSourceStatus()
+        settingsTab = 0
+        notice = nil
+        openSettings()
+    }
+
+    func finishSetup(destination: Int = 1) {
+        settingsTab = destination
+        voice.cancel()
+        isShowingSetup = false
+        preferences.update { $0.onboardingVersion = Preferences.currentOnboardingVersion }
+    }
+
+    /// Leave the guide without claiming it was completed. Reopening Saylane
+    /// returns to setup until the user finishes or successfully tries voice.
+    func deferSetup(destination: Int = 1) {
+        settingsTab = destination
+        voice.cancel()
+        isShowingSetup = false
+    }
+
+    func openSettings(tab: Int? = nil) {
+        if let tab { settingsTab = tab }
+        settingsWindow.show(model: self)
+        refreshInputSourceStatus()
+    }
+
+    func openSettings(for destination: UserNotice.Destination) {
+        switch destination {
+        case .permissions: openSettings(tab: 0)
+        case .models: openSettings(tab: 2)
+        case .voice: openSettings(tab: 1)
+        case .screen: openSettings(tab: 4)
+        case .none: openSettings()
+        }
+    }
+
+    func openInputMethodPermission() {
+        notice = nil
+        permissionsController.openInputMethodSettings()
+    }
+
+    func requestSpeechRecognitionPermission() async { await permissionsController.requestSpeechRecognition() }
+
+    func requestMicrophonePermission() async {
+        let granted = await permissionsController.requestMicrophone()
+        if !granted, !settingsWindow.isVisible {
+            post(.actionable(SetupReadiness.Blocker.microphoneDenied.message, .permissions))
+        }
+    }
+
+    func requestInputMonitoring() {
+        permissionsController.requestInputMonitoring()
+        startGlobalHotkeyMonitor()
+        refreshInputSourceStatus()
+        if router.isGlobalTapListening {
+            notice = nil
+        } else if !permissions.inputMonitoringGranted {
+            post(.actionable(String(localized: "还没有允许输入监控。允许后，在其它输入法下按住快捷键就会切到 Saylane 并开始语音。"), .permissions))
+        } else {
+            post(.actionable(String(localized: "输入监控已允许，但全局按键监听没有成功。请再试一次，或先手动切到 Saylane。"), .permissions))
+        }
+    }
+
+    func requestAccessibility() { permissionsController.requestAccessibility() }
+
+    func requestScreenCapturePermission() {
+        if !permissionsController.requestScreenCapture() {
+            post(.actionable(String(localized: "还没有允许屏幕录制。允许后可以用 \(prefs.screenCaptureShortcut.displayName) 划区翻译。"), .screen))
+        }
+    }
+
+    func enableInputSource() {
+        notice = nil
+        permissionsController.enableInputSource()
     }
 
     private func refreshGlossaryIfNeeded() {
         _ = DictationGlossaryStore.shared.terms
-        guard dictationGlossaryEnabled else { return }
+        guard prefs.dictationGlossaryEnabled else { return }
         if CommandLine.arguments.contains("--snapshot") || CommandLine.arguments.contains("--waveform-snapshot") { return }
         Task { await DictationGlossaryStore.shared.refreshIfStale() }
     }
 
-    func refreshInputSourceStatus() {
-        permissions.refresh()
-        installationPathValid = InputSourceInstall.isInstalledLocation
-        inputSourceInstalled = IMEManager.shared.isInstalled
-        inputSourceEnabled = InputSourceInstall.isEnabled
-        inputSourceSelected = InputSourceInstall.isSelected
-        if !setupCompleted,
-           SetupFlow.isComplete(installationPathValid: installationPathValid,
-                                inputMethodEnabled: inputSourceEnabled,
-                                microphoneGranted: permissions.microphone == .granted) {
-            setupCompleted = true
+    // MARK: - Screen translate
+
+    private func wireScreen() {
+        screen.wire(router: router)
+        screen.apply(prefs)
+        screen.prefs = { [weak self] in self?.prefs ?? Preferences() }
+        screen.pairForDirection = { [weak self] in (self?.prefs.pairSource ?? .zhHans, self?.prefs.pairTarget ?? .en) }
+        screen.onNotice = { [weak self] notice in self?.post(notice) }
+        screen.onActivityChanged = { [weak self] in self?.syncRouterContext() }
+        screen.onShortcutRecorded = { [weak self] shortcut in self?.set(\.screenCaptureShortcut, shortcut) }
+        screen.onDirectionChanged = { [weak self] direction in
+            self?.preferences.update { $0.screenTranslateSource = direction.source; $0.screenTranslateTarget = direction.target }
         }
-        globalHotkey.updateContext(selected: inputSourceSelected, trigger: pushToTalk,
-                                   switchEnabled: languageSwitchEnabled, listening: isListening,
-                                   tapToTalk: tapToTalk)
-    }
-
-    private var activationTask: Task<Void, Never>?
-    var isActivatingInputSource = false
-
-    func enableInputSource() {
-        guard !isActivatingInputSource else { return }
-        lastError = nil
-        isActivatingInputSource = true
-        activationTask = Task { [weak self] in
-            guard let self else { return }
-            defer { self.isActivatingInputSource = false; self.refreshInputSourceStatus() }
-            guard InputSourceInstall.requestEnable() else {
-                self.report(InputSourceInstall.lastFailure ?? "系统尚未发现输入法。")
-                return
-            }
-            // Keep the GUI run loop alive for the native approval flow. Fresh handles
-            // are queried on every poll; no preference writes or unrelated IME toggles.
-            var requestedMode = InputSourceInstall.parentEnabled
-            for _ in 0..<120 {
-                guard !Task.isCancelled else { return }
-                self.refreshInputSourceStatus()
-                if InputSourceInstall.parentEnabled && !requestedMode {
-                    requestedMode = true
-                    guard InputSourceInstall.requestModeEnable() else {
-                        self.report(InputSourceInstall.lastFailure ?? "启用输入模式失败。")
-                        return
-                    }
-                }
-                if InputSourceInstall.isEnabled {
-                    if !InputSourceInstall.selectEnabledMode() {
-                        self.report(InputSourceInstall.lastFailure ?? "切换未完成。")
-                    }
-                    return
-                }
-                try? await Task.sleep(for: .milliseconds(500))
-            }
-            self.report("文件已安装，但系统尚未启用 Saylane。请完成系统的允许或添加操作；若添加列表仍不可见，请保存工作后注销并重新登录。当前不能开始输入。")
+        screen.keysHandledGlobally = { [weak self] in self?.router.isGlobalTapFiltering ?? false }
+        screen.requestScreenCapture = { [weak self] in
+            guard let self else { return false }
+            self.permissionsController.refresh()
+            if self.permissions.screenCaptureGranted { return true }
+            return self.permissionsController.requestScreenCapture()
         }
-    }
-
-    private func settingsChanged() {
-        coordinator.cancel(); resetShortcuts()
-        settingsRevision += 1
-        let revision = settingsRevision
-        modelTask?.cancel()
-        speechModelReady = false; translationModelReady = false
-        translationConfiguration = nil
-        translationEngine.reset()
-        checkingSettings = true
-        modelTask = Task { [weak self] in
-            guard let self else { return }
-            defer { if revision == self.settingsRevision { self.checkingSettings = false } }
-            if self.speechModel == .apple { await QwenRuntime.shared.unload() }
-            guard revision == self.settingsRevision, !Task.isCancelled else { return }
-            do {
-                if self.recognitionOnly || self.sourceLanguage == self.targetLanguage { self.translationEngine.enablePassthrough() }
-                else { try await self.translationEngine.prepareInstalled(source: self.sourceLanguage.translationLanguage, target: self.targetLanguage.translationLanguage) }
-                guard revision == self.settingsRevision, !Task.isCancelled else { return }
-            } catch {
-                if revision == self.settingsRevision, !Task.isCancelled { self.report(error.localizedDescription) }
-            }
-            guard revision == self.settingsRevision, !Task.isCancelled else { return }
-            await self.refreshModelStatus()
+        screen.yieldVoiceSession = { [weak self] in
+            guard let self, self.isListening else { return true }
+            // A chord pressed right after the talk key most likely meant the screenshot.
+            if (self.voice.listeningDuration ?? 1) > 0.35 { return false }
+            self.voice.cancel()
+            return true
         }
-    }
-
-    private func makeSpeechEngine() -> any SpeechRecognizing {
-        // Apple biases recognition with contextual strings, Qwen with its prompt; the FunASR
-        // CLIs accept no hotwords, so those engines rely on post-recognition vocabulary repair.
-        if speechModel == .apple { return SpeechEngine(contextualStrings: vocabularyTerms) }
-        let prompt = speechModel.isQwen ? SpeechHotwords.context(terms: vocabularyTerms) : nil
-        return QwenSpeechEngine(variant: speechModel, context: prompt, runtime: QwenRuntime.shared)
-    }
-
-    func selectSpeechModel(_ selected: SpeechModel) {
-        guard !isListening, !isChecking, !isPreparingModels, !asrModels.isDownloading,
-              selected == .apple || asrModels.installed.contains(selected) else { return }
-        speechModel = selected
-        UserDefaults.standard.set(selected.rawValue, forKey: "speechModel")
-        lastError = nil
-        settingsChanged()
-    }
-
-    func downloadSpeechModel(_ selected: SpeechModel) async {
-        guard !isListening, !isChecking, !isPreparingModels, !asrModels.isDownloading else { return }
-        lastError = nil
-        isPreparingModels = true
-        defer { isPreparingModels = false }
-        do {
-            try await asrModels.download(selected)
-            if speechModel == selected {
-                await QwenRuntime.shared.unload()
-                await refreshModelStatus()
-            }
-        } catch is CancellationError {
-            // Explicit cancellation is not an application failure.
-        } catch let error as URLError where error.code == .cancelled {
-        } catch { report(error.localizedDescription) }
-    }
-
-    func removeSpeechModel(_ selected: SpeechModel) async {
-        guard !isListening, !isChecking, !isPreparingModels, !asrModels.isDownloading else { return }
-        if speechModel == selected {
-            speechModel = .apple
-            UserDefaults.standard.set(speechModel.rawValue, forKey: "speechModel")
-            // Freeze all model actions while releasing the loaded weights.
-            isPreparingModels = true
-            await QwenRuntime.shared.unload()
-            isPreparingModels = false
-        }
-        do { try asrModels.remove(selected) } catch { report(error.localizedDescription) }
-        settingsChanged()
-    }
-
-    func refreshModelStatus() async {
-        speechStatusChecks += 1
-        defer { speechStatusChecks -= 1 }
-        let revision = settingsRevision
-        let source = sourceLanguage
-        let selected = speechModel
-        asrModels.refresh()
-        if selected == .apple {
-            await QwenRuntime.shared.unload()
-            let installed = await SpeechEngine.isInstalled(for: source.speechLocale)
-            guard revision == settingsRevision, !Task.isCancelled else { return }
-            speechModelReady = installed
-            speechModelDetail = !SpeechTranscriber.isAvailable ? "当前设备不支持 Apple 语音模型" : installed
-                ? "\(source.displayName) 语音模型已安装" : "请下载 \(source.displayName) 的语音模型"
-        } else {
-            speechModelReady = false
-            if asrModels.installed.contains(selected) {
-                speechModelDetail = "正在校验并加载 \(selected.title)…"
-                do {
-                    guard selected.supports(locale: source.speechLocale) else { throw ASRModelError.unsupportedLanguage }
-                    _ = try QwenLanguage.name(for: source.speechLocale)
-                    try await QwenRuntime.shared.prepare(selected)
-                    guard revision == settingsRevision, !Task.isCancelled else { return }
-                    speechModelReady = true
-                    speechModelDetail = "\(selected.title) 已就绪 · \(selected.emitsLivePartial ? "边说边出字" : "松开后出字")"
-                } catch {
-                    guard revision == settingsRevision, !Task.isCancelled else { return }
-                    speechModelDetail = "模型未就绪，请重试或重新下载修复"
-                    report(error.localizedDescription)
-                }
-            } else {
-                await QwenRuntime.shared.unload()
-                speechModelDetail = "请下载 \(selected.title)"
-            }
-        }
-        guard revision == settingsRevision, !Task.isCancelled else { return }
-        translationModelReady = recognitionOnly || sourceLanguage == targetLanguage || translationEngine.isReady
-        translationModelDetail = recognitionOnly ? "仅识别：不翻译" : sourceLanguage == targetLanguage ? "同语言听写，不调用翻译" : translationModelReady
-            ? "翻译模型已就绪" : "翻译模型未准备好，请点击下载"
-        refreshInputSourceStatus()
-    }
-
-    func downloadModels() async {
-        guard !isPreparingModels, !isListening, !isChecking, !asrModels.isDownloading else { return }
-        isPreparingModels = true
-        defer { isPreparingModels = false }
-        lastError = nil
-        do {
-            if speechModel == .apple {
-                guard let locale = await SpeechEngine.resolvedLocale(for: sourceLanguage.speechLocale) else { throw SpeechEngineError.unsupportedLocale }
-                try await SpeechEngine.prepareModel(for: locale)
-            } else if !asrModels.installed.contains(speechModel) {
-                try await asrModels.download(speechModel)
-            }
-            if !recognitionOnly && sourceLanguage != targetLanguage && !translationEngine.isReady {
-                // Attached to the visible Settings view so Apple's download approval is visible.
-                translationConfiguration = TranslationSession.Configuration(source: sourceLanguage.translationLanguage, target: targetLanguage.translationLanguage)
-            }
-            await refreshModelStatus()
-        } catch { report(error.localizedDescription) }
-    }
-
-    func handleTranslationSession(_ session: TranslationSession) async {
-        let revision = settingsRevision
-        do {
-            try await translationEngine.attach(session)
-            guard revision == settingsRevision else { return }
-            await refreshModelStatus()
-        } catch { if revision == settingsRevision { report(error.localizedDescription) } }
     }
 
     func handleScreenCaptureHotkey(preserveKeyboardFocus: Bool = false) {
-        if isRecordingScreenShortcut { return }
-        if screenTranslate.isSelecting {
-            screenTranslate.cancel()
-            return
-        }
-        if isListening {
-            let elapsed = listeningStartedAt.map { ProcessInfo.processInfo.systemUptime - $0 } ?? 1
-            if elapsed > 0.35 { return }
-            coordinator.cancel()
-            endShortcutDirect()
-            resetShortcuts()
-        }
-        permissions.refresh()
-        if !permissions.screenCaptureGranted {
-            permissions.requestScreenCapture()
-            if !permissions.screenCaptureGranted {
-                report("截屏翻译需要屏幕录制权限。允许后按住左 ⌃ 划区。")
-                settingsTab = 0
-                openSettings()
-                return
-            }
-        }
-        var last: TranslationDirection?
-        if let source = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "screenTranslateSource") ?? ""),
-           let target = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "screenTranslateTarget") ?? "") {
-            last = TranslationDirection(source: source, target: target)
-        }
-        screenTranslate.onError = { [weak self] message in self?.report(message) }
-        screenTranslate.onSelectionEnded = { [weak self] in
-            self?.globalHotkey.resetScreenHold()
-        }
-        screenTranslate.onPinVisibilityChanged = { [weak self] visible in
-            self?.globalHotkey.setPinVisible(visible)
-        }
-        screenTranslate.onScreenActiveChanged = { [weak self] active in
-            self?.globalHotkey.setScreenActive(active)
-        }
-        if screenPolishEnabled {
-            let endpoint = finalPolishEndpoint
-            let model = finalPolishModel
-            screenTranslate.polish = { original, draft, source, target, context in
-                let config = try FinalPolishConfiguration(endpoint: endpoint, model: model)
-                let key = try PolishKeychain.read(endpoint: config.endpoint)
-                return try await FinalPolishService.polish(
-                    configuration: config,
-                    apiKey: key,
-                    original: original,
-                    draft: draft,
-                    sourceLanguage: source,
-                    targetLanguage: target,
-                    screenContext: context
-                )
-            }
-        } else {
-            screenTranslate.polish = nil
-        }
-        screenTranslate.beginSelection(a: pairSource, b: pairTarget, last: last, preserveKeyboardFocus: preserveKeyboardFocus)
+        screen.handleCaptureHotkey(preserveKeyboardFocus: preserveKeyboardFocus)
     }
 
-    private func handleScreenHold(_ action: ScreenHoldHandler.Action) {
-        switch action {
-        case .armHold:
-            screenHoldTask?.cancel()
-            screenHoldTask = Task { [weak self] in
-                do { try await Task.sleep(for: .seconds(ScreenHoldHandler.holdDelay)) } catch { return }
-                guard let self else { return }
-                let next = self.globalHotkey.screenHoldDeadline(now: ProcessInfo.processInfo.systemUptime)
-                self.handleScreenHold(next)
-            }
-        case .begin:
-            handleScreenCaptureHotkey(preserveKeyboardFocus: true)
-        case .cancel:
-            screenHoldTask?.cancel()
-            screenHoldTask = nil
-            if screenTranslate.isSelecting {
-                screenTranslate.cancel()
-            }
-        case .toggle:
-            screenHoldTask?.cancel()
-            screenHoldTask = nil
-            screenTranslate.toggleOverlay()
-        case .none:
-            break
-        }
-    }
+    func beginRecordScreenShortcut() { screen.beginRecordingShortcut() }
+    func cancelRecordScreenShortcut() { screen.cancelRecordingShortcut() }
 
-    func requestScreenCapturePermission() {
-        permissions.requestScreenCapture()
-        refreshInputSourceStatus()
-        if permissions.screenCaptureGranted {
-            lastError = nil
-        } else {
-            report("还没有允许屏幕录制。允许后可以按住左 ⌃ 划区翻译。")
-        }
-    }
-
-    func beginRecordScreenShortcut() {
-        isRecordingScreenShortcut = true
-        globalHotkey.setRecordingShortcut(true)
-    }
-
-    private func report(_ message: String) {
-        lastError = message
-        InputDiagnostics.record("error", message)
-        NSLog("Saylane: %@", message)
-        // Error persists in menu/settings; do not steal focus from the target app.
-    }
+    // MARK: - Settings trial target
 
     /// Writes ASR into `testText`. The IME host is not a valid IMK client for itself.
     private final class SettingsCaptureTarget: CompositionTarget {
         unowned let model: AppModel
         private var committed = ""
         private var ownsMarked = false
-        init(model: AppModel) { self.model = model }
-        var isValid: Bool { model.settingsWindow.isVisible }
+        init(model: AppModel, initialText: String) {
+            self.model = model
+            committed = initialText
+        }
+        var isValid: Bool { model.isVoiceTrialActive }
         func setMarked(_ text: String) {
             ownsMarked = true
-            model.testText = text
+            model.testText = committed + text
         }
-        func commit(_ text: String) {
+        func commit(_ text: String) throws {
+            guard isValid else { throw SessionFailure.targetLost }
             ownsMarked = false
-            committed = text
-            model.testText = text
+            committed += text
+            model.testText = committed
         }
         func cancelMarked() {
             guard ownsMarked else { return }
             ownsMarked = false
             model.testText = committed
         }
+        func reset() { committed = ""; model.testText = "" }
+    }
+
+    func clearTestText() {
+        settingsCapture?.reset()
+        testText = ""
     }
 }

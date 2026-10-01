@@ -22,11 +22,11 @@ enum FinalPolishError: LocalizedError {
     case configuration, missingKey, http(Int), invalidResponse, tooLarge
     var errorDescription: String? {
         switch self {
-        case .configuration: return "请填写完整的 HTTPS chat/completions 接口地址和模型名；仅本机服务允许 HTTP。"
-        case .missingKey: return "尚未保存此接口的 API Key。"
-        case .http(let code): return "润色服务返回 HTTP \(code)。"
-        case .invalidResponse: return "润色服务没有返回完整、有效的文字。"
-        case .tooLarge: return "润色请求或响应超过长度限制。"
+        case .configuration: return String(localized: "请填写完整的 HTTPS chat/completions 接口地址和模型名；仅本机服务允许 HTTP。")
+        case .missingKey: return String(localized: "尚未保存此接口的 API Key。")
+        case .http(let code): return String(localized: "润色服务返回 HTTP \(code)。")
+        case .invalidResponse: return String(localized: "润色服务没有返回完整、有效的文字。")
+        case .tooLarge: return String(localized: "润色请求或响应超过长度限制。")
         }
     }
 }

@@ -1,5 +1,11 @@
 #!/bin/bash
 set -euo pipefail
+export TZ=Asia/Shanghai
+
+swiftc() {
+  command swiftc -swift-version 6 -strict-concurrency=complete "$@"
+}
+
 cd "$(dirname "$0")/.."
 if [[ $# != 3 ]]; then
   echo 'usage: scripts/test-screen-scenarios.sh paper.png x.png chat.png' >&2
@@ -7,8 +13,8 @@ if [[ $# != 3 ]]; then
 fi
 mkdir -p build/tests/scenarios
 swiftc -framework AppKit -framework Vision -framework CoreImage -framework Translation \
-  Sources/Models/AppLanguage.swift Sources/Models/SpeechModel.swift Sources/Models/ScreenTranslate.swift \
-  Sources/Services/ScreenFontWeightService.swift Sources/Services/ScreenOCRService.swift Sources/Services/ScreenPinRenderer.swift \
+  Sources/Models/AppLanguage.swift Sources/Core/AppDirectories.swift Sources/Models/SpeechModel.swift Sources/Screen/ScreenLayout.swift \
+  Sources/Screen/ScreenFontWeightService.swift Sources/Screen/ScreenOCRService.swift Sources/Screen/ScreenPinRenderer.swift \
   Sources/Services/TranslationEngine.swift Tests/ScreenTranslationPreview.swift \
   -o build/tests/scenarios/preview
 failed=0

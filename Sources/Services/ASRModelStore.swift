@@ -3,6 +3,9 @@ import Observation
 
 @MainActor @Observable final class ASRModelStore {
     private(set) var installed: Set<SpeechModel> = []
+    /// Variants with any owned revision/partial data on disk, including an old
+    /// revision that is no longer selectable after a manifest upgrade.
+    private(set) var stored: Set<SpeechModel> = []
     private(set) var downloading: SpeechModel?
     private(set) var progress = 0.0
     private(set) var activity = ""
@@ -14,6 +17,23 @@ import Observation
 
     func refresh() {
         installed = Set(SpeechModel.allCases.filter { $0.isLocal && ((try? $0.manifest().isInstalled()) == true) })
+        stored = Set(SpeechModel.allCases.filter { $0.isLocal && ((try? Self.hasStoredData($0)) == true) })
+    }
+
+    nonisolated static func hasStoredData(_ variant: SpeechModel,
+                                          root: URL = ASRModelManifest.root,
+                                          fileManager fm: FileManager = .default) throws -> Bool {
+        let manifest = try variant.manifest()
+        let parent = manifest.directory(root: root).deletingLastPathComponent()
+        guard fm.fileExists(atPath: parent.path) else { return false }
+        let revision = try NSRegularExpression(pattern: "^[0-9a-f]{40}(?:\\.partial)?$")
+        return try fm.contentsOfDirectory(at: parent, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            .contains { url in
+                let name = url.lastPathComponent
+                guard revision.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) != nil,
+                      let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]) else { return false }
+                return values.isDirectory == true && values.isSymbolicLink != true
+            }
     }
 
     func download(_ variant: SpeechModel) async throws {
@@ -23,7 +43,7 @@ import Observation
         downloadID = token
         downloading = variant
         progress = 0
-        activity = "正在连接下载源…"
+        activity = String(localized: "正在连接下载源…")
         let task = Task {
             try await ASRModelInstaller().install(manifest) { [weak self] completed, total, file in
                 Task { @MainActor [weak self] in
@@ -45,7 +65,7 @@ import Observation
 
     func cancelDownload() {
         downloadTask?.cancel()
-        activity = "正在取消…"
+        activity = String(localized: "正在取消…")
     }
 
     func remove(_ variant: SpeechModel) throws {

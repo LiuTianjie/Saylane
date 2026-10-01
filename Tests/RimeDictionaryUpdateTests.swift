@@ -3,9 +3,9 @@ import CryptoKit
 
 private final class MockProtocol: URLProtocol, @unchecked Sendable {
     private static let lock = NSLock()
-    private static var handler: ((URLRequest) throws -> (Int, Data))?
-    private static var seen: [URLRequest] = []
-    static func configure(_ next: @escaping (URLRequest) throws -> (Int, Data)) {
+    nonisolated(unsafe) private static var handler: (@Sendable (URLRequest) throws -> (Int, Data))?
+    nonisolated(unsafe) private static var seen: [URLRequest] = []
+    static func configure(_ next: @escaping @Sendable (URLRequest) throws -> (Int, Data)) {
         lock.lock(); defer { lock.unlock() }
         handler = next; seen = []
     }

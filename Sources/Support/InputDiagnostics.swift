@@ -35,8 +35,7 @@ enum InputDiagnostics {
 
 private actor DiagnosticWriter {
     func persist(_ entries: [[String: String]]) {
-        guard let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return }
-        let dir = root.appendingPathComponent("RTranslate/Diagnostics", isDirectory: true)
+        let dir = AppDirectories.diagnostics
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             let data = try JSONSerialization.data(withJSONObject: entries, options: [.prettyPrinted, .sortedKeys])

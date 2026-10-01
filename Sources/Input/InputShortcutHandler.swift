@@ -1,9 +1,9 @@
 import AppKit
 
-/// Distinguish hold-to-talk from two short taps without opening the microphone
-/// during taps. Time is injected so boundary cases can be tested without timers.
+/// Distinguish hold-to-talk from two short taps. An unconfirmed hold owns only
+/// preroll, which must be discarded immediately when the gesture is abandoned.
 struct InputShortcutHandler {
-    enum Action: Equatable { case none, armHold, armTap, press, release, cancel, switchTarget }
+    enum Action: Equatable { case none, armHold, armTap, disarm, press, release, cancel, switchTarget }
     static let holdDelay: TimeInterval = 0.18
     static let doubleTapGap: TimeInterval = 0.32
     private var talk = PushToTalkHandler()
@@ -45,6 +45,7 @@ struct InputShortcutHandler {
         // Never treat Command+C, another modifier chord, or a click as a tap/hold gesture.
         let chord = type == .keyDown || type == .leftMouseDown || type == .rightMouseDown
             || (type == .flagsChanged && keyCode != UInt16(PushToTalkHotkey.rightCommand.keyCode))
+        let abandonedHold = chord && pendingHoldAt != nil
         if chord {
             pressedAt = nil; firstTapReleasedAt = nil
             if pendingHoldAt != nil { pendingHoldAt = nil; talk.reset() }
@@ -85,11 +86,11 @@ struct InputShortcutHandler {
         case .release:
             if pendingHoldAt != nil {
                 pendingHoldAt = nil
-                return (.none, consumed)
+                return (.disarm, consumed)
             }
             return (.release, consumed)
         case .cancel: reset(); return (.cancel, consumed)
-        case .none: return (.none, consumed)
+        case .none: return (abandonedHold ? .disarm : .none, consumed)
         }
     }
     /// Single and double taps share a key: do not start speech until the
@@ -110,10 +111,12 @@ struct InputShortcutHandler {
         let forbidden = NSEvent.ModifierFlags([.option, .control, .shift]).rawValue
         guard type == .flagsChanged, keyCode == UInt16(PushToTalkHotkey.rightCommand.keyCode),
               flags & UInt64(forbidden) == 0 else {
-            if type == .keyDown || type == .flagsChanged || type == .leftMouseDown || type == .rightMouseDown {
+            let wasArmed = sharedTapDown || pendingTapAt != nil
+            let interrupted = type == .keyDown || type == .flagsChanged || type == .leftMouseDown || type == .rightMouseDown
+            if interrupted {
                 reset()
             }
-            return (.none, false)
+            return (wasArmed && interrupted ? .disarm : .none, false)
         }
         let (action, consumed) = talk.handle(type: type, keyCode: keyCode, flags: flags,
             repeatKey: repeatKey, trigger: .rightCommand, active: false)

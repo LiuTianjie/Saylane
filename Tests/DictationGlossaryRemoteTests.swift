@@ -2,9 +2,9 @@ import Foundation
 
 private final class MockProtocol: URLProtocol, @unchecked Sendable {
     private static let lock = NSLock()
-    private static var handler: ((URLRequest) throws -> (Int, Data, String))?
-    private static var seen: [URLRequest] = []
-    static func configure(_ next: @escaping (URLRequest) throws -> (Int, Data, String)) {
+    nonisolated(unsafe) private static var handler: (@Sendable (URLRequest) throws -> (Int, Data, String))?
+    nonisolated(unsafe) private static var seen: [URLRequest] = []
+    static func configure(_ next: @escaping @Sendable (URLRequest) throws -> (Int, Data, String)) {
         lock.lock(); defer { lock.unlock() }
         handler = next; seen = []
     }
@@ -33,6 +33,13 @@ private final class MockProtocol: URLProtocol, @unchecked Sendable {
 }
 
 @main struct DictationGlossaryRemoteTests {
+    private static func payload(_ titles: [String], host: String, more: String? = nil) -> (Int, Data, String) {
+        let members: [[String: Any]] = titles.map { ["ns": 0, "title": $0] }
+        var object: [String: Any] = ["query": ["categorymembers": members]]
+        if let more { object["continue"] = ["cmcontinue": more, "continue": "-||"] }
+        return (200, try! JSONSerialization.data(withJSONObject: object), host)
+    }
+
     static func main() async throws {
         if CommandLine.arguments.contains("--live") {
             let terms = try await DictationGlossaryClient(userAgent: "Saylane/test (https://github.com/LiuTianjie/Saylane; dictation-glossary-test)").fetch()
@@ -53,13 +60,6 @@ private final class MockProtocol: URLProtocol, @unchecked Sendable {
         defer { session.invalidateAndCancel() }
         let client = DictationGlossaryClient(session: session, userAgent: "Saylane/test")
 
-        func payload(_ titles: [String], host: String, more: String? = nil) -> (Int, Data, String) {
-            let members: [[String: Any]] = titles.map { ["ns": 0, "title": $0] }
-            var object: [String: Any] = ["query": ["categorymembers": members]]
-            if let more { object["continue"] = ["cmcontinue": more, "continue": "-||"] }
-            return (200, try! JSONSerialization.data(withJSONObject: object), host)
-        }
-
         MockProtocol.configure { request in
             precondition(request.httpMethod == "GET")
             precondition(request.value(forHTTPHeaderField: "User-Agent") == "Saylane/test")
@@ -72,18 +72,18 @@ private final class MockProtocol: URLProtocol, @unchecked Sendable {
                 .queryItems?.first(where: { $0.name == "cmcontinue" })?.value
             if category == "Category:数学术语" {
                 if token == nil {
-                    return payload(["二次函数", "闭包 (数学)", "计算", "数据结构与算法术语列表"], host: host, more: "page|abc|1")
+                    return Self.payload(["二次函数", "闭包 (数学)", "计算", "数据结构与算法术语列表"], host: host, more: "page|abc|1")
                 }
                 precondition(token == "page|abc|1")
-                return payload(["特征向量", "幾乎"], host: host)
+                return Self.payload(["特征向量", "幾乎"], host: host)
             }
             if category == "Category:漢語網路用語" {
-                return payload(["电子榨菜", "yyds", "危", "233", "hi", "加速", "PUA", "内卷"], host: host)
+                return Self.payload(["电子榨菜", "yyds", "危", "233", "hi", "加速", "PUA", "内卷"], host: host)
             }
             if category == "Category:漢語 計算機科學" {
-                return payload(["時間複雜度", "翻译"], host: host)
+                return Self.payload(["時間複雜度", "翻译"], host: host)
             }
-            return payload([], host: host)
+            return Self.payload([], host: host)
         }
 
         let terms = try await client.fetch()

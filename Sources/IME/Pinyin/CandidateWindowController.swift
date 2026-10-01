@@ -10,15 +10,12 @@ final class CandidateWindowController {
     private var lastHighlight = 0
     private var lastCaret: NSRect?
     private var lastPreedit = ""
-    private var lastAssociating = false
 
-    func update(candidates: [PinyinCandidate], highlight: Int, caret: NSRect?,
-                preedit: String = "", associating: Bool = false) {
+    func update(candidates: [PinyinCandidate], highlight: Int, caret: NSRect?, preedit: String = "") {
         lastCandidates = candidates
         lastHighlight = highlight
         lastCaret = caret
         lastPreedit = preedit
-        lastAssociating = associating
         render()
     }
 
@@ -36,7 +33,6 @@ final class CandidateWindowController {
         model.pageIndex = page
         model.pageCount = max(1, (candidates.count + pageSize - 1) / pageSize)
         model.preedit = lastPreedit
-        model.associating = lastAssociating
         model.canExpand = candidates.count > pageSize
         prepare()
         panel?.onPick = { [weak self] local in
@@ -67,7 +63,6 @@ final class CandidateWindowController {
         panel?.orderOut(nil)
         model.items = []
         model.preedit = ""
-        model.associating = false
         model.expanded = false
         model.canExpand = false
         lastCandidates = []
@@ -89,7 +84,6 @@ final class CandidateBarModel {
     var pageIndex = 0
     var pageCount = 1
     var preedit = ""
-    var associating = false
     var expanded = false
     var canExpand = false
     var onCommit: ((Int) -> Void)?
@@ -142,12 +136,18 @@ final class CandidatePanel: NSPanel {
             ?? NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
             ?? NSScreen.main
         let visible = screen?.visibleFrame ?? NSRect(x: 80, y: 80, width: 800, height: 600)
-        var origin = NSPoint(x: visible.minX + 24, y: visible.minY + 80)
+        // Clients that report no caret rectangle get the bar next to the pointer,
+        // never in a screen corner far from where the user is typing.
+        let anchor: NSRect
         if let caret, caret.width + caret.height > 0 {
-            origin = NSPoint(x: caret.minX, y: caret.minY - size.height - 8)
-            if origin.y < visible.minY {
-                origin.y = caret.maxY + 8
-            }
+            anchor = caret
+        } else {
+            let mouse = NSEvent.mouseLocation
+            anchor = NSRect(x: mouse.x, y: mouse.y, width: 1, height: 18)
+        }
+        var origin = NSPoint(x: anchor.minX, y: anchor.minY - size.height - 8)
+        if origin.y < visible.minY {
+            origin.y = anchor.maxY + 8
         }
         origin.x = min(max(origin.x, visible.minX + 8), visible.maxX - size.width - 8)
         origin.y = min(max(origin.y, visible.minY + 8), visible.maxY - size.height - 8)
@@ -163,7 +163,7 @@ private struct CandidateBarHost: View {
 
     var body: some View {
         CandidateBarView(items: model.items, selected: model.selected, pageIndex: model.pageIndex,
-                         pageCount: model.pageCount, preedit: model.preedit, associating: model.associating,
+                         pageCount: model.pageCount, preedit: model.preedit,
                          expanded: model.expanded, canExpand: model.canExpand,
                          onPick: onPick, onPage: onPage, onToggleExpand: onToggleExpand)
     }

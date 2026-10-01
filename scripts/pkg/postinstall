@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+export TZ=Asia/Shanghai
 APP='/Library/Input Methods/Saylane.app'
 BIN="$APP/Contents/MacOS/Saylane"
 [[ -x "$BIN" ]] || { echo 'Saylane executable is missing' >&2; exit 1; }
@@ -7,12 +8,36 @@ BIN="$APP/Contents/MacOS/Saylane"
 # Do not run an immediate enable/select loop as root or pretend selection succeeded.
 "$BIN" --register-input-source
 CONSOLE_USER="$(/usr/bin/stat -f '%Su' /dev/console)"
+cleanup_old_copy() {
+  local app="$1" bid
+  [[ -d "$app" ]] || return 0
+  bid="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Contents/Info.plist" 2>/dev/null || true)"
+  if [[ "$bid" != com.rtranslate.app && "$bid" != com.rtranslate.inputmethod.rtranslate ]]; then
+    echo "Preserved unexpected bundle at $app ($bid)." >&2
+    return 0
+  fi
+  if ! /bin/rm -rf -- "$app"; then
+    echo "Installed Saylane, but could not remove legacy copy: $app" >&2
+  fi
+}
+cleanup_old_copy '/Library/Input Methods/RTranslate.app'
+cleanup_old_copy '/Applications/RTranslate.app'
+cleanup_old_copy '/Applications/Saylane.app'
 if [[ "$CONSOLE_USER" == root || "$CONSOLE_USER" == loginwindow || -z "$CONSOLE_USER" ]]; then
   echo 'Saylane files installed. Open the app after login to complete input-source activation.'
   exit 0
 fi
 CONSOLE_UID="$(/usr/bin/id -u "$CONSOLE_USER")"
-/bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -H -u "$CONSOLE_USER" \
-  /usr/bin/open "$APP" --args --setup
+USER_HOME="$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory | /usr/bin/sed 's/^NFSHomeDirectory: //')"
+if [[ "$USER_HOME" == /Users/* && "$USER_HOME" != /Users/ ]]; then
+  cleanup_old_copy "$USER_HOME/Library/Input Methods/RTranslate.app"
+  cleanup_old_copy "$USER_HOME/Applications/RTranslate.app"
+  cleanup_old_copy "$USER_HOME/Library/Input Methods/Saylane.app"
+  cleanup_old_copy "$USER_HOME/Applications/Saylane.app"
+fi
+if ! /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -H -u "$CONSOLE_USER" \
+  /usr/bin/open "$APP" --args --setup; then
+  echo 'Saylane was installed, but its setup window could not be opened automatically.' >&2
+fi
 # Installer success means files installed. The app separately verifies activation.
 echo 'Saylane installed; the setup app will verify user approval, enablement, and selection.'

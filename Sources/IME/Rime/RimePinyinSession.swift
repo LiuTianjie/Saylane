@@ -14,10 +14,6 @@ final class RimePinyinSession {
     private(set) var highlighted = 0
     private(set) var englishMode: Bool
     private(set) var fuzzyEnabled: Bool
-    // The core schema does not provide post-commit prediction. Do not silently
-    // keep using the old bigram decoder to make this setting appear supported.
-    let associationEnabled = false
-    let isAssociating = false
     private var pendingCommit = ""
     private var shiftDown = false
     private var shiftSawKey = false

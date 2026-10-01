@@ -1,5 +1,5 @@
 import Foundation
-import Translation
+@preconcurrency import Translation
 
 enum TranslationEngineError: LocalizedError {
     case notReady
@@ -7,8 +7,8 @@ enum TranslationEngineError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notReady: return "翻译模型还没准备好。"
-        case .unsupported: return "系统不支持这对语言。"
+        case .notReady: return String(localized: "翻译模型还没准备好。")
+        case .unsupported: return String(localized: "系统不支持这对语言。")
         }
     }
 }
@@ -77,7 +77,8 @@ final class TranslationEngine {
         if isPassthrough { return texts }
         guard let session else { throw TranslationEngineError.notReady }
         let token = generation
-        let requests = texts.enumerated().map {
+        // Request values are consumed by the session on the main actor; the array never escapes.
+        nonisolated(unsafe) let requests = texts.enumerated().map {
             TranslationSession.Request(sourceText: $0.element, clientIdentifier: String($0.offset))
         }
         let responses = try await session.translations(from: requests)

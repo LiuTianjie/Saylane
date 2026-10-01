@@ -1,139 +1,205 @@
 import SwiftUI
 
 /// Dedicated permission checklist. Each closed item opens the matching System Settings pane.
+/// `sequential` shows one open item at a time (onboarding); the settings page lists all.
 struct PermissionsSettingsView: View {
     @Environment(AppModel.self) private var model
     var requiredOnly = false
+    var optionalOnly = false
+    var sequential = false
 
-    private var imeReady: Bool { model.inputSourceEnabled }
+    private var imeReady: Bool { model.readinessState.inputSource.enabled }
     private var micReady: Bool { model.permissions.microphone == .granted }
     private var speechReady: Bool { model.permissions.speechRecognition == .granted }
     private var monitoringReady: Bool { model.permissions.inputMonitoringGranted }
     private var screenReady: Bool { model.permissions.screenCaptureGranted }
+    private var accessibilityReady: Bool { model.readinessState.permissions.accessibility }
+    private var globalEventListening: Bool { model.router.isGlobalTapListening }
+    private var globalEventFiltering: Bool { model.router.isGlobalTapFiltering }
+    private var selectedHotkeyNeedsFiltering: Bool { !model.prefs.pushToTalk.isModifier }
+    private var globalTriggerUsable: Bool {
+        globalEventListening && (!selectedHotkeyNeedsFiltering || globalEventFiltering)
+    }
 
     var body: some View {
-        SettingsSection {
-            if !model.installationPathValid {
-                Label("这是未安装的构建副本，请先用安装包安装。", systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                    .font(.system(size: 12.5))
+        if !optionalOnly {
+            SettingsSection {
+                if !model.readinessState.inputSource.installedLocation {
+                    Label(String(localized: "这是未安装的构建副本，请先用安装包安装。"), systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                        .font(.system(size: 12.5))
+                }
+                permissionRow(
+                    symbol: "keyboard",
+                    title: String(localized: "输入法"),
+                    detail: imeDetail,
+                    why: String(localized: "Saylane 以输入法的方式把文字直接写进光标处，不用剪贴板。"),
+                    ready: imeReady,
+                    pending: sequential && !imeReady,
+                    busy: model.isActivatingInputSource,
+                    actionTitle: model.isActivatingInputSource ? String(localized: "等待确认…") : String(localized: "去开通"),
+                    disabled: model.isActivatingInputSource
+                ) {
+                    model.openInputMethodPermission()
+                }
+                permissionRow(
+                    symbol: "mic.fill",
+                    title: String(localized: "麦克风"),
+                    detail: micDetail,
+                    why: String(localized: "只在你按住快捷键说话时采集，识别在本机完成。"),
+                    ready: micReady,
+                    pending: sequential && imeReady && !micReady,
+                    locked: sequential && !imeReady,
+                    busy: model.permissions.isRequestingMicrophone,
+                    actionTitle: model.permissions.isRequestingMicrophone ? String(localized: "等待授权…") : String(localized: "去开通"),
+                    disabled: model.permissions.isRequestingMicrophone
+                ) {
+                    Task { await model.requestMicrophonePermission() }
+                }
+            } header: {
+                Text(String(localized: "必需"))
+            } footer: {
+                Text(imeReady && micReady
+                     ? String(localized: "说话和拼音所需权限已开启。")
+                     : String(localized: "点「去开通」会打开对应的系统设置；开启后这里会自动更新。"))
             }
-            permissionRow(
-                symbol: "keyboard",
-                title: "输入法",
-                detail: imeDetail,
-                ready: imeReady,
-                busy: model.isActivatingInputSource,
-                actionTitle: model.isActivatingInputSource ? "等待确认…" : "去开通",
-                disabled: model.isActivatingInputSource
-            ) {
-                model.openInputMethodPermission()
-            }
-            permissionRow(
-                symbol: "mic.fill",
-                title: "麦克风",
-                detail: micDetail,
-                ready: micReady,
-                busy: model.permissions.isRequestingMicrophone,
-                actionTitle: model.permissions.isRequestingMicrophone ? "等待授权…" : "去开通",
-                disabled: model.permissions.isRequestingMicrophone
-            ) {
-                Task { await model.requestMicrophonePermission() }
-            }
-        } header: {
-            Text("必需")
-        } footer: {
-            Text(imeReady && micReady
-                 ? "说话和拼音所需权限已开启。"
-                 : "点「去开通」会打开对应的系统设置。")
         }
 
         if !requiredOnly {
             SettingsSection {
                 permissionRow(
+                    symbol: "hand.raised.fill",
+                    title: String(localized: "输入监控"),
+                    detail: monitoringDetail,
+                    why: String(localized: "让你在豆包、系统拼音等其它输入法下也能直接按快捷键说话。"),
+                    ready: globalEventListening,
+                    optional: true,
+                    actionTitle: monitoringReady ? String(localized: "重新接入") : String(localized: "去开通")
+                ) {
+                    model.requestInputMonitoring()
+                }
+                permissionRow(
                     symbol: "waveform",
-                    title: "语音识别",
+                    title: String(localized: "语音识别"),
                     detail: speechDetail,
+                    why: String(localized: "使用 Apple 系统识别时需要；本地模型不需要。"),
                     ready: speechReady,
                     optional: true,
                     busy: model.permissions.isRequestingSpeech,
-                    actionTitle: model.permissions.isRequestingSpeech ? "等待授权…" : "去开通",
+                    actionTitle: model.permissions.isRequestingSpeech ? String(localized: "等待授权…") : String(localized: "去开通"),
                     disabled: model.permissions.isRequestingSpeech
                 ) {
                     Task { await model.requestSpeechRecognitionPermission() }
                 }
                 permissionRow(
-                    symbol: "hand.raised.fill",
-                    title: "输入监控",
-                    detail: monitoringDetail,
-                    ready: model.globalHotkeyActive,
-                    optional: true,
-                    actionTitle: monitoringReady ? "重新接入" : "去开通"
-                ) {
-                    model.requestInputMonitoring()
-                }
-                permissionRow(
                     symbol: "rectangle.dashed",
-                    title: "屏幕录制",
-                    detail: screenReady ? "只截你划出的区域" : "划区翻译需要这项权限",
+                    title: String(localized: "屏幕录制"),
+                    detail: screenReady ? String(localized: "只截你划出的区域") : String(localized: "划区翻译需要这项权限"),
+                    why: String(localized: "只用于截屏翻译，只截你划出的区域。"),
                     ready: screenReady,
                     optional: true,
-                    actionTitle: "去开通"
+                    actionTitle: String(localized: "去开通")
                 ) {
                     model.requestScreenCapturePermission()
                 }
+                permissionRow(
+                    symbol: "accessibility",
+                    title: String(localized: "辅助功能"),
+                    detail: accessibilityDetail,
+                    why: accessibilityWhy,
+                    ready: accessibilityReady,
+                    optional: !selectedHotkeyNeedsFiltering,
+                    actionTitle: String(localized: "去开通")
+                ) {
+                    model.requestAccessibility()
+                }
             } header: {
-                Text("可选")
+                Text(selectedHotkeyNeedsFiltering ? String(localized: "增强与当前快捷键") : String(localized: "可选"))
             } footer: {
-                Text("语音识别在使用 Apple 识别时需要。输入监控让其它输入法下也能按快捷键。屏幕录制只用于划区翻译。")
+                Text(optionalPermissionsFooter)
             }
-
         }
     }
 
     private var imeDetail: String {
-        if !model.installationPathValid { return "请先用安装包安装" }
-        if imeReady { return model.inputSourceSelected ? "已选中 Saylane" : "已启用，按快捷键会自动选中" }
-        if model.inputSourceInstalled { return "系统设置 → 键盘 → 输入法" }
-        return "系统还没发现组件"
+        if !model.readinessState.inputSource.installedLocation { return String(localized: "请先用安装包安装") }
+        if imeReady {
+            if model.readinessState.inputSource.selected { return String(localized: "已选中 Saylane") }
+            if globalTriggerUsable { return String(localized: "已启用，按快捷键会自动选中") }
+            return String(localized: "已启用；请先手动选中 Saylane")
+        }
+        if model.readinessState.inputSource.installed { return String(localized: "系统设置 → 键盘 → 输入法") }
+        return String(localized: "系统还没发现组件")
     }
 
     private var micDetail: String {
         switch model.permissions.microphone {
-        case .granted: return "仅听写时采集"
-        case .denied: return "系统设置 → 隐私与安全性 → 麦克风"
-        case .notDetermined: return "只在按住说话时使用"
+        case .granted: return String(localized: "仅听写时采集")
+        case .denied: return String(localized: "系统设置 → 隐私与安全性 → 麦克风")
+        case .notDetermined: return String(localized: "只在按住说话时使用")
         }
     }
 
     private var speechDetail: String {
         switch model.permissions.speechRecognition {
-        case .granted: return "使用 Apple 语音识别时需要"
-        case .denied: return "系统设置 → 隐私与安全性 → 语音识别"
-        case .notDetermined: return "使用 Apple 语音识别时需要"
+        case .granted: return String(localized: "使用 Apple 语音识别时需要")
+        case .denied: return String(localized: "系统设置 → 隐私与安全性 → 语音识别")
+        case .notDetermined: return String(localized: "使用 Apple 语音识别时需要")
         }
     }
 
     private var monitoringDetail: String {
-        if model.globalHotkeyActive { return "其它输入法下也能按快捷键" }
-        if monitoringReady { return "权限已开，监听还没接上" }
-        return "系统设置 → 隐私与安全性 → 输入监控"
+        if globalEventFiltering { return String(localized: "已接入，可监听并拦截全局按键") }
+        if globalEventListening {
+            return selectedHotkeyNeedsFiltering
+                ? String(localized: "已接入监听；当前功能键仍需辅助功能权限")
+                : String(localized: "已接入监听；当前修饰键快捷键可用")
+        }
+        if monitoringReady { return String(localized: "权限已开，监听还没接上") }
+        return String(localized: "系统设置 → 隐私与安全性 → 输入监控")
     }
 
-    private func permissionRow(symbol: String, title: String, detail: String,
-                               ready: Bool, optional: Bool = false, busy: Bool = false,
-                               actionTitle: String, disabled: Bool = false,
+    private var accessibilityWhy: String {
+        if selectedHotkeyNeedsFiltering {
+            return String(localized: "当前功能键需要辅助功能权限，才能拦截按键并可靠收到松开事件；也可以改用 Option、Command、Control、Shift 或 fn。")
+        }
+        return String(localized: "在终端等不支持输入法组字的应用里，说完把文字粘贴进去。")
+    }
+
+    private var accessibilityDetail: String {
+        if accessibilityReady {
+            if selectedHotkeyNeedsFiltering && !globalEventFiltering {
+                return String(localized: "已允许；全局按键拦截尚未接入")
+            }
+            return String(localized: "已允许")
+        }
+        if selectedHotkeyNeedsFiltering {
+            return String(localized: "当前功能键需要这项权限")
+        }
+        return String(localized: "系统设置 → 隐私与安全性 → 辅助功能")
+    }
+
+    private var optionalPermissionsFooter: String {
+        if selectedHotkeyNeedsFiltering {
+            return String(localized: "当前功能键需要辅助功能权限；若不想开启，请改用 Option、Command、Control、Shift 或 fn。其它增强可以稍后开启。")
+        }
+        return String(localized: "都可以稍后在「权限管理」里开启，不影响在 Saylane 输入法下说话和打字。")
+    }
+
+    private func permissionRow(symbol: String, title: String, detail: String, why: String,
+                               ready: Bool, optional: Bool = false, pending: Bool = false, locked: Bool = false,
+                               busy: Bool = false, actionTitle: String, disabled: Bool = false,
                                action: @escaping () -> Void) -> some View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: symbol)
                 .font(.system(size: 19, weight: .regular))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(ready ? Theme.accent : .secondary)
                 .frame(width: 32, height: 36)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(title)
                     if optional {
-                        Text("可选")
+                        Text(String(localized: "可选"))
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 5)
@@ -141,14 +207,16 @@ struct PermissionsSettingsView: View {
                             .background(Theme.fill, in: Capsule())
                     }
                 }
-                Text(detail)
+                Text(sequential && !ready ? why : detail)
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 12)
             if ready {
-                StatusText(text: "已开启", ready: true)
+                StatusText(text: String(localized: "已开启"), ready: true)
+            } else if locked {
+                Text(String(localized: "先完成上一项")).font(.system(size: 11.5)).foregroundStyle(.tertiary)
             } else {
                 Button {
                     action()
@@ -164,6 +232,12 @@ struct PermissionsSettingsView: View {
             }
         }
         .padding(.vertical, 3)
+        .opacity(locked ? 0.55 : 1)
+        .overlay(alignment: .leading) {
+            if pending {
+                RoundedRectangle(cornerRadius: 2).fill(Theme.accent).frame(width: 3).padding(.vertical, 2).offset(x: -12)
+            }
+        }
         .accessibilityElement(children: .combine)
     }
 }

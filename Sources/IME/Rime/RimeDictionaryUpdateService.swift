@@ -22,10 +22,10 @@ enum RimeDictionaryUpdateError: LocalizedError {
     case localData, invalidResponse, rateLimited, http(Int)
     var errorDescription: String? {
         switch self {
-        case .localData: return "无法读取当前词库版本或词表，请重新安装应用后再检查。"
-        case .invalidResponse: return "词库服务器返回的数据不完整，请稍后重试。"
-        case .rateLimited: return "GitHub 暂时限制了检查频率，请稍后重试。"
-        case .http(let status): return "检查失败（HTTP \(status)），请稍后重试。"
+        case .localData: return String(localized: "无法读取当前词库版本或词表，请重新安装应用后再检查。")
+        case .invalidResponse: return String(localized: "词库服务器返回的数据不完整，请稍后重试。")
+        case .rateLimited: return String(localized: "GitHub 暂时限制了检查频率，请稍后重试。")
+        case .http(let status): return String(localized: "检查失败（HTTP \(status)），请稍后重试。")
         }
     }
 }

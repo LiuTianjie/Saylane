@@ -9,6 +9,7 @@ import Foundation
     var cancels = 0
     var setupDelay = 0
     var finishDelay = 0
+    var cancelDelay = 0
     var finalText = "最终结果。"
     var failFinish = false
     func begin(locale: Locale) async throws {
@@ -21,7 +22,10 @@ import Foundation
         if failFinish { throw SessionFailure.emptyResult }
         return finalText
     }
-    func cancel() async { cancels += 1 }
+    func cancel() async {
+        if cancelDelay > 0 { try? await Task.sleep(for: .milliseconds(cancelDelay)) }
+        cancels += 1
+    }
 }
 @MainActor final class FakeCapture: AudioCapturing {
     var continuation: AsyncThrowingStream<AudioFrame, Error>.Continuation?
@@ -53,13 +57,20 @@ import Foundation
 }
 @main struct SessionTests {
     @MainActor static func settle(_ milliseconds: Int = 20) async { try? await Task.sleep(for: .milliseconds(milliseconds)) }
+    /// Drain/commit is asynchronous; wait for the state machine rather than a fixed delay.
+    @MainActor static func settleUntilIdle(_ c: SessionCoordinator, limit milliseconds: Int = 500) async {
+        for _ in 0..<(milliseconds / 5) {
+            if c.state == .idle { return }
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+    }
     @MainActor static func main() async {
         var passed = 0
         for _ in 0..<20 {
             let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
             var translations = 0
             c.start(locale: Locale(identifier: "zh-CN"), speech: speech, capture: audio, target: target, passthrough: true) { text in translations += 1; return text }
-            await settle(); audio.emit(30); c.release(); c.release(); await settle()
+            await settle(); audio.emit(30); c.release(); c.release(); await settleUntilIdle(c)
             precondition(speech.feeds == 30 && speech.finishCount == 1)
             precondition(target.committed == ["最终结果。"] && translations == 0 && c.state == .idle)
         }
@@ -73,9 +84,10 @@ import Foundation
         }
         do { // Press/release in the same tick must not start a lingering microphone.
             let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
+            speech.finalText = ""
             c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: true) { $0 }
             c.release(); await settle()
-            precondition(audio.starts == 0 && target.committed.isEmpty && c.state == .idle); passed += 1
+            precondition(audio.starts == 1 && target.committed.isEmpty && c.state == .idle); passed += 1
         }
         for stage in ["setup", "listening", "finalizing"] {
             let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
@@ -92,12 +104,26 @@ import Foundation
             oldSpeech.finishDelay = 80
             c.start(locale: .current, speech: oldSpeech, capture: oldAudio, target: oldTarget, passthrough: true) { $0 }
             await settle(); c.release(); await settle(5); c.cancel()
+            await settleUntilIdle(c)
             let fresh = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
             fresh.finalText = "new"
             c.start(locale: .current, speech: fresh, capture: audio, target: target, passthrough: true) { $0 }
             oldSpeech.emit("stale")
             await settle(); audio.emit(1); c.release(); await settle(120)
             precondition(oldTarget.committed.isEmpty && target.committed == ["new"]); passed += 1
+        }
+        do { // Cancellation owns cleanup; a new session cannot overlap a worker still stopping.
+            let c = SessionCoordinator(), oldSpeech = FakeSpeech(), oldAudio = FakeCapture(), oldTarget = FakeTarget()
+            oldSpeech.cancelDelay = 80
+            c.start(locale: .current, speech: oldSpeech, capture: oldAudio, target: oldTarget, passthrough: true) { $0 }
+            await settle(); c.cancel()
+            let earlySpeech = FakeSpeech(), earlyAudio = FakeCapture(), earlyTarget = FakeTarget()
+            c.start(locale: .current, speech: earlySpeech, capture: earlyAudio, target: earlyTarget, passthrough: true) { $0 }
+            precondition(earlyAudio.starts == 0 && c.state == .cancelling)
+            await settleUntilIdle(c)
+            c.start(locale: .current, speech: earlySpeech, capture: earlyAudio, target: earlyTarget, passthrough: true) { $0 }
+            await settle(); earlyAudio.emit(1); c.release(); await settleUntilIdle(c)
+            precondition(earlyTarget.committed == ["最终结果。"]) ; passed += 1
         }
         do { // Lost target cannot receive even the final result.
             let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
@@ -206,6 +232,35 @@ import Foundation
             precondition(target.committed == ["最终结果。"] && c.state == .idle)
             await settle(200); precondition(target.committed.count == 1); passed += 1
         }
+        do { // Typing during optional polishing commits the COMPLETE ordinary result now.
+            let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
+            var ends = 0
+            c.onCommit = { ends += 1 }
+            c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: true,
+                polish: { _, _ in
+                    await withCheckedContinuation { continuation in
+                        DispatchQueue.global().asyncAfter(deadline: .now() + 0.2) { continuation.resume() }
+                    }
+                    return "late edited text"
+                }) { $0 }
+            await settle(); speech.emit("incomplete preview"); c.release(); await settle(20)
+            precondition(c.state == .polishing)
+            precondition(c.commitOrdinaryOutputForUserInput())
+            precondition(c.state == .idle && target.committed == ["最终结果。"] && ends == 1)
+            await settle(250)
+            precondition(target.committed.count == 1 && ends == 1)
+            passed += 1
+        }
+        do { // A recognizer still producing the tail cannot be replaced by its preview.
+            let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
+            speech.finishDelay = 100
+            c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: true) { $0 }
+            await settle(); speech.emit("preview"); c.release(); await settle(10)
+            precondition(!c.commitOrdinaryOutputForUserInput() && target.committed.isEmpty)
+            await settleUntilIdle(c)
+            precondition(target.committed == ["最终结果。"])
+            passed += 1
+        }
         for lost in [false, true] { // Esc/focus change during final editing never submits.
             let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
             c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: true,
@@ -276,6 +331,28 @@ import Foundation
             c.release(); await settle(120)
             precondition(target.committed == ["最终结果。"] && repairs == 1)
             precondition(target.marked.last == "今天，去深圳")
+            passed += 1
+        }
+        do { // The hard utterance limit finalizes what was heard instead of cancelling it.
+            let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
+            var policy = VoicePolicy.standard
+            policy.maxUtterance = 0.03
+            c.start(locale: .current, speech: speech, capture: audio, target: target,
+                    passthrough: true, policy: policy) { $0 }
+            await settle(); audio.emit(1)
+            await settleUntilIdle(c)
+            precondition(target.committed == ["最终结果。"] && speech.finishCount == 1)
+            passed += 1
+        }
+        do { // A visible prefix never replaces the authoritative final tail.
+            let c = SessionCoordinator(), speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
+            speech.finishDelay = 120
+            speech.finalText = "authoritative final tail"
+            c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: true) { $0 }
+            await settle(); speech.emit("visible preview"); await settle(10); c.release(); await settle(10)
+            precondition(c.state == .finalizing && target.committed.isEmpty)
+            await settleUntilIdle(c)
+            precondition(target.committed == ["authoritative final tail"])
             passed += 1
         }
         do { // Metadata has monotonic stage timings, one terminal record, and no dictated text.

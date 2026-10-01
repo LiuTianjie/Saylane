@@ -27,13 +27,13 @@ final class RimeDictionaryUpdateModel {
     }
     var statusText: String {
         switch state {
-        case .idle: return "手动检查雾凇词库，不会自动下载或修改个人词库。"
-        case .checking: return "正在检查词库更新…"
+        case .idle: return String(localized: "手动检查雾凇词库，不会自动下载或修改个人词库。")
+        case .checking: return String(localized: "正在检查词库更新…")
         case .checked(let result):
             if result.hasUpdate {
-                return "发现词库变化：\(result.changedTables.joined(separator: "、"))。此版本仅支持检查，安装更新仍需新版应用。"
+                return String(localized: "发现词库变化：\(result.changedTables.joined(separator: "、"))。此版本仅支持检查，安装更新仍需新版应用。")
             }
-            return "当前使用的四份词表已是最新。"
+            return String(localized: "当前使用的四份词表已是最新。")
         case .failed(let message): return message
         }
     }
@@ -59,10 +59,10 @@ final class RimeDictionaryUpdateModel {
                 if let error = error as? URLError {
                     switch error.code {
                     case .notConnectedToInternet, .networkConnectionLost, .cannotFindHost, .cannotConnectToHost:
-                        self.state = .failed("无法连接词库服务器，请检查网络后重试。")
-                    case .timedOut: self.state = .failed("检查超时，请稍后重试。")
+                        self.state = .failed(String(localized: "无法连接词库服务器，请检查网络后重试。"))
+                    case .timedOut: self.state = .failed(String(localized: "检查超时，请稍后重试。"))
                     case .cancelled: self.state = .idle
-                    default: self.state = .failed("网络检查失败，请稍后重试。")
+                    default: self.state = .failed(String(localized: "网络检查失败，请稍后重试。"))
                     }
                 } else {
                     self.state = .failed(error.localizedDescription)

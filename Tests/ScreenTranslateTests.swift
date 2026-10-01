@@ -196,6 +196,9 @@ import Foundation
         precondition(ScreenTranslate.isMachineText("const foo = 1"))
         precondition(ScreenTranslate.isMachineText("function App() {"))
         precondition(ScreenTranslate.isMachineText("13"))
+        precondition(ScreenTranslate.shouldReplace("设置"))
+        precondition(ScreenTranslate.shouldReplace("OK"))
+        precondition(ScreenTranslate.shouldReplace("AI"))
         precondition(ScreenTranslate.isMachineText("FFN(x) = max(0, xW_1 + b_1)W_2 + b_2"))
         precondition(ScreenTranslate.shouldReplace("I feel like JS performance has been dragged down by React."))
         precondition(ScreenTranslate.shouldReplace("In this work we employ h = 8 parallel attention layers, or heads."))
@@ -205,6 +208,15 @@ import Foundation
         precondition(ScreenTranslate.isEquationLike("In this work we employ h = 8 parallel attention layers, or heads.") == false)
         precondition(ScreenTranslate.isEquationLike("ak = dr = Amodel/h= 64. Due to the reduced dimension of each head."))
         precondition(ScreenTranslate.shouldReplace("mation and softmax function to convert the decoder output to predicted next-token probabilities. In"))
+
+        let shortControls = [
+            ScreenOCRLine(text: "设置", visionBox: CGRect(x: 0.1, y: 0.80, width: 0.10, height: 0.04)),
+            ScreenOCRLine(text: "OK", visionBox: CGRect(x: 0.1, y: 0.70, width: 0.10, height: 0.04)),
+            ScreenOCRLine(text: "13", visionBox: CGRect(x: 0.1, y: 0.60, width: 0.10, height: 0.04)),
+        ]
+        let shortGroups = ScreenTranslate.groupParagraphs(from: shortControls)
+        precondition(shortGroups.map(\.original) == ["设置", "OK"],
+                     "Short controls must reach translation grouping while a standalone number stays as source pixels")
 
         precondition(ScreenTranslate.joinParagraphLines(["transfor-", "mation of tokens"]) == "transformation of tokens")
         precondition(ScreenTranslate.joinParagraphLines(["Hello", "world"]) == "Hello world")

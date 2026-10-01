@@ -15,6 +15,7 @@ actor NativeASRModel: LoadedSpeechModel {
     }
 
     static func load(_ variant: SpeechModel) async throws -> NativeASRModel {
+        cleanupStaleTemporaryAudio()
         let manifest = try variant.manifest()
         try await ASRModelInstaller().verify(manifest)
         let name = variant == .senseVoice ? "llama-funasr-sensevoice" : "llama-funasr-cli"
@@ -38,6 +39,7 @@ actor NativeASRModel: LoadedSpeechModel {
         defer { try? fm.removeItem(at: folder) }
         let wav = folder.appendingPathComponent("speech.wav")
         try Self.writeWAV(audio, to: wav)
+        _ = chmod(wav.path, S_IRUSR | S_IWUSR)
         let arguments: [String]
         if variant == .senseVoice {
             arguments = ["-m", directory.appendingPathComponent("sensevoice-small-q8.gguf").path, "-a", wav.path]
@@ -65,6 +67,29 @@ actor NativeASRModel: LoadedSpeechModel {
         samples.withUnsafeBufferPointer { target.update(from: $0.baseAddress!, count: $0.count) }
         let file = try AVAudioFile(forWriting: url, settings: format.settings)
         try file.write(from: buffer)
+    }
+
+    /// A crash cannot run `defer`. Remove only our old private request folders
+    /// the next time a native model loads; never touch another temporary entry.
+    nonisolated static func cleanupStaleTemporaryAudio(
+        in root: URL = FileManager.default.temporaryDirectory,
+        olderThan age: TimeInterval = 6 * 60 * 60,
+        now: Date = Date(),
+        fileManager fm: FileManager = .default
+    ) {
+        guard let entries = try? fm.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey, .contentModificationDateKey]
+        ) else { return }
+        for entry in entries {
+            let name = entry.lastPathComponent
+            let prefix = "saylane-asr-"
+            guard name.hasPrefix(prefix), UUID(uuidString: String(name.dropFirst(prefix.count))) != nil else { continue }
+            guard let values = try? entry.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .contentModificationDateKey]),
+                  values.isDirectory == true, values.isSymbolicLink != true,
+                  let modified = values.contentModificationDate,
+                  now.timeIntervalSince(modified) >= age else { continue }
+            try? fm.removeItem(at: entry)
+        }
     }
 }
 
@@ -105,14 +130,14 @@ final class NativeASRProcess: @unchecked Sendable {
             let chunk = try output.fileHandleForReading.read(upToCount: 16384) ?? Data()
             if chunk.isEmpty { break }
             data.append(chunk)
-            guard data.count <= 1_048_576 else { throw ASRModelError.invalidDownload("识别输出过长") }
+            guard data.count <= 1_048_576 else { throw ASRModelError.invalidDownload(String(localized: "识别输出过长")) }
         }
         // EOF can precede process exit by a few instructions. Reap before status.
         exited.wait(); exited.signal()
         lock.lock(); let stopped = cancelled; lock.unlock()
         if stopped { throw CancellationError() }
         guard child.terminationStatus == 0, let text = String(data: data, encoding: .utf8) else {
-            throw NSError(domain: "NativeASR", code: 1, userInfo: [NSLocalizedDescriptionKey: "本地识别未完成或已取消，请重试；长句可分段输入。"])
+            throw NSError(domain: "NativeASR", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "本地识别未完成或已取消，请重试；长句可分段输入。")])
         }
         return text
     }

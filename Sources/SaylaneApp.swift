@@ -9,13 +9,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appItem = menu.addItem(withTitle: "Saylane", action: nil, keyEquivalent: "")
         let appMenu = NSMenu(title: "Saylane")
         appItem.submenu = appMenu
-        appMenu.addItem(withTitle: "设置…", action: #selector(openPreferences(_:)), keyEquivalent: ",").target = self
+        appMenu.addItem(withTitle: String(localized: "设置…"), action: #selector(openPreferences(_:)), keyEquivalent: ",").target = self
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "退出 Saylane", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        let editItem = menu.addItem(withTitle: "编辑", action: nil, keyEquivalent: "")
-        let editMenu = NSMenu(title: "编辑")
+        appMenu.addItem(withTitle: String(localized: "退出 Saylane"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let editItem = menu.addItem(withTitle: String(localized: "编辑"), action: nil, keyEquivalent: "")
+        let editMenu = NSMenu(title: String(localized: "编辑"))
         editItem.submenu = editMenu
-        for (title, action, key) in [("撤销", "undo:", "z"), ("剪切", "cut:", "x"), ("复制", "copy:", "c"), ("粘贴", "paste:", "v"), ("全选", "selectAll:", "a")] {
+        for (title, action, key) in [(String(localized: "撤销"), "undo:", "z"), (String(localized: "剪切"), "cut:", "x"), (String(localized: "复制"), "copy:", "c"), (String(localized: "粘贴"), "paste:", "v"), (String(localized: "全选"), "selectAll:", "a")] {
             editMenu.addItem(withTitle: title, action: NSSelectorFromString(action), keyEquivalent: key)
         }
         NSApp.mainMenu = menu

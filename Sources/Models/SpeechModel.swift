@@ -10,20 +10,20 @@ enum SpeechModel: String, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .apple: return "Apple 系统识别"
-        case .senseVoice: return "SenseVoiceSmall · Q8（试用）"
-        case .funASRNano: return "Fun-ASR-Nano · Q4（试用）"
+        case .apple: return String(localized: "Apple 系统识别")
+        case .senseVoice: return String(localized: "SenseVoiceSmall · Q8（试用）")
+        case .funASRNano: return String(localized: "Fun-ASR-Nano · Q4（试用）")
         case .qwen4bit: return "Qwen3-ASR 0.6B · 4-bit"
         case .qwen6bit: return "Qwen3-ASR 0.6B · 6-bit"
         }
     }
     var detail: String {
         switch self {
-        case .apple: return "系统管理 · 实时组字"
-        case .senseVoice: return "约 254 MB · 中英粤日韩 · 边说边出字"
-        case .funASRNano: return "约 954 MB · 中英日 · 边说边出字"
-        case .qwen4bit: return "约 724 MB · 较小体积 · 边说边出字"
-        case .qwen6bit: return "约 873 MB · 较低量化损失 · 边说边出字"
+        case .apple: return String(localized: "系统管理 · 实时组字")
+        case .senseVoice: return String(localized: "约 254 MB · 中英粤日韩 · 边说边出字")
+        case .funASRNano: return String(localized: "约 954 MB · 中英日 · 边说边出字")
+        case .qwen4bit: return String(localized: "约 724 MB · 较小体积 · 边说边出字")
+        case .qwen6bit: return String(localized: "约 873 MB · 较低量化损失 · 边说边出字")
         }
     }
     var isQwen: Bool { self == .qwen4bit || self == .qwen6bit }
@@ -100,10 +100,7 @@ struct ASRModelManifest: Codable, Sendable {
         URL(string: "https://huggingface.co/\(file.repository ?? repository)/resolve/\(file.revision ?? revision)/\(file.name)")!
     }
 
-    static var root: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("RTranslate/ASRModels", isDirectory: true)
-    }
+    static var root: URL { AppDirectories.asrModels }
 
     func directory(root: URL = Self.root) -> URL {
         root.appendingPathComponent(id, isDirectory: true).appendingPathComponent(revision, isDirectory: true)
@@ -123,13 +120,13 @@ enum ASRModelError: LocalizedError {
     case manifest, missing, diskSpace, invalidDownload(String), checksum(String), tooLong, unsupportedLanguage
     var errorDescription: String? {
         switch self {
-        case .manifest: return "语音模型清单缺失或无效，请重新安装应用。"
-        case .missing: return "请先在设置中下载并准备所选本地模型。"
-        case .diskSpace: return "磁盘空间不足，请腾出足够空间后重试。"
-        case .invalidDownload(let name): return "模型文件下载失败（\(name)），请检查网络后重试。"
-        case .checksum(let name): return "模型文件校验失败（\(name)），请重新下载修复。"
-        case .tooLong: return "本地模型当前每次最多识别 30 秒，请分成短句输入。本次未提交。"
-        case .unsupportedLanguage: return "当前识别模型尚不支持所选语言。"
+        case .manifest: return String(localized: "语音模型清单缺失或无效，请重新安装应用。")
+        case .missing: return String(localized: "请先在设置中下载并准备所选本地模型。")
+        case .diskSpace: return String(localized: "磁盘空间不足，请腾出足够空间后重试。")
+        case .invalidDownload(let name): return String(localized: "模型文件下载失败（\(name)），请检查网络后重试。")
+        case .checksum(let name): return String(localized: "模型文件校验失败（\(name)），请重新下载修复。")
+        case .tooLong: return String(localized: "本地模型单次最多识别 30 秒，已保留听到的部分。")
+        case .unsupportedLanguage: return String(localized: "当前识别模型尚不支持所选语言。")
         }
     }
 }

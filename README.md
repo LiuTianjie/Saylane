@@ -110,9 +110,9 @@ The **recognition-only** setting skips translation. AI editing has an independen
 
 ## Screen translation
 
-Hold **left Control (⌃)** to start region selection, then select the area to translate. The app pins the captured region and overlays translated text using Vision OCR and Apple Translation. Screen Recording permission is required.
+Press **⌥T** (configurable in Settings, with conflict checks against system shortcuts) to start region selection, then select the area to translate. Holding **left Control (⌃)** can be enabled as an alternative trigger. The pinned result floats above other windows and can be dragged; other apps stay usable while it is open. The app pins the captured region and overlays translated text using Vision OCR and Apple Translation. Screen Recording permission is required.
 
-This is a translated view of a captured image; the underlying application remains unchanged. Dense layouts, small text, and complex backgrounds can affect OCR and text placement. The [screen translation notes](docs/SCREEN_TRANSLATE.md) and [scenario checks](docs/SCREEN_TRANSLATE_SCENARIOS.md) document the implementation and its remaining visual limitations.
+This is a translated view of a captured image; the underlying application remains unchanged. Dense layouts, small text, and complex backgrounds can affect OCR and text placement. The [screen translation notes](docs/history/SCREEN_TRANSLATE.md) and [scenario checks](docs/history/SCREEN_TRANSLATE_SCENARIOS.md) document the implementation and its remaining visual limitations.
 
 Optional screen editing has its own switch and uses the configured AI endpoint. It can send recognized text, the translation draft, and nearby recognized context; it is off by default.
 
@@ -186,7 +186,7 @@ make build
 | `make release` | Release build without installation |
 | `make pkg` | Release build and `dist/Saylane-<version>.pkg` |
 
-Packaging requires a **Developer ID Application** identity; ad-hoc signing is rejected. Set `SAYLANE_SIGNING_IDENTITY` when identity selection is ambiguous. `SAYLANE_INSTALLER_IDENTITY` is separate and controls PKG signing when available. App signing, installer signing, notarization, and successful input-source activation are distinct checks.
+Packaging requires `SAYLANE_SIGNING_IDENTITY` (**Developer ID Application**), `SAYLANE_INSTALLER_IDENTITY` (**Developer ID Installer**), and `SAYLANE_NOTARY_PROFILE` (an existing notarytool profile). The script checks all three before signing, rejects ad-hoc identities, and publishes the final PKG only after notarization and staple verification. App signing, installer signing, notarization, and successful input-source activation are distinct checks.
 
 Build artifacts live in ignored `build/` and `dist/` directories. Building an app does not register it as a working system input method; follow the [installation guide](docs/安装说明.md) for that step.
 
@@ -204,13 +204,15 @@ Build artifacts live in ignored `build/` and `dist/` directories. Building an ap
 
 | Guide | Covers |
 | --- | --- |
+| [Architecture](docs/ARCHITECTURE.md) | Current module layout, state flow, input routing, voice session and concurrency model |
+| [Changelog](CHANGELOG.md) | User-facing changes per release |
 | [Installation](docs/安装说明.md) | Package status, input-source activation, and permissions |
-| [Voice input behavior and evaluation](docs/VOICE_INPUT_OPTIMIZATION.md) | Live hypotheses, finalization, diagnostics, and reproducible ASR benchmarks |
+| [Voice input behavior and evaluation](docs/history/VOICE_INPUT_OPTIMIZATION.md) | Live hypotheses, finalization, diagnostics, and reproducible ASR benchmarks |
 | [Rime Pinyin](docs/RIME_PINYIN.md) | Candidate behavior, learning, dependency pins, and dictionary licenses |
 | [Local recognizers](docs/ASR_COMPARISON.md) | Backend differences and validation limits |
 | [Qwen3-ASR](docs/QWEN_ASR.md) | Model manifests, MLX integration, and runtime lifecycle |
-| [Screen translation](docs/SCREEN_TRANSLATE.md) | Rendering behavior and follow-up implementation notes |
-| [Voice design history](docs/VOICE_INPUT_V2.md) | Evolving interaction contracts and dated verification records |
+| [Screen translation](docs/history/SCREEN_TRANSLATE.md) | Rendering behavior and follow-up implementation notes |
+| [Voice design history](docs/history/VOICE_INPUT_V2.md) | Evolving interaction contracts and dated verification records |
 
 Older design documents contain historical plans and handoffs. Use the current source and release notes when evaluating shipped behavior.
 
@@ -219,9 +221,9 @@ Older design documents contain historical plans and handoffs. Use the current so
 
 Saylane was previously named RTranslate. The app, executable, scheme, and new packages use Saylane; selected identifiers remain stable for upgrades:
 
-- `com.rtranslate.*` bundle/input-source IDs, Keychain service names, and installer receipt IDs.
-- `~/Library/Application Support/RTranslate` for existing models and diagnostics.
-- A separate `~/Library/Application Support/Saylane/Rime` directory for Rime's user dictionary.
+- `com.rtranslate.*` bundle/input-source IDs and installer receipt IDs.
+- Everything Saylane writes now lives under `~/Library/Application Support/Saylane/` (`ASRModels`, `Diagnostics`, `Rime`, `Glossary`). An existing `RTranslate/` directory is moved there on first launch, and is still read from its old place if the move is not possible.
+- The Keychain service for the proofreading API key is `com.saylane.final-polish`; keys stored under the old `com.rtranslate.final-polish` name are migrated on first use.
 - `RTRANSLATE_SIGNING_IDENTITY` as a compatibility alias for `SAYLANE_SIGNING_IDENTITY`.
 
 The installer recognizes old and new app paths and checks bundle identity before cleanup. Keeping these identifiers preserves continuity; they should not be renamed as a cosmetic change.
@@ -233,6 +235,8 @@ The installer recognizes old and new app paths and checks bundle identity before
 Focused fixes, reproducible bug reports, and documentation improvements are welcome. Include your macOS version, Mac architecture, Saylane version, recognizer, language pair, and target application. Redact private text, audio, screenshots, and endpoint credentials from reports.
 
 Run `make test` for code changes. Input-method, hotkey, permission, and overlay changes also need testing in the actual macOS session and affected apps. File recognition benchmarks and unit tests do not establish microphone-to-text latency or cross-app compatibility.
+
+`bash scripts/build-ime-test-host.sh` builds `build/tests/IMEIntegrationHost.app`, a native AppKit client with two independent text fields. It selects only already-enabled input sources. Use actual key events to check pinyin composition, switching fields, voice insertion, and cancellation; pasting text or setting an accessibility value does not test the input method. The installed executable also accepts `--microphone-check` for three real capture/stop cycles without saving audio.
 
 ## Licensing
 
