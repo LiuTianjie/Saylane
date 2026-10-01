@@ -213,9 +213,6 @@ struct SettingsView: View {
 
         SettingsSection {
             Toggle(String(localized: "说话时显示底部提示"), isOn: model.binding(\.overlayEnabled))
-            Toggle(String(localized: "提示里显示识别和译文"), isOn: model.binding(\.overlayShowsText))
-                .disabled(!p.overlayEnabled)
-                .help(String(localized: "在不显示组字的应用（终端、部分网页）里也能看到识别结果。"))
             if !model.readinessState.permissions.accessibility {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Label(String(localized: "还没有允许辅助功能：在其它输入法下，或在不接受输入法写入的应用里，语音结果只能复制到剪贴板。"),

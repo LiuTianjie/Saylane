@@ -51,9 +51,6 @@ final class SessionCoordinator {
     var onCommit: (() -> Void)?
     var onCompletion: ((CompletionFeedback) -> Void)?
     var onMetrics: ((SpeechSessionMetrics) -> Void)?
-    /// Latest recognized text and latest text shown to the client, for the HUD.
-    var onSourceText: ((String) -> Void)?
-    var onDisplayedText: ((String) -> Void)?
     /// The recognizer cannot take more audio; the utterance is being finalized early.
     var onLengthLimit: (() -> Void)?
     private var run: Run?
@@ -231,7 +228,6 @@ final class SessionCoordinator {
         context.metrics.revisedCharacterCount += max(0, context.lastHypothesis.count - common)
         context.metrics.stableCharacterCount = hypothesis.stableText.count
         context.lastHypothesis = text
-        onSourceText?(text)
         context.pendingHypothesis = hypothesis
         let elapsed = context.lastPresentedAt.map { now() - $0 } ?? previewInterval
         if elapsed >= previewInterval {
@@ -406,7 +402,6 @@ final class SessionCoordinator {
         context.metrics.previewCount += 1
         context.target.setMarked(text)
         onPreview?(text.count)
-        onDisplayedText?(text)
     }
 
     private func mark(_ stage: String, for context: Run) {

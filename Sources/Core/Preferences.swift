@@ -16,7 +16,6 @@ struct Preferences: Equatable, Sendable {
 
     // HUD
     var overlayEnabled = true
-    var overlayShowsText = true
 
     // Recognition
     var speechModel: SpeechModel = .apple

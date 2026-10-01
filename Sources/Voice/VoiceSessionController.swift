@@ -236,8 +236,7 @@ final class VoiceSessionController {
                 if p?.overlayEnabled == true, let p {
                     if self.overlay.model.phase == .hidden {
                         self.overlay.show(source: p.sourceLanguage.shortName, target: p.targetLanguage.shortName,
-                                          liveInject: true, hotkeyLabel: p.pushToTalk.shortLabel,
-                                          showsText: p.overlayShowsText)
+                                          liveInject: true, hotkeyLabel: p.pushToTalk.shortLabel)
                     } else {
                         self.overlay.setPhase(.preparing)
                     }
@@ -267,14 +266,6 @@ final class VoiceSessionController {
             if feedback.isWarning { self.overlay.showCompletion(feedback) } else { self.overlay.playFinishSweepThenHide() }
         }
         coordinator.onLevel = { [weak self] in self?.overlay.setLevel($0) }
-        coordinator.onSourceText = { [weak self] text in
-            guard let self, self.host?.prefs.overlayShowsText == true else { return }
-            self.overlay.setSource(text)
-        }
-        coordinator.onDisplayedText = { [weak self] text in
-            guard let self, self.host?.prefs.overlayShowsText == true else { return }
-            self.overlay.setTranslation(text)
-        }
         coordinator.onError = { [weak self] message in
             guard let self else { return }
             // Live-preview errors can still recover on release; only terminal errors reach the user.

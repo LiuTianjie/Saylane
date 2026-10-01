@@ -702,16 +702,6 @@
         }
       }
     },
-    "准备中": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preparing"
-          }
-        }
-      }
-    },
     "准备模型": {
       "localizations": {
         "en": {
@@ -1229,16 +1219,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enabling the input mode failed."
-          }
-        }
-      }
-    },
-    "在不显示组字的应用（终端、部分网页）里也能看到识别结果。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "See the result even in apps that do not show composing text (terminals, some web pages)."
           }
         }
       }
@@ -2203,16 +2183,6 @@
         }
       }
     },
-    "提示里显示识别和译文": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show recognized text and translation in the HUD"
-          }
-        }
-      }
-    },
     "撤销": {
       "localizations": {
         "en": {
@@ -2730,16 +2700,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancelling…"
-          }
-        }
-      }
-    },
-    "正在听": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Listening"
           }
         }
       }

@@ -40,7 +40,6 @@ final class PreferencesStore {
         static let tapToTalk = "tapToTalk"
         static let languageSwitchEnabled = "languageSwitchEnabled"
         static let overlayEnabled = "overlayEnabled"
-        static let overlayShowsText = "overlayShowsText"
         static let speechModel = "speechModel"
         static let recognitionOnly = "recognitionOnly"
         static let speechHotwordsEnabled = "speechHotwordsEnabled"
@@ -120,7 +119,6 @@ final class PreferencesStore {
         p.tapToTalk = bool(Key.tapToTalk, default: p.tapToTalk)
         p.languageSwitchEnabled = bool(Key.languageSwitchEnabled, default: p.languageSwitchEnabled)
         p.overlayEnabled = bool(Key.overlayEnabled, default: p.overlayEnabled)
-        p.overlayShowsText = bool(Key.overlayShowsText, default: p.overlayShowsText)
         p.speechModel = string(Key.speechModel).flatMap(SpeechModel.init(rawValue:)) ?? p.speechModel
         p.recognitionOnly = bool(Key.recognitionOnly, default: p.recognitionOnly)
         p.speechHotwordsEnabled = bool(Key.speechHotwordsEnabled, default: p.speechHotwordsEnabled)
@@ -164,7 +162,6 @@ final class PreferencesStore {
         put(p.tapToTalk, o.tapToTalk, Key.tapToTalk) { $0 }
         put(p.languageSwitchEnabled, o.languageSwitchEnabled, Key.languageSwitchEnabled) { $0 }
         put(p.overlayEnabled, o.overlayEnabled, Key.overlayEnabled) { $0 }
-        put(p.overlayShowsText, o.overlayShowsText, Key.overlayShowsText) { $0 }
         put(p.speechModel, o.speechModel, Key.speechModel) { $0.rawValue }
         put(p.recognitionOnly, o.recognitionOnly, Key.recognitionOnly) { $0 }
         put(p.speechHotwordsEnabled, o.speechHotwordsEnabled, Key.speechHotwordsEnabled) { $0 }

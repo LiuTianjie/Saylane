@@ -103,15 +103,11 @@ final class OverlayModel {
     var phase: OverlayPhase = .hidden
     var languageSwitch: LanguageSwitchNotice?
     var completion: CompletionFeedback?
-    var sourceText = ""
-    var translatedText = ""
     var statusText = ""
     var sourceLanguageName = ""
     var targetLanguageName = ""
     var hotkeyLabel = String(localized: "右⌥")
     var liveInjectEnabled = true
-    /// Show recognized / translated text under the waveform.
-    var showsText = true
     /// A transient message shown in place of the waveform.
     var notice: String?
     var noticeIsWarning = false
@@ -232,7 +228,6 @@ final class OverlayController {
         target: String,
         liveInject: Bool,
         hotkeyLabel: String,
-        showsText: Bool = true,
         caretRect: NSRect? = nil
     ) {
         cancelNotice()
@@ -240,9 +235,6 @@ final class OverlayController {
         model.targetLanguageName = target
         model.liveInjectEnabled = liveInject
         model.hotkeyLabel = hotkeyLabel
-        model.showsText = showsText
-        model.sourceText = ""
-        model.translatedText = ""
         model.statusText = ""
         model.level = 0
         model.levels = Array(repeating: 0, count: OverlayModel.waveformSampleCount)
@@ -256,16 +248,6 @@ final class OverlayController {
         cancelNotice()
         model.phase = phase
         model.statusText = status
-        panel?.reposition()
-    }
-
-    func setSource(_ text: String) {
-        model.sourceText = text
-        panel?.reposition()
-    }
-
-    func setTranslation(_ text: String) {
-        model.translatedText = text
         panel?.reposition()
     }
 
@@ -285,8 +267,6 @@ final class OverlayController {
         panel?.endPresentation()
         model.phase = .hidden
         model.sweepID = 0
-        model.sourceText = ""
-        model.translatedText = ""
         model.statusText = ""
     }
 
