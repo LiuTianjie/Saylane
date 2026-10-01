@@ -2,7 +2,7 @@ APP_NAME=Saylane
 DERIVED=build
 export TZ := Asia/Shanghai
 
-.PHONY: generate build release pkg pkg-local open-pkg test test-ui test-ime verify clean
+.PHONY: generate build release pkg pkg-local open-pkg test test-ui test-ime test-duo verify clean
 
 generate:
 	scripts/generate-project.sh
@@ -34,8 +34,12 @@ test-ui:
 test-ime:
 	scripts/test-ime.sh
 
+# Both built programs together: a whole dictation with a scripted recognizer.
+test-duo:
+	scripts/test-duo.sh
+
 # Everything that can be checked on this Mac before a package is handed over.
-verify: release test test-ime test-ui
+verify: release test test-ime test-duo test-ui
 
 clean:
 	rm -rf build dist Saylane.xcodeproj

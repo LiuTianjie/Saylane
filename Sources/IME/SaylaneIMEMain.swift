@@ -11,10 +11,11 @@ enum SaylaneIMEMain {
             exit(RimeDiagnostics.run())
         }
         MainActor.assumeIsolated { InputDiagnostics.channel = "ime" }
-        if CommandLine.arguments.contains("--self-test") {
+        if CommandLine.arguments.contains("--self-test") || CommandLine.arguments.contains("--self-test-duo") {
             // Everything but InputMethodKit's transport, without registering as an input method.
+            let duo = CommandLine.arguments.contains("--self-test-duo")
             let application = NSApplication.shared
-            Task { @MainActor in exit(await IMESelfTest.run()) }
+            Task { @MainActor in exit(duo ? await IMESelfTest.runDuo() : await IMESelfTest.run()) }
             application.run()
             return
         }

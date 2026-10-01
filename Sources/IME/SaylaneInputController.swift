@@ -148,18 +148,13 @@ final class SaylaneInputController: IMKInputController, InputClientController {
                 InputDiagnostics.record("ime-activated", "client=false")
                 return
             }
-            InputDiagnostics.record("ime-activated", "bundle=\(me.textInputClient?.bundleIdentifier() ?? "unknown")")
             IMEManager.shared.attach(me)
         }
     }
     override func deactivateServer(_ sender: Any!) {
         nonisolated(unsafe) let me = self
         onMain {
-            guard let leaseID = me.sessionID else {
-                InputDiagnostics.record("ime-deactivated", "inactive")
-                return
-            }
-            InputDiagnostics.record("ime-deactivated", "current=\(IMEManager.shared.isCurrent(me, leaseID: leaseID)) bundle=\(IMEManager.shared.clientBundleID ?? "unknown")")
+            guard let leaseID = me.sessionID else { return }
             me.retire(leaseID)
         }
         super.deactivateServer(sender)

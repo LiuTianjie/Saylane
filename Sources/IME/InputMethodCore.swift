@@ -32,6 +32,8 @@ final class InputMethodCore {
     private let send: (BridgeEvent) -> Void
     private let now: () -> TimeInterval
     private let fence: InputDeferralDeadline
+    /// Metadata-only trace: stages and states, never key codes of typing or text.
+    var trace: (String, String) -> Void = { _, _ in }
 
     private(set) var context = BridgeContext()
     private(set) var trigger: PushToTalkHotkey = .rightOption
@@ -69,6 +71,10 @@ final class InputMethodCore {
         pinyin.ensureClient(manager.currentLeaseID)
         guard let meta = KeyMeta(event) else { return false }
         expireStalePhase()
+        if meta.kind == .flagsChanged, meta.keyCode == UInt16(trigger.keyCode) {
+            // Whether InputMethodKit delivers the talk key in this application at all.
+            trace("talk-key", "\(meta.flags & UInt64(trigger.nsModifierFlag.rawValue) != 0 ? "down" : "up") forwarded=\(!context.appOwnsKeys)")
+        }
         if !context.appOwnsKeys, forwards(meta) { send(.key(meta)) }
         if consumesLocally(meta) { return true }
         switch context.phase {
@@ -139,7 +145,13 @@ final class InputMethodCore {
         let previous = context
         context = next
         trigger = PushToTalkHotkey(rawValue: next.trigger) ?? trigger
-        if next.phase != previous.phase || next.session != previous.session { phaseSince = now() }
+        if next.phase != previous.phase || next.session != previous.session {
+            phaseSince = now()
+            trace("dictation", "\(next.phase.rawValue)\(next.sessionBundleID.map { " in " + $0 } ?? "")")
+        }
+        if next.appOwnsKeys != previous.appOwnsKeys {
+            trace("keys", next.appOwnsKeys ? "the main program listens to keys itself" : "keys are forwarded to the main program")
+        }
         if next.session != previous.session, next.session != nil {
             lastMarkedSeq = 0
             typingResumed = false
@@ -204,6 +216,7 @@ final class InputMethodCore {
     /// Typing wins over the wait for the final text, never at its expense:
     /// queued keys are written now, the dictation when it is ready.
     private func resumeTyping() {
+        trace("dictation", "typing went ahead of the pending text")
         typingResumed = true
         manager.clearVoiceMarked()
         replayDeferred()
@@ -235,6 +248,7 @@ final class InputMethodCore {
         case .finalizing, .polishing: limit = Self.finalizingLimit
         }
         guard now() - phaseSince > limit else { return }
+        trace("dictation", "\(context.phase.rawValue) outlived its limit; released")
         context.phase = .idle
         context.session = nil
         finish()

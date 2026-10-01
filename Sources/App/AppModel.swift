@@ -80,7 +80,10 @@ final class AppModel: VoiceSessionHost {
         // builds keeps every setting.
         preferences = PreferencesStore(backing: UserDefaults(suiteName: Bridge.defaultsSuite) ?? .standard)
         models = ModelCoordinator(preferences: preferences.current, translation: translation)
-        voice = VoiceSessionController()
+        voice = TestScript.isActive
+            ? VoiceSessionController(environment: TestScript.environment,
+                                     makeCapture: { PrerollCapture(underlying: ScriptedCapture(), limit: $0) })
+            : VoiceSessionController()
         voice.host = self
     }
 
@@ -94,6 +97,10 @@ final class AppModel: VoiceSessionHost {
         preferences.setQuitByUser(false)
         voice.overlay.prepare()
         voice.overlay.setHotkeyLabel(prefs.pushToTalk.shortLabel)
+        if TestScript.isActive {
+            // No translation models and nothing on the user's screen.
+            preferences.update { $0.recognitionOnly = true; $0.overlayEnabled = false }
+        }
         ime.onEvent = { [weak self] event in self?.handle(event) }
         ime.push(pinyin: pinyinPreferences)
         ime.start()
@@ -117,7 +124,8 @@ final class AppModel: VoiceSessionHost {
             let pid = application?.processIdentifier
             Task { @MainActor in
                 guard let self else { return }
-                self.voice.frontmostAppChanged(to: bundleID, pid: pid)
+                // A scripted dictation has its own idea of what is in front.
+                if !TestScript.isActive { self.voice.frontmostAppChanged(to: bundleID, pid: pid) }
                 self.refreshStatus(throttled: true)
             }
         }
@@ -214,7 +222,7 @@ final class AppModel: VoiceSessionHost {
             $0.tapToTalk = p.tapToTalk
             $0.isListening = isListening
             $0.voiceCapturing = voice.isCapturing
-            $0.voiceEnabled = readinessState.inputSource.enabled
+            $0.voiceEnabled = voiceReadiness.inputSource.enabled
             $0.isOursSelected = readinessState.inputSource.selected
             $0.globalEventsCanBeConsumed = globalEventsCanBeConsumed
             $0.screenShortcut = p.screenCaptureShortcut
@@ -480,7 +488,8 @@ final class AppModel: VoiceSessionHost {
     /// A key went down while a modifier talk key was being held, as the window
     /// server saw it. Needs no permission and works under any input source.
     private func chordDuringHold(since interval: TimeInterval) -> Bool {
-        guard prefs.pushToTalk.isModifier else { return false }
+        // A test home is driven by posted events; the hardware belongs to the user.
+        guard prefs.pushToTalk.isModifier, !TestHome.isActive else { return false }
         // The hardware state: not changed by our own listener swallowing the
         // talk key. Our own ⌘V from the previous dictation is not a chord.
         let since = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .keyDown)
@@ -531,7 +540,11 @@ final class AppModel: VoiceSessionHost {
 
     // MARK: VoiceSessionHost
 
+    /// What a dictation may rely on. A test home with a script has everything.
+    var voiceReadiness: Readiness { TestScript.isActive ? TestScript.readiness : readinessState }
+
     func makeSpeechEngine() -> any SpeechRecognizing {
+        if let scripted = TestScript.speech { return ScriptedSpeech(scripted) }
         // Apple biases recognition with contextual strings, Qwen with its prompt; the FunASR
         // CLIs accept no hotwords, so those engines rely on post-recognition vocabulary repair.
         let model = prefs.speechModel
@@ -593,14 +606,15 @@ final class AppModel: VoiceSessionHost {
                 // Our own text fields can always be written without anybody's help.
                 return own && LocalTextInserter.insert(text)
             },
-            paste: { AccessibilityInserter.paste($0) },
-            copy: { AccessibilityInserter.copy($0) },
+            // A test home never posts keys and never touches the user's pasteboard.
+            paste: { TestHome.isActive ? false : AccessibilityInserter.paste($0) },
+            copy: { if TestHome.isActive { TestScript.pasteboard.append($0) } else { AccessibilityInserter.copy($0) } },
             end: { ime.end(session: session) })
     }
 
     /// Put the most recent dictation on the pasteboard (input-method menu).
     func copyLastDictation() {
-        guard let text = voice.lastDictation else { return }
+        guard let text = voice.lastDictation, !TestHome.isActive else { return }
         AccessibilityInserter.copy(text)
         post(.transient(String(localized: "上一次听写已复制到剪贴板。")))
     }

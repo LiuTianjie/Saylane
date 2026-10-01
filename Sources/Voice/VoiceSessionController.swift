@@ -6,7 +6,8 @@ import Observation
 @MainActor
 protocol VoiceSessionHost: AnyObject {
     var prefs: Preferences { get }
-    var readinessState: Readiness { get }
+    /// Permissions, input source and models, as far as a dictation depends on them.
+    var voiceReadiness: Readiness { get }
     func makeSpeechEngine() -> any SpeechRecognizing
     func makeRefine() -> ((String) -> String)?
     func makePolish() -> ((String, String) async throws -> String)?
@@ -71,7 +72,7 @@ final class VoiceSessionController {
     /// The key went down but the gesture is not final yet: open the microphone now.
     func arm() {
         guard !isListening, preroll == nil, let host else { return }
-        guard host.readinessState.permissions.microphone == .granted else { return }
+        guard host.voiceReadiness.permissions.microphone == .granted else { return }
         let capture = makeCapture(policy.prerollLimit)
         capture.onLevel = { [weak self] in self?.overlay.setLevel($0) }
         do {
@@ -142,7 +143,7 @@ final class VoiceSessionController {
         guard let host, !isListening else { return }
         host.refreshInputSourceStatus()
         let p = host.prefs
-        let readiness = host.readinessState
+        let readiness = host.voiceReadiness
         let front = environment.frontmostBundleID()
         record("start-check", "selected=\(readiness.inputSource.selected) front=\(front ?? "none") mic=\(readiness.permissions.microphone == .granted) speech=\(readiness.models.speechReady) translation=\(readiness.models.translationReady) checking=\(readiness.models.busy)")
 
@@ -193,7 +194,7 @@ final class VoiceSessionController {
             break
         case .copied:
             // Report whichever route was missing; the text itself is safe on the pasteboard.
-            deliveryNotice = host?.readinessState.permissions.accessibility == true
+            deliveryNotice = host?.voiceReadiness.permissions.accessibility == true
                 ? .transient(String(localized: "没能直接写入，文字已复制到剪贴板，按 ⌘V 粘贴。"))
                 : .actionable(String(localized: "这里无法通过输入法写入，文字已复制到剪贴板，按 ⌘V 粘贴。允许“辅助功能”后会自动写入。"), .permissions)
         case .copiedAfterAppSwitch:

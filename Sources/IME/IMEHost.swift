@@ -9,9 +9,13 @@ final class IMEHost {
     static let shared = IMEHost()
 
     let pinyin = PinyinEngine()
-    private lazy var core = InputMethodCore(manager: IMEManager.shared, pinyin: pinyin) { [weak self] event in
-        self?.post(event)
-    }
+    private lazy var core: InputMethodCore = {
+        let core = InputMethodCore(manager: IMEManager.shared, pinyin: pinyin) { [weak self] event in
+            self?.post(event)
+        }
+        core.trace = { InputDiagnostics.record($0, $1) }
+        return core
+    }()
     private var listener: BridgeListener?
     private let app = BridgeSender(name: Bridge.appPortName)
     private var appWatch: DispatchSourceProcess?
@@ -31,6 +35,7 @@ final class IMEHost {
 
     var menu: BridgeMenuState { core.context.menu }
     var isDictating: Bool { core.context.phase != .idle }
+    var trigger: PushToTalkHotkey { core.trigger }
     var englishMode: Bool { pinyin.englishMode }
     var mainProgramConnected: Bool { watchedPID != 0 }
 
@@ -65,6 +70,7 @@ final class IMEHost {
             self?.pinyin.switchClient(to: controller?.sessionID)
         }
         IMEManager.shared.onAttachmentChanged = { [weak self] bundleID in
+            InputDiagnostics.record("client", bundleID ?? "none")
             self?.post(.attachment(bundleID: bundleID))
             if bundleID != nil { self?.startMainProgram(reason: "client attached") }
         }

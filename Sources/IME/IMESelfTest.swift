@@ -171,4 +171,78 @@ enum IMESelfTest {
         print(failures == 0 ? "PASS: input method self-test" : "FAILED: \(failures) check(s)")
         return failures == 0 ? 0 : 1
     }
+
+    private static func wait(_ seconds: TimeInterval, until condition: () -> Bool) async -> Bool {
+        let end = ProcessInfo.processInfo.systemUptime + seconds
+        while ProcessInfo.processInfo.systemUptime < end {
+            if condition() { return true }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return condition()
+    }
+
+    private static func modifier(_ trigger: PushToTalkHotkey, down: Bool) -> NSEvent {
+        NSEvent.keyEvent(with: .flagsChanged, location: .zero, modifierFlags: down ? trigger.nsModifierFlag : [],
+                         timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0, context: nil, characters: "",
+                         charactersIgnoringModifiers: "", isARepeat: false, keyCode: UInt16(trigger.keyCode))!
+    }
+
+    /// `--self-test-duo`: this process plays the input method for a main program
+    /// started in the same test home with a scripted recognizer. Keys go in here
+    /// exactly as InputMethodKit would deliver them; the dictation they start
+    /// in the other process must come back as text in this process's client.
+    static func runDuo() async -> Int32 {
+        setvbuf(stdout, nil, _IONBF, 0)
+        guard TestHome.isActive, let expected = ProcessInfo.processInfo.environment["SAYLANE_TEST_SPEECH"], !expected.isEmpty else {
+            print("duo self-test needs SAYLANE_TEST_HOME and SAYLANE_TEST_SPEECH")
+            return 2
+        }
+        let host = IMEHost.shared
+        host.start()
+        let client = Client()
+        let controller = StandIn(client: client)
+        IMEManager.shared.attach(controller)
+        check(await wait(15) { host.mainProgramConnected }, "the main program found the input method and introduced itself")
+        guard host.mainProgramConnected else { return 1 }
+        let trigger = host.trigger
+
+        // A chord with the talk key: nothing may happen in either process.
+        _ = controller.handle(modifier(trigger, down: true))
+        _ = controller.handle(key("c", kVK_ANSI_C, flags: trigger.nsModifierFlag))
+        _ = await wait(0.7) { host.isDictating }
+        _ = controller.handle(modifier(trigger, down: false))
+        check(!host.isDictating && client.calls == 0, "a chord with the talk key starts nothing")
+
+        // A tap: nothing either.
+        _ = controller.handle(modifier(trigger, down: true))
+        try? await Task.sleep(for: .milliseconds(60))
+        _ = controller.handle(modifier(trigger, down: false))
+        _ = await wait(0.6) { host.isDictating }
+        check(!host.isDictating && client.calls == 0, "a tap of the talk key starts nothing")
+
+        // Held on its own: the dictation starts over there, its preview shows up here.
+        _ = controller.handle(modifier(trigger, down: true))
+        check(await wait(3) { host.isDictating }, "holding the talk key starts a dictation in the main program")
+        check(await wait(3) { !client.marked.isEmpty }, "its preview appears at the caret (\"\(client.marked)\")")
+        _ = controller.handle(modifier(trigger, down: false))
+        check(await wait(5) { client.inserted.last == expected }, "releasing writes the final text (\(client.inserted))")
+        check(await wait(3) { !host.isDictating }, "and the dictation ends")
+        check(client.marked.isEmpty, "no preview is left behind")
+
+        // Typing still works afterwards.
+        if host.englishMode { host.toggleEnglishMode() }
+        for (letter, code) in [("n", kVK_ANSI_N), ("i", kVK_ANSI_I)] { _ = controller.handle(key(letter, code)) }
+        _ = controller.handle(key(" ", kVK_Space))
+        check(client.inserted.last == "你", "pinyin still composes after a dictation (\(client.inserted))")
+
+        // A second dictation, to be sure nothing of the first one lingers.
+        _ = controller.handle(modifier(trigger, down: true))
+        _ = await wait(3) { host.isDictating }
+        _ = await wait(3) { !client.marked.isEmpty }
+        _ = controller.handle(modifier(trigger, down: false))
+        check(await wait(5) { client.inserted.filter { $0 == expected }.count == 2 }, "a second dictation is written as well")
+
+        print(failures == 0 ? "PASS: two-process self-test" : "FAILED: \(failures) check(s)")
+        return failures == 0 ? 0 : 1
+    }
 }

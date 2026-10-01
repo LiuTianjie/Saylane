@@ -83,6 +83,7 @@ import Carbon.HIToolbox
 @MainActor private final class Host: VoiceSessionHost {
     var prefs = Preferences()
     var readinessState = Readiness()
+    var voiceReadiness: Readiness { readinessState }
     let writer = Writer()
     var speeches: [Speech] = []
     var notices: [UserNotice] = []
