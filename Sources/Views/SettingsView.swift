@@ -4,7 +4,6 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var deletingSpeechModel: SpeechModel?
-    var initialSetupStep = 0
 
     private struct Tab: Identifiable, Hashable {
         let id: Int
@@ -25,7 +24,7 @@ struct SettingsView: View {
         @Bindable var model = model
         Group {
             if model.isShowingSetup {
-                OnboardingView(initialStep: max(initialSetupStep, model.setupStartStep))
+                WelcomeView()
             } else {
                 HStack(spacing: 0) {
                     VStack(alignment: .leading, spacing: 5) {
@@ -274,8 +273,6 @@ struct SettingsView: View {
             LabeledContent(String(localized: "快捷键")) {
                 ShortcutRecorderField()
             }
-            Toggle(String(localized: "长按左 ⌃ 也能划选"), isOn: model.binding(\.screenHoldEnabled))
-                .help(String(localized: "按住左 ⌃ 约 0.3 秒进入划选。终端用户常先按住 ⌃，默认关闭以免误触。"))
             LabeledContent(String(localized: "钉住后")) {
                 Text(String(localized: "Tab 切换原文 / 译文，⌘C 复制，D 换方向，Esc 关闭；可拖动")).foregroundStyle(.secondary)
             }

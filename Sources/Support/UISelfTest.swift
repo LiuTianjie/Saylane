@@ -20,20 +20,33 @@ enum UISelfTest {
             if !condition { failures.append(message) }
         }
 
-        // 1. The setup window opens, is key, and its buttons answer clicks.
+        // 1. The welcome page opens in a key window and its button answers a click.
         model.beginSetup()
         await settle()
         guard let window = NSApp.windows.first(where: { $0.isVisible && $0.title == "Saylane" }) else {
             print("FAIL no settings window")
             return 1
         }
-        check(window.isKeyWindow, "setup window is key")
-        check(model.isShowingSetup, "setup is showing")
-        let later = click("setup-later", in: window)
-        await settle()
-        check(later && !model.isShowingSetup, "a click on “set up later” leaves the guide")
+        check(window.isKeyWindow, "the welcome window is key")
+        check(model.isShowingSetup && UISelfTestAnchors.frames["welcome"] != nil, "the welcome page is showing")
 
-        // 2. Settings: a click on a sidebar row changes the page.
+        // 2. The trial field on that page is an ordinary text view: a dictation
+        //    can be written into it, and what is written reaches the model.
+        model.testText = ""
+        let field = firstTextView(in: window.contentView)
+        check(field != nil, "the welcome page has the trial field")
+        if let field {
+            window.makeFirstResponder(field)
+            check(LocalTextInserter.insert("听写"), "text can be written into the focused field of this process")
+            await settle()
+            check(model.testText.contains("听写"), "the written text reaches the model (\"\(model.testText)\")")
+        }
+        let done = click("welcome-done", in: window)
+        await settle()
+        check(done && !model.isShowingSetup && model.setupCompleted, "a click on “get started” leaves the welcome page for good")
+
+        // 3. Settings: a click on a sidebar row changes the page, and the guide
+        //    button brings the welcome page back.
         model.openSettings(tab: 1)
         await settle()
         let moved = click("tab-0", in: window)
@@ -41,45 +54,16 @@ enum UISelfTest {
         check(moved && model.settingsTab == 0, "a click on a sidebar row changes the page (1 → \(model.settingsTab))")
         let guide = click("setup-guide", in: window)
         await settle()
-        check(guide && model.isShowingSetup, "a click on the guide button opens the guide again")
-
-        // 3. The trial field is an ordinary text view: a dictation can be
-        //    written into it, and what is written reaches the model.
+        check(guide && model.isShowingSetup, "a click on the guide button opens the welcome page again")
         model.deferSetup()
-        model.setupStartStep = 3
-        model.beginSetup()
         await settle()
-        model.testText = ""
-        let field = firstTextView(in: window.contentView)
-        check(field != nil, "the trial page has a text view")
-        if let field {
-            window.makeFirstResponder(field)
-            check(LocalTextInserter.insert("听写"), "text can be written into the focused field of this process")
-            await settle()
-            check(model.testText.contains("听写"), "the written text reaches the model (\"\(model.testText)\")")
-        }
-        model.setupStartStep = 0
 
-        // An upgrade: the guide was finished before, but this program still
-        // lacks something required (to macOS it is a new application, so the
-        // microphone has to be allowed again). Opening Saylane — by hand, or
-        // by the installer once the input method has already started it —
-        // goes straight to the permissions.
-        model.finishSetup()
+        // Opened again later (by hand, or by an installer over a running
+        // program): the settings, not the welcome page — whatever permission
+        // may be missing is asked for where it is needed.
+        AppDelegate.showWelcomeIfNew { $0.openSettings() }
         await settle()
-        check(model.setupCompleted && !model.isShowingSetup, "finishing the guide is remembered")
-        if model.readinessState.requiredSetupComplete {
-            print("skip the upgrade path: nothing required is missing here")
-        } else {
-            UISelfTestAnchors.frames["setup-permissions"] = nil
-            AppDelegate.showGuideIfNeeded { $0.openSettings() }
-            await settle()
-            check(model.isShowingSetup && UISelfTestAnchors.frames["setup-permissions"] != nil,
-                  "opened after an upgrade with a permission missing, the guide shows the permissions")
-            model.deferSetup()
-            await settle()
-            check(model.setupStartStep == 0, "leaving the guide resets where it starts next time")
-        }
+        check(!model.isShowingSetup, "once finished, the welcome page does not come back by itself")
 
         // 4. The talk-key gesture reaches the model from this window's own key
         //    monitor: hold alone starts, a chord does not.

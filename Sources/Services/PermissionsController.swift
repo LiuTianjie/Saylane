@@ -40,9 +40,14 @@ final class PermissionsController {
 
     // MARK: - Requests
 
-    func openInputMethodSettings() {
-        InputSourceInstall.openSystemInputSourceSettings()
-        if InputSourceInstall.isInstalledLocation { enableInputSource() }
+    /// Make Saylane the current input method. It is already in the list.
+    func selectInputSource() {
+        // A test home looks at the input sources of this Mac and leaves them alone.
+        guard !TestHome.isActive else { return }
+        if InputSourceInstall.isEnabled, !InputSourceInstall.isSelected, !InputSourceInstall.selectEnabledMode() {
+            onNotice?(.actionable(InputSourceInstall.lastFailure ?? String(localized: "切换未完成。"), .permissions))
+        }
+        onChanged?()
     }
 
     func requestSpeechRecognition() async {
@@ -77,10 +82,17 @@ final class PermissionsController {
         return service.screenCaptureGranted
     }
 
-    // MARK: - Enable the input source
+    // MARK: - Add the input source
 
-    func enableInputSource() {
-        guard !isActivatingInputSource else { return }
+    /// How long the system gets to add the input source before the user is
+    /// shown where to do it by hand.
+    static let addInPlaceLimit: Duration = .seconds(8)
+
+    /// Add Saylane to the input sources and, if asked, make it the current one
+    /// — from here, the way other input methods install themselves. System
+    /// Settings is opened only when the system does not go along.
+    func addInputSource(select: Bool) {
+        guard !isActivatingInputSource, !TestHome.isActive else { return }
         isActivatingInputSource = true
         activationTask = Task { [weak self] in
             guard let self else { return }
@@ -89,27 +101,32 @@ final class PermissionsController {
                 self.onNotice?(.actionable(InputSourceInstall.lastFailure ?? String(localized: "系统尚未发现输入法。"), .permissions))
                 return
             }
-            // Keep the GUI run loop alive for the native approval flow. Fresh handles
-            // are queried on every poll; no preference writes or unrelated IME toggles.
+            // Enabling the component and publishing its mode are asynchronous:
+            // fresh handles are read on every poll and the mode is requested
+            // once, after the component shows up enabled.
             var requestedMode = false
-            for _ in 0..<120 {
+            var openedSettings = false
+            let start = ContinuousClock.now
+            for _ in 0..<240 {
                 guard !Task.isCancelled else { return }
                 self.onChanged?()
                 if InputSourceInstall.isEnabled {
-                    if !InputSourceInstall.selectEnabledMode() {
+                    if select, !InputSourceInstall.selectEnabledMode() {
                         self.onNotice?(.actionable(InputSourceInstall.lastFailure ?? String(localized: "切换未完成。"), .permissions))
                     }
                     return
                 }
-                // Enabling the parent and publishing its child are asynchronous.
-                // Re-read fresh objects and issue an idempotent child request;
-                // never infer that it was requested merely because the parent
-                // happened to flip state between two reads.
                 if InputSourceInstall.parentEnabled, !requestedMode,
                    InputSourceInstall.requestModeEnable() {
                     requestedMode = true
                 }
-                try? await Task.sleep(for: .milliseconds(500))
+                if !openedSettings, ContinuousClock.now - start > Self.addInPlaceLimit {
+                    // The system did not add it by itself: show where it is done by hand.
+                    openedSettings = true
+                    InputSourceInstall.openSystemInputSourceSettings()
+                    self.onNotice?(.actionable(String(localized: "系统没有自动添加 Saylane。已打开系统设置：在输入法列表下点 +，选择「简体中文」里的 Saylane。"), .permissions))
+                }
+                try? await Task.sleep(for: .milliseconds(250))
             }
             self.onNotice?(.actionable(InputSourceInstall.lastFailure
                 ?? String(localized: "文件已安装，但系统尚未启用 Saylane。请完成系统的允许或添加操作；若添加列表仍不可见，请保存工作后注销并重新登录。"), .permissions))

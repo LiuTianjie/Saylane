@@ -4,8 +4,8 @@ import Carbon.HIToolbox
 /// One value type recognises every gesture Saylane reacts to, in a fixed priority
 /// order, from a single event stream. Time is injected so tests need no timers.
 ///
-/// Priority: shortcut recording → pin keys → screen hold → direction double-tap →
-/// screen capture shortcut → voice trigger. A screen session suppresses voice.
+/// Priority: shortcut recording → pin keys → direction double-tap → screen
+/// capture shortcut → voice trigger. A screen session suppresses voice.
 struct GestureArbiter {
     struct Result: Equatable {
         var actions: [InputAction] = []
@@ -14,7 +14,6 @@ struct GestureArbiter {
     }
 
     private var voice = VoiceGesture()
-    private var screenHold = ScreenHoldHandler()
     private var rightCommandTap = RightCommandDoubleTap()
 
     /// A talk-key press is in progress (pending, talking or void until released).
@@ -24,7 +23,6 @@ struct GestureArbiter {
 
     mutating func reset() {
         voice.reset()
-        screenHold.reset()
         rightCommandTap.reset()
     }
 
@@ -36,18 +34,9 @@ struct GestureArbiter {
         voice.trigger(down: false, alone: true, now: now, config: Self.config(c)).map(InputAction.voice)
     }
 
-    mutating func noteEndedSelection() { screenHold.noteEndedSelection() }
-    mutating func setPinVisible(_ visible: Bool) { screenHold.setPinVisible(visible) }
-
     /// Timer callback for the talk key.
     mutating func voiceDeadline(now: TimeInterval) -> [InputAction] {
         voice.deadline(now: now).map(InputAction.voice)
-    }
-
-    /// Timer callback for the left-Control screen hold.
-    mutating func screenHoldDeadline(now: TimeInterval) -> InputAction? {
-        let next = screenHold.holdDeadline(now: now)
-        return next == .none ? nil : .screenHold(next)
     }
 
     private static func config(_ c: InputContext) -> VoiceGesture.Config {
@@ -94,21 +83,14 @@ struct GestureArbiter {
             rightCommandTap.reset()
         }
 
-        // 3. Long-press left Control (opt-in) starts a selection.
-        if c.screenActive || (c.screenHoldEnabled && !(c.voiceEnabled && c.trigger == .leftControl)) {
-            let action = screenHold.handle(type: event.type, keyCode: event.keyCode, flags: event.flags, now: now,
-                                           deliversKeyUp: event.source != .imk)
-            if action != .none { result.actions.append(.screenHold(action)) }
-        }
-
-        // 4. Double-tap right Command cycles the direction, unless it is the talk key.
+        // 3. Double-tap right Command cycles the direction, unless it is the talk key.
         if c.voiceEnabled, c.switchEnabled, event.type == .flagsChanged, c.trigger != .rightCommand || c.screenActive {
             if rightCommandTap.handle(flags: event.flags, now: now) {
                 result.actions.append(.switchDirection)
             }
         }
 
-        // 5. Screen-capture chord.
+        // 4. Screen-capture chord.
         if event.type == .keyDown, !event.isRepeat, c.screenShortcut.matches(keyCode: event.keyCode, flags: event.flags) {
             // A listen-only tap cannot swallow the chord; let IMK handle it when
             // our source is selected and otherwise leave the foreground app alone.
@@ -119,7 +101,7 @@ struct GestureArbiter {
             return result
         }
 
-        // 6. Talk key, suppressed while a screen session is active.
+        // 5. Talk key, suppressed while a screen session is active.
         if c.screenActive || !c.voiceEnabled {
             voice.reset()
             if !c.voiceEnabled { rightCommandTap.reset() }

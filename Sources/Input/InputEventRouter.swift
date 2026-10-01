@@ -24,7 +24,6 @@ final class InputEventRouter {
     private let tap: GlobalHotkeyMonitor
     private var voiceDeadline: Task<Void, Never>?
     private var armedVoiceDeadline: TimeInterval?
-    private var screenDeadline: Task<Void, Never>?
     private var pump: Task<Void, Never>?
     private let now: () -> TimeInterval
 
@@ -58,13 +57,10 @@ final class InputEventRouter {
     func reset() {
         voiceDeadline?.cancel(); voiceDeadline = nil
         armedVoiceDeadline = nil
-        screenDeadline?.cancel(); screenDeadline = nil
         shared.reset()
     }
 
-    func noteEndedSelection() { shared.withArbiter { $0.noteEndedSelection() } }
     func setPinVisible(_ visible: Bool) {
-        shared.withArbiter { $0.setPinVisible(visible) }
         updateContext { $0.pinVisible = visible }
     }
 
@@ -110,21 +106,6 @@ final class InputEventRouter {
     // MARK: - Dispatch and timers
 
     private func dispatch(_ action: InputAction) {
-        switch action {
-        case .screenHold(.armHold):
-            screenDeadline?.cancel()
-            screenDeadline = Task { [weak self] in
-                do { try await Task.sleep(for: .seconds(ScreenHoldHandler.holdDelay)) } catch { return }
-                guard let self else { return }
-                if let next = self.shared.withArbiter({ $0.screenHoldDeadline(now: self.now()) }) {
-                    self.dispatch(next)
-                }
-            }
-        case .screenHold:
-            screenDeadline?.cancel(); screenDeadline = nil
-        default:
-            break
-        }
         onAction?(action)
     }
 
@@ -133,7 +114,6 @@ final class InputEventRouter {
         case .actions(let actions):
             for action in actions { dispatch(action) }
         case .interrupted(let actions, let capability):
-            screenDeadline?.cancel(); screenDeadline = nil
             onGlobalCapabilityChanged?(capability != .unavailable, capability == .filtering)
             for action in actions { dispatch(action) }
         }
@@ -251,13 +231,11 @@ final class SharedArbiter: @unchecked Sendable {
     func interruptFromTap(capability: GlobalHotkeyMonitor.KeyboardCapability) {
         lock.lock()
         let cancelVoice = context.voiceCapturing || arbiter.voiceGestureActive
-        let cancelSelection = context.screenActive && !context.pinVisible
         context.globalEventsCanBeConsumed = capability == .filtering
         arbiter.reset()
         recent.removeAll(keepingCapacity: true)
         var actions: [InputAction] = []
         if cancelVoice { actions.append(.voice(.cancel)) }
-        if cancelSelection { actions.append(.screenHold(.cancel)) }
         pendingMessages.append(.interrupted(actions, capability))
         lock.unlock()
         continuation?.yield(())

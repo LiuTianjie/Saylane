@@ -27,7 +27,6 @@ final class ScreenFeature {
 
     func wire(router: InputEventRouter) {
         controller.onError = { [weak self] message in self?.onNotice?(.transient(message)) }
-        controller.onSelectionEnded = { [weak router] in router?.noteEndedSelection() }
         controller.onPinVisibilityChanged = { [weak self, weak router] visible in
             router?.setPinVisible(visible)
             self?.onActivityChanged?()
@@ -61,15 +60,6 @@ final class ScreenFeature {
         controller.polish = p.screenPolishEnabled ? Self.makePolish(endpoint: p.finalPolishEndpoint, model: p.finalPolishModel) : nil
         let (a, b) = pairForDirection()
         controller.beginSelection(a: a, b: b, last: last, preserveKeyboardFocus: preserveKeyboardFocus || keysHandledGlobally())
-    }
-
-    func handleHold(_ action: ScreenHoldHandler.Action) {
-        switch action {
-        case .begin: handleCaptureHotkey(preserveKeyboardFocus: true)
-        case .cancel: if controller.isSelecting { controller.cancel() }
-        case .toggle: controller.toggleOverlay()
-        case .armHold, .none: break
-        }
     }
 
     func handlePinKey(_ key: ScreenPinKey) {

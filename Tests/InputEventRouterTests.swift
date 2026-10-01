@@ -56,20 +56,6 @@ import Carbon.HIToolbox
         router.reset()
         router.updateContext { $0.trigger = .rightOption; $0.isListening = false }
 
-        // Screen hold deadline is also router-driven.
-        router.updateContext { $0.screenHoldEnabled = true }
-        clock += 1
-        _ = router.feed(InputEvent(source: .imk, type: .flagsChanged, keyCode: UInt16(kVK_Control),
-                                   flags: PushToTalkHotkey.leftControl.deviceMask, isRepeat: false, timestamp: clock))
-        precondition(actions == [.screenHold(.armHold)])
-        await settle(140)
-        precondition(actions == [.screenHold(.armHold)], "screen hold fired before its deadline")
-        clock += 0.35
-        await settle(230)
-        precondition(actions == [.screenHold(.armHold), .screenHold(.begin)], "\(actions)")
-        actions = []
-        router.reset()
-
         // Context snapshots are readable back.
         router.updateContext { $0.pinVisible = true }
         precondition(router.context.pinVisible)
@@ -145,26 +131,6 @@ import Carbon.HIToolbox
         precondition(actions == [.voice(.cancel)], "tap interruption left stale work: \(actions)")
         precondition(router.context.globalEventsCanBeConsumed)
         precondition(capabilities == ["true-true"])
-
-        // The same interruption also invalidates the left-Control screen timer.
-        actions = []
-        router.reset()
-        router.updateContext {
-            $0.trigger = .rightOption
-            $0.screenHoldEnabled = true
-            $0.screenActive = false
-        }
-        clock = 350
-        _ = router.feed(InputEvent(source: .tap, type: .flagsChanged, keyCode: UInt16(kVK_Control),
-                                   flags: PushToTalkHotkey.leftControl.deviceMask,
-                                   isRepeat: false, timestamp: clock))
-        precondition(actions == [.screenHold(.armHold)])
-        router.globalTapDidInterrupt(capability: .observing)
-        clock += 1
-        await settle(360)
-        precondition(actions == [.screenHold(.armHold)], "tap interruption promoted stale screen hold: \(actions)")
-        precondition(!router.context.globalEventsCanBeConsumed)
-        precondition(capabilities == ["true-true", "true-false"])
 
         // A passive tap defers a screen chord to IMK. Its empty observation must
         // not enter dedupe history and suppress the local, consumable copy.

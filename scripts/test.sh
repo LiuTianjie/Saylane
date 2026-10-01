@@ -48,9 +48,9 @@ swiftc -framework AppKit Sources/Models/AppLanguage.swift Sources/Screen/ScreenL
 swiftc -framework AppKit -framework Vision Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Screen/ScreenOCRService.swift Tests/ScreenFontCalibrationTests.swift -o build/tests/screen-font
 build/tests/screen-font
 build/tests/screen-translate
-swiftc -framework AppKit Sources/Models/PushToTalkHotkey.swift Sources/Input/ScreenHoldHandler.swift Tests/ScreenHoldTests.swift -o build/tests/screen-hold
-build/tests/screen-hold
-INPUT_SOURCES="Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Models/PushToTalkHotkey.swift Sources/Input/VoiceGesture.swift Sources/Input/ScreenHoldHandler.swift Sources/Input/InputEvent.swift Sources/Input/GestureArbiter.swift Sources/Input/ShortcutValidator.swift"
+swiftc -framework AppKit Sources/Models/PushToTalkHotkey.swift Sources/Input/RightCommandDoubleTap.swift Tests/RightCommandDoubleTapTests.swift -o build/tests/double-tap
+build/tests/double-tap
+INPUT_SOURCES="Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Models/PushToTalkHotkey.swift Sources/Input/VoiceGesture.swift Sources/Input/RightCommandDoubleTap.swift Sources/Input/InputEvent.swift Sources/Input/GestureArbiter.swift Sources/Input/ShortcutValidator.swift"
 swiftc -framework AppKit $INPUT_SOURCES Tests/GestureArbiterTests.swift -o build/tests/gesture-arbiter
 build/tests/gesture-arbiter
 swiftc -framework AppKit $INPUT_SOURCES Tests/ShortcutValidatorTests.swift -o build/tests/shortcut-validator

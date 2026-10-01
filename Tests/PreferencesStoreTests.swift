@@ -10,10 +10,16 @@ import Carbon.HIToolbox
             precondition(store.current == Preferences())
             precondition(store.current.pushToTalk == .rightOption)
             precondition(store.current.dictationGlossaryEnabled == false, "network access is opt-in")
-            precondition(store.current.screenHoldEnabled == false)
             precondition(store.current.screenPinFreezesScreen == false)
             precondition(!store.current.onboardingCompleted)
             precondition(backing.storage.isEmpty, "nothing is written until something changes")
+        }
+        // A setting of a feature that is gone (the Control long-press) is removed from storage.
+        do {
+            let backing = InMemoryPreferencesBacking(["screenHoldEnabled": true, "sourceLanguage": "en"])
+            let store = PreferencesStore(backing: backing)
+            precondition(backing.storage["screenHoldEnabled"] == nil && store.current.sourceLanguage == .en)
+            precondition(backing.storage.count == 1, "\(backing.storage)")
         }
         // Upgrade: every pre-0.3 key is read under its old name.
         do {
@@ -40,8 +46,9 @@ import Carbon.HIToolbox
             precondition(p.screenCaptureShortcut.keyCode == UInt16(kVK_ANSI_S) && p.screenCaptureShortcut.normalizedFlags == (ScreenModifier.command | ScreenModifier.option))
             precondition(!p.screenFontWeightExperiment && p.screenTranslateSource == .ja && p.screenTranslateTarget == .en)
             precondition(p.pinyinEnglishMode && p.pinyinBarPreeditEnabled && !p.pinyinFuzzyEnabled)
-            precondition(p.onboardingCompleted, "setupVerifiedV7 migrates to onboardingVersion")
-            precondition(backing.storage["onboardingVersion"] as? Int == Preferences.currentOnboardingVersion)
+            // The old flag stood for the first guide; the 0.4 welcome page is shown once more.
+            precondition(p.onboardingVersion == 1 && !p.onboardingCompleted, "setupVerifiedV7 migrates to onboardingVersion 1")
+            precondition(backing.storage["onboardingVersion"] as? Int == 1)
         }
         // An unusable stored screen shortcut falls back to ⌥T.
         do {

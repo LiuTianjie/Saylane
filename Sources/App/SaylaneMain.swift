@@ -46,9 +46,8 @@ enum SaylaneMain {
                 window.titleVisibility = .hidden
                 window.minSize = NSSize(width: 780, height: 640)
                 window.toolbarStyle = .unified
-                let previewStep = Bundle.main.object(forInfoDictionaryKey: "SaylaneUIPreviewSetupStep") as? Int
-                model.isShowingSetup = previewStep != nil
-                window.contentView = NSHostingView(rootView: SettingsView(initialSetupStep: previewStep ?? 0).environment(model)
+                model.isShowingSetup = Bundle.main.object(forInfoDictionaryKey: "SaylaneUIPreviewSetup") as? Bool == true
+                window.contentView = NSHostingView(rootView: SettingsView().environment(model)
                     .preferredColorScheme(Bundle.main.object(forInfoDictionaryKey: "SaylaneUIPreviewDark") as? Bool == true ? .dark : nil))
                 window.center()
                 window.makeKeyAndOrderFront(nil)

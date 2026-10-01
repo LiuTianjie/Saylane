@@ -19,7 +19,7 @@ swiftc -swift-version 6 -strict-concurrency=complete "${shared[@]}" \
   Sources/Core/AppDirectories.swift Sources/Core/Preferences.swift Sources/Core/Readiness.swift Sources/Core/UserNotice.swift \
   Sources/Input/InputEvent.swift Sources/Input/InputEventRouter.swift Sources/Input/GestureArbiter.swift \
   Sources/Input/GlobalHotkeyMonitor.swift Sources/Input/VoiceGesture.swift \
-  Sources/Input/ScreenHoldHandler.swift Sources/Input/ShortcutValidator.swift \
+  Sources/Input/RightCommandDoubleTap.swift Sources/Input/ShortcutValidator.swift \
   Sources/Voice/OverlayController.swift Sources/Views/OverlayView.swift Sources/Voice/AccessibilityInserter.swift \
   Sources/Voice/VoiceInputEnvironment.swift Sources/Voice/VoiceTarget.swift Sources/Voice/VoiceSessionController.swift \
   Sources/Support/InputDiagnostics.swift \

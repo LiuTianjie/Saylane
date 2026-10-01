@@ -31,7 +31,6 @@ final class ScreenTranslateController {
     var keysHandledGlobally: () -> Bool = { false }
     private(set) var direction = TranslationDirection(source: .zhHans, target: .en)
     var onError: ((String) -> Void)?
-    var onSelectionEnded: (() -> Void)?
     var onPinVisibilityChanged: ((Bool) -> Void)?
     var onScreenActiveChanged: ((Bool) -> Void)?
     var onDirectionChanged: ((TranslationDirection) -> Void)?
@@ -160,7 +159,6 @@ final class ScreenTranslateController {
     private func completeSelection(rect: CGRect, screen: NSScreen) {
         guard isSelecting else { return }
         tearDownSelection()
-        onSelectionEnded?()
         let token = generation
         onDirectionChanged?(direction)
         let display = ScreenCaptureService.Display(screen)

@@ -281,32 +281,12 @@
         }
       }
     },
-    "Saylane 以输入法的方式把文字直接写进光标处，不用剪贴板。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saylane writes text at the cursor as an input method, without the clipboard."
-          }
-        }
-      }
-    },
     "Saylane 设置…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Saylane Settings…"
-          }
-        }
-      }
-    },
-    "See you tomorrow at 3 PM.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "See you tomorrow at 3 PM."
           }
         }
       }
@@ -361,42 +341,12 @@
         }
       }
     },
-    "一次开一项。开启后会自动更新状态，回到这里继续即可。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "One at a time. The status updates by itself once granted; just come back here."
-          }
-        }
-      }
-    },
     "上一次听写已复制到剪贴板。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The last dictation is on the clipboard."
-          }
-        }
-      }
-    },
-    "上一步": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Back"
-          }
-        }
-      }
-    },
-    "下一步": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Next"
           }
         }
       }
@@ -457,16 +407,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Designed for macOS"
-          }
-        }
-      }
-    },
-    "也可以直接写下原话": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Or write down exactly what you said"
           }
         }
       }
@@ -541,16 +481,6 @@
         }
       }
     },
-    "使用 Apple 系统识别时需要；本地模型不需要。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Needed for Apple system recognition; local models do not need it."
-          }
-        }
-      }
-    },
     "使用 Apple 语音识别时需要": {
       "localizations": {
         "en": {
@@ -607,16 +537,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Allow"
-          }
-        }
-      }
-    },
-    "先完成上一项": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Finish the previous item first"
           }
         }
       }
@@ -727,6 +647,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Switch to English"
+          }
+        }
+      }
+    },
+    "切换到 Saylane": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to Saylane"
           }
         }
       }
@@ -1031,36 +961,6 @@
         }
       }
     },
-    "只在你按住快捷键说话时采集，识别在本机完成。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Captured only while you hold the shortcut and speak; recognition happens on this Mac."
-          }
-        }
-      }
-    },
-    "只在按住说话时使用": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Used only while holding to talk"
-          }
-        }
-      }
-    },
-    "只差两步，就能开口输入": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Two steps away from talking"
-          }
-        }
-      }
-    },
     "只截你划出的区域": {
       "localizations": {
         "en": {
@@ -1081,42 +981,12 @@
         }
       }
     },
-    "只用于截屏翻译，只截你划出的区域。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Used only for screen translation, and only for the region you select."
-          }
-        }
-      }
-    },
     "可选": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Optional"
-          }
-        }
-      }
-    },
-    "可选增强": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Optional extras"
-          }
-        }
-      }
-    },
-    "可选，但很好用": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Optional, but worth it"
           }
         }
       }
@@ -1562,26 +1432,6 @@
         }
       }
     },
-    "已启用；切到 Saylane 后可以打字和说话": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enabled; switch to Saylane to type and dictate"
-          }
-        }
-      }
-    },
-    "已完成": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Completed"
-          }
-        }
-      }
-    },
     "已就绪": {
       "localizations": {
         "en": {
@@ -1618,6 +1468,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Proofread and inserted"
+          }
+        }
+      }
+    },
+    "已添加；现在用的是别的输入法，切到 Saylane 才能打字和说话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added, but another input method is active right now"
           }
         }
       }
@@ -1682,32 +1542,12 @@
         }
       }
     },
-    "开启权限": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permissions"
-          }
-        }
-      }
-    },
     "开始使用": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Start"
-          }
-        }
-      }
-    },
-    "开始设置": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Set up"
           }
         }
       }
@@ -1788,26 +1628,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Current mode"
-          }
-        }
-      }
-    },
-    "当前步骤": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Current step"
-          }
-        }
-      }
-    },
-    "当前没有选中 Saylane。允许辅助功能后，在其它输入法下也能按住说话；否则请先切到 Saylane。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saylane is not the selected input method. Allow Accessibility to dictate under other input methods too, or switch to Saylane first."
           }
         }
       }
@@ -1918,16 +1738,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reset"
-          }
-        }
-      }
-    },
-    "我们明天下午三点见。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Let's meet tomorrow at 3 PM."
           }
         }
       }
@@ -2052,16 +1862,6 @@
         }
       }
     },
-    "拼音打字": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pinyin typing"
-          }
-        }
-      }
-    },
     "拼音方案切换失败，请重新启动输入法后重试。": {
       "localizations": {
         "en": {
@@ -2088,16 +1888,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hold %@, then release when you finish."
-          }
-        }
-      }
-    },
-    "按住左 ⌃ 约 0.3 秒进入划选。终端用户常先按住 ⌃，默认关闭以免误触。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hold left ⌃ for about 0.3 s to start selecting. Terminal users often hold ⌃ first, so this is off by default."
           }
         }
       }
@@ -2322,16 +2112,6 @@
         }
       }
     },
-    "未开始": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Not started"
-          }
-        }
-      }
-    },
     "本地修正": {
       "localizations": {
         "en": {
@@ -2493,16 +2273,6 @@
         }
       }
     },
-    "检查权限": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check permissions"
-          }
-        }
-      }
-    },
     "检查超时，请稍后重试。": {
       "localizations": {
         "en": {
@@ -2583,16 +2353,6 @@
         }
       }
     },
-    "欢迎使用": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Welcome"
-          }
-        }
-      }
-    },
     "正在下载翻译模型": {
       "localizations": {
         "en": {
@@ -2629,6 +2389,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Preparing the translation model"
+          }
+        }
+      }
+    },
+    "正在加入输入法列表…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adding to the input sources…"
           }
         }
       }
@@ -2709,6 +2479,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Polishing"
+          }
+        }
+      }
+    },
+    "正在添加…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adding…"
           }
         }
       }
@@ -2853,6 +2633,16 @@
         }
       }
     },
+    "添加": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
+          }
+        }
+      }
+    },
     "清理旧下载…": {
       "localizations": {
         "en": {
@@ -2873,12 +2663,12 @@
         }
       }
     },
-    "点「去开通」会打开对应的系统设置；开启后这里会自动更新。": {
+    "点「添加」直接加入输入法列表，不用去系统设置": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "“Grant” opens the matching System Settings pane; this list updates by itself once granted."
+            "value": "“Add” puts Saylane in the input sources right here; no trip to System Settings"
           }
         }
       }
@@ -2963,16 +2753,6 @@
         }
       }
     },
-    "点按说话": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap to talk"
-          }
-        }
-      }
-    },
     "点这里，说说你今天的计划…": {
       "localizations": {
         "en": {
@@ -2989,16 +2769,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Status"
-          }
-        }
-      }
-    },
-    "现在，说一句试试": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Now, say something"
           }
         }
       }
@@ -3033,16 +2803,6 @@
         }
       }
     },
-    "稍后设置": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Later"
-          }
-        }
-      }
-    },
     "空格": {
       "localizations": {
         "en": {
@@ -3063,22 +2823,6 @@
         }
       }
     },
-    "第 %lld 步，共 4 步：%@": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "new",
-            "value": "第 %1$lld 步，共 4 步：%2$@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Step %lld of 4: %@"
-          }
-        }
-      }
-    },
     "第%lld/%lld页": {
       "localizations": {
         "en": {
@@ -3089,22 +2833,22 @@
         }
       }
     },
+    "第一次按住说话时系统会询问，也可以现在允许": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS asks the first time you dictate, or allow it now"
+          }
+        }
+      }
+    },
     "等待授权…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Waiting for approval…"
-          }
-        }
-      }
-    },
-    "等待确认…": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Waiting for confirmation…"
           }
         }
       }
@@ -3189,22 +2933,22 @@
         }
       }
     },
+    "系统没有自动添加 Saylane。已打开系统设置：在输入法列表下点 +，选择「简体中文」里的 Saylane。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS did not add Saylane by itself. System Settings is open: click + under the input sources and choose Saylane under Chinese, Simplified."
+          }
+        }
+      }
+    },
     "系统管理 · 实时组字": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "System managed · live composing"
-          }
-        }
-      }
-    },
-    "系统设置 → 键盘 → 输入法": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "System Settings → Keyboard → Input Sources"
           }
         }
       }
@@ -3439,6 +3183,16 @@
         }
       }
     },
+    "让快捷键在任何应用、任何输入法下都能用。可以跳过。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Makes the talk key work in every app and under every input method. Optional."
+          }
+        }
+      }
+    },
     "让快捷键在任何应用、任何输入法下都能用，并把文字直接写到光标处。不开启时，只有 Saylane 是当前输入法时才能说话。": {
       "localizations": {
         "en": {
@@ -3455,16 +3209,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Settings…"
-          }
-        }
-      }
-    },
-    "设置进度": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Setup progress"
           }
         }
       }
@@ -3505,16 +3249,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Translation"
-          }
-        }
-      }
-    },
-    "试一下": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Try it"
           }
         }
       }
@@ -3585,16 +3319,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Voice Input"
-          }
-        }
-      }
-    },
-    "语音输入、拼音打字，还有随手可用的翻译。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voice input, Pinyin typing, and translation whenever you need it."
           }
         }
       }
@@ -3709,16 +3433,6 @@
         }
       }
     },
-    "跳过": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skip"
-          }
-        }
-      }
-    },
     "转换失败 · 请重试或查看设置": {
       "localizations": {
         "en": {
@@ -3765,6 +3479,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Input Method"
+          }
+        }
+      }
+    },
+    "输入法在这里直接添加；麦克风会弹出系统的询问。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The input method is added right here; macOS asks about the microphone itself."
           }
         }
       }
@@ -3879,16 +3603,6 @@
         }
       }
     },
-    "这些权限让 Saylane 在其它输入法和更多应用里也能用。都可以跳过。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "These permissions let Saylane work under other input methods and in more apps. All can be skipped."
-          }
-        }
-      }
-    },
     "这是未安装的构建副本，请先用安装包安装。": {
       "localizations": {
         "en": {
@@ -3919,12 +3633,12 @@
         }
       }
     },
-    "都可以稍后在「权限管理」里开启。不开辅助功能时，在 Saylane 输入法下仍然可以说话和打字。": {
+    "都可以稍后开启。不开辅助功能时，在 Saylane 输入法下仍然可以说话和打字。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "All of these can be turned on later in Permissions. Without Accessibility you can still dictate and type under the Saylane input method."
+            "value": "All of these can be turned on later. Without Accessibility you can still dictate and type under the Saylane input method."
           }
         }
       }
@@ -3999,16 +3713,6 @@
         }
       }
     },
-    "长按左 ⌃ 也能划选": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hold left ⌃ to select as well"
-          }
-        }
-      }
-    },
     "阅读并复制完整译文": {
       "localizations": {
         "en": {
@@ -4045,6 +3749,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Microphone"
+          }
+        }
+      }
+    },
+    "麦克风已允许。再按住快捷键说话。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone allowed. Hold the shortcut again to talk."
           }
         }
       }

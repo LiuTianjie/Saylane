@@ -40,8 +40,6 @@ final class AppModel: VoiceSessionHost {
 
     var settingsTab = 1
     var isShowingSetup = false
-    /// The guide opens on this step (0: welcome … 3: try it).
-    var setupStartStep = 0
     /// Settings-panel trial field: an ordinary text view, written like any other.
     var testText = ""
     private(set) var dictationTrialVisible = false
@@ -226,7 +224,6 @@ final class AppModel: VoiceSessionHost {
             $0.isOursSelected = readinessState.inputSource.selected
             $0.globalEventsCanBeConsumed = globalEventsCanBeConsumed
             $0.screenShortcut = p.screenCaptureShortcut
-            $0.screenHoldEnabled = p.screenHoldEnabled
             $0.screenActive = screenTranslate.isActive
             $0.pinVisible = screenTranslate.isPinVisible
             $0.recordingShortcut = isRecordingScreenShortcut
@@ -476,8 +473,6 @@ final class AppModel: VoiceSessionHost {
             cycleDirection()
         case .screenCapture:
             screen.handleCaptureHotkey()
-        case .screenHold(let hold):
-            screen.handleHold(hold)
         case .screenPin(let key):
             screen.handlePinKey(key)
         case .recordedShortcut(let shortcut):
@@ -657,7 +652,6 @@ final class AppModel: VoiceSessionHost {
         settingsTab = destination
         voice.cancel()
         isShowingSetup = false
-        setupStartStep = 0
         preferences.update { $0.onboardingVersion = Preferences.currentOnboardingVersion }
     }
 
@@ -667,7 +661,6 @@ final class AppModel: VoiceSessionHost {
         settingsTab = destination
         voice.cancel()
         isShowingSetup = false
-        setupStartStep = 0
     }
 
     func openSettings(tab: Int? = nil) {
@@ -686,9 +679,42 @@ final class AppModel: VoiceSessionHost {
         }
     }
 
+    /// The input-method row of the guide: add Saylane, or switch to it.
     func openInputMethodPermission() {
         notice = nil
-        permissionsController.openInputMethodSettings()
+        if readinessState.inputSource.enabled {
+            permissionsController.selectInputSource()
+        } else {
+            permissionsController.addInputSource(select: true)
+        }
+    }
+
+    /// Whether a dictation needs Saylane to be the current input method:
+    /// without the listener that works under every input method, the talk key
+    /// only arrives through the input method itself.
+    var needsInputSourceSelected: Bool {
+        readinessState.inputSource.enabled && !readinessState.inputSource.selected && !readinessState.globalInvokeAvailable
+    }
+
+    /// The talk key cannot arrive right now: another input method is the
+    /// current one and the listener that works under every input method is off.
+    var talkKeyUnreachable: Bool { needsInputSourceSelected }
+
+    /// After an installation, and wherever the guide is about to ask the user
+    /// to talk: put Saylane in the input-source list and, unless the talk key
+    /// works under every input method, make it the current one. Nobody is sent
+    /// to System Settings for this.
+    func ensureInputSource() {
+        refreshInputSourceStatus()
+        let source = readinessState.inputSource
+        guard source.installedLocation else { return }
+        if !source.enabled {
+            InputDiagnostics.record("input-source", "adding")
+            permissionsController.addInputSource(select: !readinessState.globalInvokeAvailable)
+        } else if needsInputSourceSelected {
+            InputDiagnostics.record("input-source", "selecting")
+            permissionsController.selectInputSource()
+        }
     }
 
     func requestSpeechRecognitionPermission() async { await permissionsController.requestSpeechRecognition() }
@@ -697,6 +723,19 @@ final class AppModel: VoiceSessionHost {
         let granted = await permissionsController.requestMicrophone()
         if !granted, !settingsWindow.isVisible {
             post(.actionable(SetupReadiness.Blocker.microphoneDenied.message, .permissions))
+        }
+    }
+
+    /// The talk key was held before the microphone was ever asked for: the
+    /// system's question appears now, in whatever application the user is in.
+    func requestMicrophoneForDictation() {
+        guard !permissions.isRequestingMicrophone else { return }
+        Task {
+            if await permissionsController.requestMicrophone() {
+                post(.transient(String(localized: "麦克风已允许。再按住快捷键说话。")))
+            } else {
+                post(.actionable(SetupReadiness.Blocker.microphoneDenied.message, .permissions))
+            }
         }
     }
 
@@ -729,11 +768,6 @@ final class AppModel: VoiceSessionHost {
         if !permissionsController.requestScreenCapture() {
             post(.actionable(String(localized: "还没有允许屏幕录制。允许后可以用 \(prefs.screenCaptureShortcut.displayName) 划区翻译。"), .screen))
         }
-    }
-
-    func enableInputSource() {
-        notice = nil
-        permissionsController.enableInputSource()
     }
 
     private func refreshGlossaryIfNeeded() {

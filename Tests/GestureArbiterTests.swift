@@ -70,19 +70,6 @@ import Carbon.HIToolbox
             precondition(letter.actions.isEmpty && !letter.consume)
             passed += 1
         }
-        // Left Control hold arms the screen gesture only when enabled.
-        do {
-            var arbiter = GestureArbiter()
-            let off = arbiter.feed(flags(leftControl, leftMask, 5.0), context: context)
-            precondition(off.actions.isEmpty)
-            var on = context; on.screenHoldEnabled = true
-            arbiter = GestureArbiter()
-            let armed = arbiter.feed(flags(leftControl, leftMask, 6.0), context: on)
-            precondition(armed.actions == [.screenHold(.armHold)])
-            precondition(arbiter.screenHoldDeadline(now: 6.2) == nil)
-            precondition(arbiter.screenHoldDeadline(now: 6.31) == .screenHold(.begin))
-            passed += 1
-        }
         // Double-tap right Command switches direction when the trigger is another key.
         do {
             var arbiter = GestureArbiter()
@@ -143,24 +130,16 @@ import Carbon.HIToolbox
             precondition(arbiter.feed(flags(rightOption, 0, 11.0), context: holding).actions.isEmpty)
             passed += 1
         }
-        do { // A mouse click aborts a pending Control hold before its deadline.
+        do { // Left Control is an ordinary talk key: nothing else listens to it.
             var arbiter = GestureArbiter()
-            var hold = context; hold.screenHoldEnabled = true
-            let armed = arbiter.feed(flags(leftControl, leftMask, 10.92), context: hold)
-            precondition(armed.actions == [.screenHold(.armHold)])
-            let click = InputEvent(source: .tap, type: .rightMouseDown, keyCode: 0,
-                                   flags: leftMask, isRepeat: false, timestamp: 10.93)
-            _ = arbiter.feed(click, context: hold)
-            precondition(arbiter.screenHoldDeadline(now: 11.4) == nil)
-            passed += 1
-        }
-        do { // One physical left-Control press cannot start both voice and selection.
-            var arbiter = GestureArbiter()
-            var shared = context; shared.trigger = .leftControl; shared.screenHoldEnabled = true
-            let result = arbiter.feed(flags(leftControl, leftMask, 10.94), context: shared)
+            var control = context; control.trigger = .leftControl
+            let result = arbiter.feed(flags(leftControl, leftMask, 10.94), context: control)
             precondition(result.actions.isEmpty && !result.consume)
             precondition(arbiter.voiceDeadline(now: 11.3) == [.voice(.prewarm), .voice(.start)])
-            precondition(arbiter.screenHoldDeadline(now: 11.4) == nil)
+            // …and with another talk key, holding Control does nothing at all.
+            var other = GestureArbiter()
+            precondition(other.feed(flags(leftControl, leftMask, 12.0), context: context).actions.isEmpty)
+            precondition(other.nextVoiceDeadline == nil)
             passed += 1
         }
         do { // ⌘W with left Command as the talk key never starts a dictation.
@@ -191,21 +170,6 @@ import Carbon.HIToolbox
             // Releasing the other modifier first changes nothing.
             _ = chords.feed(flags(UInt16(kVK_Shift), command | mask, 15.1), context: lc)
             precondition(chords.nextVoiceDeadline == nil && chords.voiceDeadline(now: 15.5).isEmpty)
-            passed += 1
-        }
-        do { // Drawing the selection must not cancel it: only a click before the hold completes does.
-            var arbiter = GestureArbiter()
-            var hold = context; hold.screenHoldEnabled = true
-            _ = arbiter.feed(flags(leftControl, leftMask, 14.0), context: hold)
-            precondition(arbiter.screenHoldDeadline(now: 14.31) == .screenHold(.begin))
-            hold.screenActive = true
-            let drag = InputEvent(source: .tap, type: .leftMouseDown, keyCode: 0,
-                                  flags: leftMask, isRepeat: false, timestamp: 14.6)
-            let result = arbiter.feed(drag, context: hold)
-            precondition(!result.actions.contains(.screenHold(.cancel)), "\(result.actions)")
-            // Releasing Control while the overlay is up still cancels, as before.
-            let up = arbiter.feed(flags(leftControl, 0, 15.0), context: hold)
-            precondition(up.actions.contains(.screenHold(.cancel)), "\(up.actions)")
             passed += 1
         }
         do { // Fast ordinary right-Command shortcuts are not a direction double-tap.
@@ -275,15 +239,6 @@ import Carbon.HIToolbox
             precondition(arbiter.voiceDeadline(now: 21.4).isEmpty)
             passed += 1
         }
-        do { // Keys from InputMethodKit never arrive with a key-up: they must not block the Control hold.
-            var arbiter = GestureArbiter()
-            var hold = context; hold.screenHoldEnabled = true
-            _ = arbiter.feed(InputEvent(source: .imk, type: .keyDown, keyCode: UInt16(kVK_ANSI_A), flags: 0,
-                                        isRepeat: false, timestamp: 22.0), context: hold)
-            let armed = arbiter.feed(flags(leftControl, leftMask, 23.0, source: .imk), context: hold)
-            precondition(armed.actions == [.screenHold(.armHold)], "\(armed.actions)")
-            passed += 1
-        }
         // A duplicate delivery (tap then IMK) is recognised by the event itself.
         do {
             let a = flags(rightOption, option, 11.0)
@@ -304,6 +259,6 @@ import Carbon.HIToolbox
             precondition(!up.consume && up.actions.isEmpty && !arbiter.voiceGestureActive)
             passed += 1
         }
-        print("PASS: \(passed) gesture arbiter scenarios (talk key, chords, screen chord and hold, double tap, recording, toggle, Esc, dedupe)")
+        print("PASS: \(passed) gesture arbiter scenarios (talk key, chords, screen chord, double tap, recording, toggle, Esc, dedupe)")
     }
 }

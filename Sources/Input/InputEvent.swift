@@ -93,7 +93,6 @@ struct InputContext: Equatable, Sendable {
     var voiceEnabled = true
     var isOursSelected = false
     var screenShortcut: ScreenCaptureShortcut = .optionT
-    var screenHoldEnabled = false
     var screenActive = false
     var pinVisible = false
     var recordingShortcut = false
@@ -115,7 +114,6 @@ enum InputAction: Equatable, Sendable {
     case voice(VoiceGesture.Action)
     case switchDirection
     case screenCapture
-    case screenHold(ScreenHoldHandler.Action)
     case screenPin(ScreenPinKey)
     case recordedShortcut(ScreenCaptureShortcut?)
 }

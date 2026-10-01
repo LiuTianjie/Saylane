@@ -106,6 +106,8 @@ import Carbon.HIToolbox
     func makeRefine() -> ((String) -> String)? { nil }
     func makePolish() -> ((String, String) async throws -> String)? { nil }
     func keyboardOwner(front bundleID: String?) -> String? { panel ?? bundleID }
+    var microphoneRequests = 0
+    func requestMicrophoneForDictation() { microphoneRequests += 1 }
     func textSink(inFront bundleID: String?, session: UUID) -> VoiceTextSink { writer.sink(inFront: bundleID, session: session) }
     func post(_ notice: UserNotice) { notices.append(notice) }
     func voiceSessionDidEnd(committed: Bool) { completions.append(committed); onEnd?() }
@@ -325,6 +327,23 @@ import Carbon.HIToolbox
             f.voice.frontmostAppChanged(to: "editor", pid: 1234)
             try await settleUntil { !f.voice.isListening }
             precondition(f.writer.inserted == ["voice result"] && f.writer.copied.isEmpty && f.host.notices.isEmpty)
+            passed += 1
+        }
+        do { // The microphone has never been asked for: the first hold asks, and nothing is recorded or reported twice.
+            let f = Fixture()
+            f.host.readinessState.permissions.microphone = .notDetermined
+            f.voice.press()
+            precondition(!f.voice.isListening && !f.audio.running && f.host.speeches.isEmpty)
+            precondition(f.host.microphoneRequests == 1 && f.host.notices.isEmpty && f.host.completions == [false])
+            passed += 1
+        }
+        do { // Another input method being the current one is no reason to refuse: the key got here.
+            let f = Fixture()
+            f.host.readinessState.inputSource = .init(installedLocation: true, installed: true, enabled: true, selected: false)
+            f.host.readinessState.globalInvokeAvailable = false
+            f.writer.imkAttached = false
+            try await dictate(f)
+            precondition(f.writer.pasted == ["voice result"] && f.host.notices.isEmpty, "\(f.host.notices)")
             passed += 1
         }
         do { // A blocked start records nothing and reports the reason once.

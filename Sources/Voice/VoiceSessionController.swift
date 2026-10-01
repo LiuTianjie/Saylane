@@ -15,6 +15,8 @@ protocol VoiceSessionHost: AnyObject {
     /// The application that has the keyboard while `bundleID` is the one in
     /// front: a panel such as Spotlight takes keys without coming to the front.
     func keyboardOwner(front bundleID: String?) -> String?
+    /// The microphone has never been asked for: ask now, and say what to do next.
+    func requestMicrophoneForDictation()
     /// The ways to write into the application whose bundle is `bundleID`.
     func textSink(inFront bundleID: String?, session: UUID) -> VoiceTextSink
     func post(_ notice: UserNotice)
@@ -155,7 +157,14 @@ final class VoiceSessionController {
         record("start-check", "selected=\(readiness.inputSource.selected) front=\(front ?? "none")\(owner == front ? "" : " keyboard=" + (owner ?? "none")) mic=\(readiness.permissions.microphone == .granted) speech=\(readiness.models.speechReady) translation=\(readiness.models.translationReady) checking=\(readiness.models.busy)")
 
         if let blocker = readiness.blocker {
-            fail(.actionable(blocker.message, ReadinessReducer.destination(for: blocker)))
+            if blocker == .microphoneNotRequested {
+                // The first dictation: the system asks here, where it is
+                // needed. Nothing is recorded; the user holds the key again.
+                fail(nil)
+                host.requestMicrophoneForDictation()
+            } else {
+                fail(.actionable(blocker.message, ReadinessReducer.destination(for: blocker)))
+            }
             return
         }
         let pid = environment.frontmostPID()

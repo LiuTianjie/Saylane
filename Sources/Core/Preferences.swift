@@ -40,7 +40,6 @@ struct Preferences: Equatable, Sendable {
     var screenCaptureShortcut: ScreenCaptureShortcut = .optionT
     /// Long-press left Control to start a selection. Off by default: terminal
     /// users hold Control before deciding what to press.
-    var screenHoldEnabled = false
     /// Block pointer input to other apps while a pin is visible.
     var screenPinFreezesScreen = false
     var screenFontWeightExperiment = true
@@ -52,11 +51,12 @@ struct Preferences: Equatable, Sendable {
     var pinyinBarPreeditEnabled = false
     var pinyinFuzzyEnabled = true
 
-    // Onboarding. Bump `Preferences.currentOnboardingVersion` only when a new
-    // step must be shown to existing users.
+    // The welcome page. Bump `Preferences.currentOnboardingVersion` only when
+    // existing users should see it once more (2: the 0.4 page, where the
+    // input method is added in place and nothing is a wizard any more).
     var onboardingVersion = 0
 
-    static let currentOnboardingVersion = 1
+    static let currentOnboardingVersion = 2
     var onboardingCompleted: Bool { onboardingVersion >= Self.currentOnboardingVersion }
 
     var currentDirection: TranslationDirection { TranslationDirection(source: sourceLanguage, target: targetLanguage) }

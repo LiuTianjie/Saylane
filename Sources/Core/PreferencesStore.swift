@@ -53,7 +53,6 @@ final class PreferencesStore {
         static let screenPolishEnabled = "screenPolishEnabled"
         static let screenCaptureKeyCode = "screenCaptureKeyCode"
         static let screenCaptureModifiers = "screenCaptureModifiers"
-        static let screenHoldEnabled = "screenHoldEnabled"
         static let screenPinFreezesScreen = "screenPinFreezesScreen"
         static let screenFontWeightExperiment = "screenFontWeightExperiment"
         static let screenTranslateSource = "screenTranslateSource"
@@ -63,6 +62,9 @@ final class PreferencesStore {
         static let pinyinFuzzyEnabled = "pinyinFuzzyEnabled"
         static let onboardingVersion = "onboardingVersion"
         static let quitByUser = "mainProgramQuitByUser"
+        /// Settings of features that no longer exist (0.4: the Control long-press
+        /// for screen translation). Removed from storage when found.
+        static let retired = ["screenHoldEnabled"]
         /// Pre-0.3 flag. Read once for migration, never written again.
         static let legacySetupVerified = "setupVerifiedV7"
         static let legacyDomain = "com.rtranslate.app"
@@ -70,6 +72,7 @@ final class PreferencesStore {
 
     init(backing: PreferencesBacking = UserDefaults.standard) {
         self.backing = backing
+        for key in Key.retired where backing.object(forKey: key) != nil { backing.removeObject(forKey: key) }
         Self.migrateLegacyDomain(backing)
         current = Self.load(backing)
         Self.migrateOnboardingFlag(backing, into: &current)
@@ -106,7 +109,8 @@ final class PreferencesStore {
     private static func migrateOnboardingFlag(_ backing: PreferencesBacking, into preferences: inout Preferences) {
         guard backing.object(forKey: Key.onboardingVersion) == nil,
               backing.object(forKey: Key.legacySetupVerified) as? Bool == true else { return }
-        preferences.onboardingVersion = Preferences.currentOnboardingVersion
+        // The old flag stood for the first guide.
+        preferences.onboardingVersion = 1
         backing.set(preferences.onboardingVersion, forKey: Key.onboardingVersion)
     }
 
@@ -144,7 +148,6 @@ final class PreferencesStore {
             let shortcut = ScreenCaptureShortcut(keyCode: UInt16(clamping: key), modifierFlags: flags)
             p.screenCaptureShortcut = shortcut.isUsable ? shortcut : .optionT
         }
-        p.screenHoldEnabled = bool(Key.screenHoldEnabled, default: p.screenHoldEnabled)
         p.screenPinFreezesScreen = bool(Key.screenPinFreezesScreen, default: p.screenPinFreezesScreen)
         p.screenFontWeightExperiment = bool(Key.screenFontWeightExperiment, default: p.screenFontWeightExperiment)
         p.screenTranslateSource = language(Key.screenTranslateSource)
@@ -186,7 +189,6 @@ final class PreferencesStore {
             b.set(Int(p.screenCaptureShortcut.keyCode), forKey: Key.screenCaptureKeyCode)
             b.set(Int(p.screenCaptureShortcut.modifierFlags), forKey: Key.screenCaptureModifiers)
         }
-        put(p.screenHoldEnabled, o.screenHoldEnabled, Key.screenHoldEnabled) { $0 }
         put(p.screenPinFreezesScreen, o.screenPinFreezesScreen, Key.screenPinFreezesScreen) { $0 }
         put(p.screenFontWeightExperiment, o.screenFontWeightExperiment, Key.screenFontWeightExperiment) { $0 }
         put(p.screenTranslateSource, o.screenTranslateSource, Key.screenTranslateSource) { $0?.rawValue }

@@ -41,11 +41,9 @@ struct Readiness: Equatable, Sendable {
         SetupReadiness(microphoneGranted: permissions.microphone == .granted,
                        microphoneNeverRequested: permissions.microphone == .notDetermined,
                        inputMethodEnabled: inputSource.enabled,
-                       inputMethodSelected: inputSource.selected,
                        checkingModels: models.busy,
                        speechReady: models.speechReady,
-                       translationReady: models.translationReady,
-                       globalInvokeAvailable: globalInvokeAvailable)
+                       translationReady: models.translationReady)
     }
     var blocker: SetupReadiness.Blocker? { setup.blocker }
     var isReady: Bool { blocker == nil }
@@ -100,7 +98,7 @@ enum ReadinessReducer {
     static func destination(for blocker: SetupReadiness.Blocker) -> UserNotice.Destination {
         switch blocker {
         case .modelsMissing, .modelsChecking: return .models
-        case .microphoneNotRequested, .microphoneDenied, .inputMethodNotEnabled, .inputMethodNotSelected: return .permissions
+        case .microphoneNotRequested, .microphoneDenied, .inputMethodNotEnabled: return .permissions
         }
     }
 }

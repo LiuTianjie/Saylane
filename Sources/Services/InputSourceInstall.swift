@@ -16,9 +16,14 @@ enum InputSourceInstall {
         guard let bundle = Bundle(url: bundleURL) else { return false }
         return bundle.bundleIdentifier == bundleID
     }
+    /// A build running in a test home looks, but never changes which input
+    /// sources are registered, enabled or selected on this Mac.
+    private static var mayChangeSystem: Bool { !TestHome.isActive }
+
     @discardableResult
     static func registerBundle() -> OSStatus {
         lastFailure = nil
+        guard mayChangeSystem else { return OSStatus(paramErr) }
         guard isInstalledLocation else {
             lastFailure = String(localized: "没有找到已安装的输入法组件，请先用安装包安装。")
             return OSStatus(paramErr)
@@ -50,13 +55,14 @@ enum InputSourceInstall {
     }
 
     static func requestModeEnable() -> Bool {
-        guard parentEnabled, let source = modeSource else { return false }
+        guard mayChangeSystem, parentEnabled, let source = modeSource else { return false }
         let status = TISEnableInputSource(source)
         if status != noErr { lastFailure = String(localized: "系统拒绝启用语音输入模式（\(status)）。") }
         return status == noErr
     }
 
     static func selectEnabledMode() -> Bool {
+        guard mayChangeSystem else { return false }
         guard isEnabled, let source = modeSource else {
             lastFailure = String(localized: "输入法尚未启用，不能切换。请在系统输入法设置中完成添加或允许。")
             return false
@@ -84,6 +90,7 @@ enum InputSourceInstall {
     /// mode and parent so System Settings does not retain a selected ghost entry.
     static func disableForUninstall() -> Bool {
         lastFailure = nil
+        guard mayChangeSystem else { return false }
         var ok = true
         if isSelected, !selectASCIILayout() {
             lastFailure = String(localized: "卸载前无法切换到系统键盘布局。")
@@ -143,7 +150,7 @@ enum InputSourceInstall {
     /// Reconnecting a stale IMK receiver needs an actual source transition.
     /// Use an already enabled system layout; never enable another input method.
     static func selectASCIILayout() -> Bool {
-        guard let source = asciiLayoutSource else { return false }
+        guard mayChangeSystem, let source = asciiLayoutSource else { return false }
         return TISSelectInputSource(source) == noErr
     }
 
@@ -151,6 +158,7 @@ enum InputSourceInstall {
     /// user's own input method after a global wake).
     @discardableResult
     static func select(inputSourceID: String) -> Bool {
+        guard mayChangeSystem else { return false }
         if inputSourceID == modeID { return selectEnabledMode() }
         let filter = [kTISPropertyInputSourceID as String: inputSourceID]
         guard let list = TISCreateInputSourceList(filter as CFDictionary, false)?.takeRetainedValue() as? [TISInputSource],

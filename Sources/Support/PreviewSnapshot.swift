@@ -25,14 +25,21 @@ enum PreviewSnapshot {
               to: path, label: "Waveform")
     }
 
+    /// Rendered through a real hosting view in an off-screen window: scroll
+    /// views and controls do not draw in `ImageRenderer`.
     private static func write<V: View>(_ view: V, to path: String, label: String) {
-        let renderer = ImageRenderer(content: view)
-        renderer.scale = 2.0
-        if let nsImage = renderer.nsImage,
-           let tiffData = nsImage.tiffRepresentation,
-           let bitmap = NSBitmapImageRep(data: tiffData),
-           let pngData = bitmap.representation(using: .png, properties: [:]) {
-            try? pngData.write(to: URL(fileURLWithPath: path))
+        let hosting = NSHostingView(rootView: view)
+        let size = hosting.fittingSize
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless],
+                              backing: .buffered, defer: false)
+        window.contentView = hosting
+        hosting.frame = NSRect(origin: .zero, size: size)
+        hosting.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        guard let bitmap = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { return }
+        hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
+        if let png = bitmap.representation(using: .png, properties: [:]) {
+            try? png.write(to: URL(fileURLWithPath: path))
             print("\(label) snapshot successfully written to \(path)")
         }
     }

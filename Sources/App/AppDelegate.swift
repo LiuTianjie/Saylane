@@ -65,29 +65,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if arguments.contains("--setup") {
             AppModel.shared.beginSetup()
         } else if arguments.contains("--installed") {
-            // Just installed or upgraded: show the guide only if something is
-            // still to be set up (a new permission, the input source).
-            Self.showGuideIfNeeded { _ in }
+            // Just installed or upgraded: the input source is added and made
+            // current here, as other input methods do when they install. The
+            // welcome page appears once; an upgrade is silent.
+            AppModel.shared.ensureInputSource()
+            Self.showWelcomeIfNew { _ in }
         } else if arguments.contains("--settings") {
             AppModel.shared.openSettings()
         } else if !arguments.contains("--background"), !Self.launchedAsLoginItem {
             // Opened by hand: show something.
-            Self.showGuideIfNeeded { $0.openSettings() }
+            Self.showWelcomeIfNew { $0.openSettings() }
         }
     }
 
-    /// The guide while something required is missing; someone who finished it
-    /// before (an upgrade) starts at the permissions. Otherwise `otherwise`.
-    @MainActor static func showGuideIfNeeded(otherwise: (AppModel) -> Void) {
+    /// The welcome page until it has been finished once; `otherwise` after that.
+    /// Permissions are not a reason to show it again: each is asked for where
+    /// it is first needed.
+    @MainActor static func showWelcomeIfNew(otherwise: (AppModel) -> Void) {
         let model = AppModel.shared
-        if !model.setupCompleted {
-            model.beginSetup()
-        } else if !model.readinessState.requiredSetupComplete {
-            model.setupStartStep = 1
-            model.beginSetup()
-        } else {
-            otherwise(model)
-        }
+        if model.setupCompleted { otherwise(model) } else { model.beginSetup() }
     }
 
     /// Started by the system at login: stay out of the way.
@@ -104,8 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Opened again while running. The installer's `open` arrives here when the
     /// input method has already started the program in the background.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        AppModel.shared.refreshInputSourceStatus()
-        Self.showGuideIfNeeded { $0.openSettings() }
+        Self.showWelcomeIfNew { $0.openSettings() }
         return true
     }
 
