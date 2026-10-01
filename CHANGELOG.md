@@ -2,6 +2,34 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.6.2 (local testing)
+
+"Is the pre-processing and post-processing state of the art? Are there better models?" Measured, not argued: `docs/SPEECH_PIPELINE.md` §5–7 lists what can go wrong between the mouth and the screen, what Doubao and Typeless do about each case, and what was tried here.
+
+### Recording
+
+- The recording no longer ends the instant the key goes up. People release the key while the last syllable is still in the air: on 60 recordings, ending 0.15 s before the last syllable does left 25 sentences right instead of 38, and 0.3 s left 8. Saylane now keeps listening for at least 0.1 s after the release, goes on while a voice is heard, and ends once it has been quiet for 0.12 s, or after 0.5 s. The text arrives that much later.
+- A quiet recording is brought up to an ordinary level before the downloaded model hears it (30 dB too quiet cost it about a fifth more mistakes).
+
+### Writing
+
+- More numbers are written the way the system writes them: thousands ("40,000"), percentages ("百分之二十" → "20%") and times with minutes ("十一点三十五分" → "11:35"). An hour alone is left as the model wrote it: 两点 is also "two points", and the system guessed "2:00" for "在两点之间的运动". "M16" stays one name instead of becoming "M 16". On 54 real sentences with numbers, wholly right: system recognizer 6, model alone 4, together 16.
+
+### Models, measured and not adopted
+
+- Other families of about the same size, same recordings: Fun-ASR-Nano is as accurate as Qwen3-ASR 0.6B and twice as slow in its runtime; FireRedASR2 (int8), Paraformer and SenseVoice are less accurate; Whisper large-v3-turbo is the only one that writes "M1" and "36G" by itself and the least accurate. Qwen3-ASR 0.6B stays.
+- None of them can be told to write numbers in digits; Qwen ignores such an instruction in its context.
+- Telling the model which Latin terms the system recognizer heard changed 3 of 54 sentences, one for the better, one for the worse.
+- The text in front of the caret as the model's context: it copied the spacing style and nothing else.
+
+Not done, and said plainly:
+
+- Learning names and terms from the corrections you make after a dictation (Doubao learns from them). It means watching what is typed after a dictation; that needs a decision first.
+- A text model for a last pass (fillers, changes of mind, lists, paragraphs) — what Doubao's "smart organize" and Typeless do. Offered and declined for now; "AI proofreading" with an endpoint of your own remains.
+- Noise suppression and telling speakers apart.
+
+Verified on the development Mac: all tests, the three self-tests, and the measurements above. Not yet on device: 0.6.1 and 0.6.2.
+
 ## 0.6.1 (local testing)
 
 Found on device within minutes of installing 0.6.0, from the diagnostics and from what was said.

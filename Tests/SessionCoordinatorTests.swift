@@ -44,6 +44,14 @@ import Foundation
             continuation?.yield(AudioFrame(buffer: buffer))
         }
     }
+    /// A buffer loud enough to count as a voice.
+    func emitVoice() {
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 256)!
+        buffer.frameLength = 256
+        for i in 0..<256 { buffer.floatChannelData![0][i] = 0.3 * sin(Float(i) * 0.3) }
+        continuation?.yield(AudioFrame(buffer: buffer))
+    }
     func stop() { continuation?.finish() }
 }
 @MainActor final class FakeTarget: CompositionTarget {
@@ -416,6 +424,38 @@ import Foundation
             precondition(target.marked.last == "今天下午三点开会讨论方案，然后把结论发给所有人" && target.marked.count == typed + 2)
             await settleUntilIdle(c)
             precondition(target.committed == ["最终结果。"] && target.marked.count == typed + 2)
+            passed += 1
+        }
+        do { // The recording goes on for a moment after the release, and for as long as the voice does.
+            let c = SessionCoordinator(releaseTail: ReleaseTail(minimum: 0.04, quiet: 0.05, limit: 0.25))
+            let speech = FakeSpeech(), audio = FakeCapture(), target = FakeTarget()
+            c.start(locale: .current, speech: speech, capture: audio, target: target, passthrough: true) { $0 }
+            await settle(); audio.emit(2)
+            await settle(); c.release()
+            precondition(c.state == .listening && speech.finishCount == 0, "the release alone does not end the recording")
+            audio.emit(3); await settle(10)
+            precondition(speech.feeds == 5, "audio after the release is still recognized")
+            await settleUntilIdle(c)
+            precondition(target.committed == ["最终结果。"] && speech.finishCount == 1)
+            // Still speaking at the release: it waits for the voice, but not for ever.
+            let c2 = SessionCoordinator(releaseTail: ReleaseTail(minimum: 0.02, quiet: 0.08, limit: 0.2))
+            let speech2 = FakeSpeech(), audio2 = FakeCapture(), target2 = FakeTarget()
+            c2.start(locale: .current, speech: speech2, capture: audio2, target: target2, passthrough: true) { $0 }
+            await settle()
+            let talker = Task { @MainActor in
+                for _ in 0..<30 { audio2.emitVoice(); try? await Task.sleep(for: .milliseconds(15)) }
+            }
+            await settle(30); let released = Date(); c2.release()
+            await settleUntilIdle(c2, limit: 1000)
+            let waited = Date().timeIntervalSince(released)
+            precondition(waited >= 0.18 && waited < 0.45, "the limit ends a recording that will not stop: \(waited)")
+            talker.cancel()
+            // A cancel during the tail writes nothing.
+            let c3 = SessionCoordinator(releaseTail: ReleaseTail(minimum: 0.1, quiet: 0.05, limit: 0.3))
+            let speech3 = FakeSpeech(), audio3 = FakeCapture(), target3 = FakeTarget()
+            c3.start(locale: .current, speech: speech3, capture: audio3, target: target3, passthrough: true) { $0 }
+            await settle(); audio3.emit(1); await settle(); c3.release(); c3.cancel(); await settle(250)
+            precondition(target3.committed.isEmpty && speech3.finishCount == 0)
             passed += 1
         }
         print("PASS: \(passed) session scenarios, including 20 consecutive drain/commit cycles")

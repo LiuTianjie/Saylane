@@ -576,9 +576,10 @@ final class AppModel: VoiceSessionHost {
                 _ = try QwenLanguage.name(for: locale)
                 try await QwenRuntime.shared.prepare(model)
             },
-            transcribe: { samples, locale in
+            transcribe: { samples, locale, hints in
+                let context = ([prompt] + hints.map(Optional.some)).compactMap { $0 }.joined(separator: "、")
                 let text = try await QwenRuntime.shared.transcribe(samples, language: QwenLanguage.name(for: locale),
-                                                                   variant: model, context: prompt)
+                                                                   variant: model, context: model.isQwen && !context.isEmpty ? context : prompt)
                 return QwenLanguage.normalize(text, locale: locale)
             },
             makeSolo: { QwenSpeechEngine(variant: model, context: prompt, runtime: QwenRuntime.shared) })

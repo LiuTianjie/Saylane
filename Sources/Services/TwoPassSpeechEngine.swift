@@ -18,11 +18,18 @@ import Foundation
 /// what the system's recognizer heard is written instead.
 @MainActor final class TwoPassSpeechEngine: SpeechRecognizing {
     var onPartial: ((SpeechHypothesis) -> Void)? {
-        didSet { live.onPartial = onPartial; solo?.onPartial = onPartial }
+        didSet { solo?.onPartial = onPartial }
     }
 
-    /// The second pass over one stretch of 16 kHz mono audio.
-    typealias Transcribe = @Sendable ([Float], Locale) async throws -> String
+    /// The second pass over one stretch of 16 kHz mono audio. `hints` are the
+    /// Latin-letter terms the system's recognizer heard in it.
+    typealias Transcribe = @Sendable ([Float], Locale, [String]) async throws -> String
+    /// Whether the model is told which terms the system's recognizer heard.
+    /// Off: on 54 real sentences with numbers and names it changed three, one
+    /// for the better ("802.11G") and one for the worse (the system's
+    /// mishearing "Scooter" replaced the model's correct "Scotturb").
+    var hintsEnabled = false
+    private var lastLiveText = ""
 
     private let live: any SegmentingSpeechRecognizing
     private let prepare: (Locale) async throws -> Void
@@ -81,8 +88,12 @@ import Foundation
         // `queue` is kept: a decode still running from the last dictation ends before the next one starts.
         dropped = 0; liveSinceCut = ""; pieces = []; solo = nil
         self.locale = locale
+        lastLiveText = ""
         do {
-            live.onPartial = onPartial
+            live.onPartial = { [weak self] hypothesis in
+                self?.lastLiveText = hypothesis.text
+                self?.onPartial?(hypothesis)
+            }
             live.onSegment = { [weak self] end, text in self?.settled(end: end, text: text, token: token) }
             try await live.begin(locale: locale)
         } catch is CancellationError {
@@ -131,7 +142,7 @@ import Foundation
         let tailSeconds = Double(tail.count) / QwenAudioBuffer.sampleRate
         // The recording is complete: the last stretch starts now, while the system's recognizer finishes.
         let last: Piece? = tail.count >= 400 && tail.contains(where: { abs($0) > 0.00001 })
-            ? enqueue(tail, fallback: nil) : nil
+            ? enqueue(tail, fallback: nil, heard: lastLiveText + liveSinceCut) : nil
         let released = ProcessInfo.processInfo.systemUptime
         let liveText = try await live.finish()
         guard generation == token else { throw CancellationError() }
@@ -208,11 +219,12 @@ import Foundation
         liveSinceCut = ""
         let stretch = Array(samples[..<index])
         guard stretch.contains(where: { abs($0) > 0.00001 }) else { return }
-        _ = enqueue(stretch, fallback: fallback)
+        _ = enqueue(stretch, fallback: fallback, heard: fallback ?? lastLiveText)
     }
 
     /// One decode at a time, in order.
-    private func enqueue(_ samples: [Float], fallback: String?) -> Piece {
+    private func enqueue(_ samples: [Float], fallback: String?, heard: String) -> Piece {
+        let hints = hintsEnabled ? Self.terms(in: heard) : []
         let piece = Piece(fallback: fallback)
         pieces.append(piece)
         onStretch?(Double(samples.count) / QwenAudioBuffer.sampleRate)
@@ -224,7 +236,7 @@ import Foundation
             await previous?.value
             guard await preparation?.value == true else { piece.failed = true; return }
             do {
-                let text = try await transcribe(samples, locale)
+                let text = try await transcribe(Self.leveled(samples), locale, hints)
                 guard self != nil else { return }
                 piece.text = text.trimmingCharacters(in: .whitespacesAndNewlines)
             } catch {
@@ -232,6 +244,30 @@ import Foundation
             }
         }
         return piece
+    }
+
+    /// The terms written in Latin letters in a text ("iPhone 15 Pro", "USB-C"), at most twelve.
+    nonisolated static func terms(in text: String) -> [String] {
+        guard let pattern = try? NSRegularExpression(pattern: "[A-Za-z][A-Za-z0-9+#.\\-]*(?: ?[A-Za-z0-9][A-Za-z0-9+#.\\-]*)*") else { return [] }
+        var seen = Set<String>(), result: [String] = []
+        let string = text as NSString
+        for match in pattern.matches(in: text, range: NSRange(location: 0, length: string.length)) {
+            let term = string.substring(with: match.range).trimmingCharacters(in: CharacterSet(charactersIn: " .-"))
+            guard term.count >= 2, seen.insert(term.lowercased()).inserted else { continue }
+            result.append(term)
+            if result.count == 12 { break }
+        }
+        return result
+    }
+
+    /// A quiet recording is brought up to an ordinary level before the model
+    /// hears it (30 dB below ordinary speech costs the model about a fifth more
+    /// mistakes; nothing is gained above that). Never more than 30 times.
+    nonisolated static func leveled(_ samples: [Float]) -> [Float] {
+        let peak = samples.reduce(Float(0)) { max($0, abs($1)) }
+        guard peak > 0.0005, peak < 0.1 else { return samples }
+        let gain = min(0.3 / peak, 30)
+        return samples.map { $0 * gain }
     }
 
     /// Wait for every stretch, at most `seconds`. False when time ran out.

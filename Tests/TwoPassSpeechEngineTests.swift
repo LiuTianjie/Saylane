@@ -57,7 +57,7 @@ final class Calls: @unchecked Sendable {
                                   answer: @escaping @Sendable (Int) throws -> String) -> TwoPassSpeechEngine {
         TwoPassSpeechEngine(live: live,
             prepare: { _ in if prepareFails { throw ASRModelError.missing } },
-            transcribe: { samples, _ in
+            transcribe: { samples, _, _ in
                 calls.enter(samples.count)
                 defer { calls.leave() }
                 try await Task.sleep(for: .milliseconds(delay))
@@ -178,6 +178,12 @@ final class Calls: @unchecked Sendable {
             await e.cancel()
             check(Date().timeIntervalSince(started) > 0.03 && live.cancels == 1, "cancel lets the decode end")
         }
+        check(TwoPassSpeechEngine.terms(in: "我用的是 iPhone 15 Pro系统是 iOS 18，接口是 USB-C，还有 iphone 15 pro 和 A17") == ["iPhone 15 Pro", "iOS 18", "USB-C", "A17"],
+              "the Latin terms of a text: \(TwoPassSpeechEngine.terms(in: "我用的是 iPhone 15 Pro系统是 iOS 18，接口是 USB-C，还有 iphone 15 pro 和 A17"))")
+        check(TwoPassSpeechEngine.terms(in: "今天下午三点开会。").isEmpty, "none in plain Chinese")
+        let quiet = TwoPassSpeechEngine.leveled([0.01, -0.02, 0.005]), loud = TwoPassSpeechEngine.leveled([0.2, -0.4])
+        check(abs(quiet[1] + 0.3) < 0.001 && loud == [0.2, -0.4], "a quiet stretch is brought up, an ordinary one is left alone")
+        check(TwoPassSpeechEngine.leveled([0.0001, 0]) == [0.0001, 0], "silence is not amplified")
         check(TwoPassSpeechEngine.join(["你好。", "世界。"]) == "你好。世界。", "Chinese joins as it is")
         check(TwoPassSpeechEngine.join(["Hello there.", "Next one"]) == "Hello there. Next one", "English gets a space")
         check(TwoPassSpeechEngine.join(["用 Mac", "写字"]) == "用 Mac写字", "no space before Chinese")

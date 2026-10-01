@@ -233,6 +233,7 @@ import Darwin
         if arguments.contains("--solo") { return QwenSpeechEngine(variant: variant, context: context, runtime: QwenRuntime.shared) }
         let engine = AppModel.twoPass(variant, prompt: context, contextualStrings: [])
         engine.onStretch = { print(String(format: "stretch %.1f s", $0)) }
+        engine.hintsEnabled = arguments.contains("--hints")
         return engine
     }
 

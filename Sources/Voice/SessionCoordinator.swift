@@ -58,11 +58,14 @@ final class SessionCoordinator {
     private let previewInterval: TimeInterval
     /// Seconds between the steps in which a preview is typed out; 0 shows each preview whole.
     private let typingInterval: TimeInterval
+    /// How the recording ends after the key is released; nil ends it at once.
+    private let releaseTail: ReleaseTail?
 
-    init(previewInterval: TimeInterval = 0.08, typingInterval: TimeInterval = 0,
+    init(previewInterval: TimeInterval = 0.08, typingInterval: TimeInterval = 0, releaseTail: ReleaseTail? = nil,
          now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         self.previewInterval = max(0, previewInterval)
         self.typingInterval = max(0, typingInterval)
+        self.releaseTail = releaseTail
         self.now = now
     }
 
@@ -100,6 +103,9 @@ final class SessionCoordinator {
         var lastHypothesis = ""
         var typewriter = Typewriter()
         var typing: Task<Void, Never>?
+        /// When the microphone last heard a voice.
+        var lastVoiceAt: TimeInterval?
+        var tail: Task<Void, Never>?
         /// Complete local/translated output, available only while optional
         /// polishing is in flight. It is safe to commit when typing resumes.
         var ordinaryOutput: String?
@@ -120,7 +126,7 @@ final class SessionCoordinator {
         /// Every task of this run, cancelled together. No other place cancels them.
         func cancelAll() {
             setup?.cancel(); pump?.cancel(); preview?.cancel()
-            finish?.cancel(); deadline?.cancel(); presentation?.cancel(); typing?.cancel()
+            finish?.cancel(); deadline?.cancel(); presentation?.cancel(); typing?.cancel(); tail?.cancel()
         }
     }
 
@@ -170,7 +176,10 @@ final class SessionCoordinator {
                             try speech.feed(frame.buffer)
                             let level = AudioLevel.normalized(from: frame.buffer)
                             // About -39 dB: a voice, not the room. From here to `firstPreview` is how long the first word takes.
-                            if level >= 0.3 { self.mark("voiceStarted", for: context) }
+                            if level >= 0.3 {
+                                self.mark("voiceStarted", for: context)
+                                context.lastVoiceAt = self.now()
+                            }
                             self.onLevel?(level)
                         }
                     } catch {
@@ -201,9 +210,28 @@ final class SessionCoordinator {
         mark("released", for: context)
         context.presentation?.cancel()
         context.pendingHypothesis = nil
-        // Stop the tap even if setup is still pending; no post-release audio is recorded.
-        context.capture.stop()
-        if state == .listening { finalize(context) }
+        guard state == .listening, let releaseTail else {
+            // Setup is still pending: the tap stops now and what was buffered is recognized.
+            context.capture.stop()
+            if state == .listening { finalize(context) }
+            return
+        }
+        // The key goes up while the last syllable is still in the air, and the
+        // buffer that holds it has not arrived yet. Keep listening for a moment,
+        // and for as long as the voice goes on, within a limit.
+        let released = now()
+        context.tail = Task { [weak self, weak context] in
+            while true {
+                do { try await Task.sleep(for: .milliseconds(20)) } catch { return }
+                guard let self, let context, self.isCurrent(context) else { return }
+                let elapsed = self.now() - released
+                let speaking = context.lastVoiceAt.map { self.now() - $0 < releaseTail.quiet } ?? false
+                if elapsed >= releaseTail.limit || (elapsed >= releaseTail.minimum && !speaking) { break }
+            }
+            guard let self, let context, self.isCurrent(context) else { return }
+            self.mark("tailEnded", for: context)
+            self.finalize(context)
+        }
     }
 
     func cancel(error: String? = nil) {
@@ -465,6 +493,18 @@ final class SessionCoordinator {
             }
         }
     }
+}
+
+/// What happens between the release of the key and the end of the recording.
+/// Measured on 60 recordings: ending 0.15 s before the last syllable does
+/// leaves 25 sentences right instead of 38; ending 0.3 s early leaves 8.
+struct ReleaseTail: Equatable, Sendable {
+    /// Always recorded after the release: the buffer in flight and the sound still in the air.
+    var minimum: TimeInterval = 0.10
+    /// The recording ends once no voice was heard for this long.
+    var quiet: TimeInterval = 0.12
+    /// It ends after this long whatever is heard.
+    var limit: TimeInterval = 0.5
 }
 
 /// Recognizers answer in clumps, several characters at once. The typewriter
