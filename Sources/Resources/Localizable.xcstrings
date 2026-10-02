@@ -541,16 +541,6 @@
         }
       }
     },
-    "仅发送文字进行校对。先显示本地结果，校对成功后更新；失败、超时或改动过大时保留原文。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Only text is sent for proofreading. The local result shows first and is updated on success; on failure, timeout or excessive changes the original stays."
-          }
-        }
-      }
-    },
     "任何应用、任何输入法下都能按键说话": {
       "localizations": {
         "en": {
@@ -1011,6 +1001,16 @@
         }
       }
     },
+    "只发送文字，不发送语音和图片。先显示本地结果，成功后更新；失败、超时或改动过大时保留本地结果。开启截屏精翻后，划选区域里识别出的文字和所在应用的名称会发送到下面配置的接口，截图本身不会发送。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only text is sent, never audio or pictures. The local result shows first and is updated on success; on failure, timeout or excessive changes the local result stays. With precise screen translation on, the text recognised in the captured region and the name of the application it was taken from are sent to the endpoint configured below; the picture itself is not."
+          }
+        }
+      }
+    },
     "只在你按住说话时录音": {
       "localizations": {
         "en": {
@@ -1231,32 +1231,22 @@
         }
       }
     },
-    "大模型校对": {
+    "大模型校对与精翻": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "AI proofreading"
+            "value": "AI proofreading and precise translation"
           }
         }
       }
     },
-    "大模型润色": {
+    "大模型精翻": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "AI polish"
-          }
-        }
-      }
-    },
-    "大模型润色在「文字修正」中统一设置。截图不会上传。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "AI polish is configured under Text Correction. Screenshots are never uploaded."
+            "value": "Precise translation"
           }
         }
       }
@@ -1801,6 +1791,16 @@
         }
       }
     },
+    "截屏精翻": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Precise screen translation"
+          }
+        }
+      }
+    },
     "截屏翻译": {
       "localizations": {
         "en": {
@@ -1917,6 +1917,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Adds Saylane to your input sources and switches to it; no trip to System Settings"
+          }
+        }
+      }
+    },
+    "把划选区域里的文字整屏交给大模型翻译：按界面语境选词，品牌名和代码保持原样，译文尽量放得进原来的位置。先显示本机翻译，精翻完成后替换。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sends all the text of the captured region to the model in one request: words are chosen for the interface they stand in, brand names and code stay as they are, and translations are kept short enough for their place. The on-device translation shows first and is replaced when the precise one arrives."
           }
         }
       }
@@ -2541,22 +2551,22 @@
         }
       }
     },
-    "正在润色": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Polishing"
-          }
-        }
-      }
-    },
     "正在添加…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Adding…"
+          }
+        }
+      }
+    },
+    "正在精翻": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refining"
           }
         }
       }
@@ -2921,6 +2931,56 @@
         }
       }
     },
+    "精翻只完成了一部分，其余保留本机翻译。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Precise translation finished only in part; the rest keeps the on-device translation."
+          }
+        }
+      }
+    },
+    "精翻把整屏文字一次交给你在「文字修正」里配置的大模型，按界面语境翻译；在那里开关。开启后，划选区域里识别出的文字和所在应用的名称会发送到该接口，截图不会上传。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Precise translation hands the text of the whole capture to the model you set up under Text Correction, which translates it knowing the interface it belongs to; it is switched on there. When on, the text recognised in the captured region and the name of the application it was taken from are sent to that endpoint. The picture is never uploaded."
+          }
+        }
+      }
+    },
+    "精翻未完成，已保留本机翻译：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Precise translation failed; the on-device translation stays: %@"
+          }
+        }
+      }
+    },
+    "精翻的回答无法使用，已保留本机翻译。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The model's answer could not be used; the on-device translation stays."
+          }
+        }
+      }
+    },
+    "精翻超时，已保留本机翻译。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Precise translation timed out; the on-device translation stays."
+          }
+        }
+      }
+    },
     "系统不支持这对语言。": {
       "localizations": {
         "en": {
@@ -3027,16 +3087,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Registering the input method failed (error %d)."
-          }
-        }
-      }
-    },
-    "结合周边文字修正划选区域的译文": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Refine the selected region's translation using the surrounding text"
           }
         }
       }

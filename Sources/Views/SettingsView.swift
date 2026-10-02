@@ -390,13 +390,13 @@ struct SettingsView: View {
         }
 
         SettingsSection {
-            LabeledContent(String(localized: "大模型润色")) {
+            LabeledContent(String(localized: "大模型精翻")) {
                 Text(p.screenPolishEnabled ? String(localized: "已开启") : String(localized: "未开启")).foregroundStyle(.secondary)
             }
         } header: {
             Text(String(localized: "译文"))
         } footer: {
-            Text(String(localized: "大模型润色在「文字修正」中统一设置。截图不会上传。"))
+            Text(String(localized: "精翻把整屏文字一次交给你在「文字修正」里配置的大模型，按界面语境翻译；在那里开关。开启后，划选区域里识别出的文字和所在应用的名称会发送到该接口，截图不会上传。"))
         }
 
         SettingsSection {

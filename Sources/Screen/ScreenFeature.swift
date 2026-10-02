@@ -56,7 +56,7 @@ final class ScreenFeature {
         if let source = p.screenTranslateSource, let target = p.screenTranslateTarget {
             last = TranslationDirection(source: source, target: target)
         }
-        controller.polish = p.screenPolishEnabled ? Self.makePolish(endpoint: p.finalPolishEndpoint, model: p.finalPolishModel) : nil
+        controller.precise = p.screenPolishEnabled ? Self.makePrecise(endpoint: p.finalPolishEndpoint, model: p.finalPolishModel) : nil
         let (a, b) = pairForDirection()
         controller.beginSelection(a: a, b: b, last: last, preserveKeyboardFocus: preserveKeyboardFocus || keysHandledGlobally())
     }
@@ -97,12 +97,15 @@ final class ScreenFeature {
         onShortcutRecorded?(shortcut)
     }
 
-    private static func makePolish(endpoint: String, model: String) -> (@Sendable (String, String, String, String, String) async throws -> String) {
-        { original, draft, source, target, context in
+    /// Precise translation goes to the endpoint configured under Text Correction. The address and
+    /// the model are those of the moment the capture starts; the key is read when a request is sent.
+    private static func makePrecise(endpoint: String, model: String) -> ScreenPreciseTranslator {
+        ScreenPreciseTranslator(transport: { system, user in
             let config = try FinalPolishConfiguration(endpoint: endpoint, model: model)
             let key = try PolishKeychain.read(endpoint: config.endpoint)
-            return try await FinalPolishService.polish(configuration: config, apiKey: key, original: original, draft: draft,
-                                                       sourceLanguage: source, targetLanguage: target, screenContext: context)
-        }
+            // A little longer than the translator waits, so that being late is always reported as being late.
+            return try await FinalPolishService.chat(configuration: config, apiKey: key, system: system, user: user,
+                                                     timeout: ScreenPreciseTranslator.patience + 5)
+        })
     }
 }

@@ -10,6 +10,12 @@ enum ScreenWindowProbe {
         return NSScreen.screens.first(where: { $0.frame.contains(point) })?.visibleFrame
     }
 
+    /// The application whose window is in front at `point`: its name as the window list gives it.
+    static func owner(at point: CGPoint, excludingPID pid: pid_t) -> String? {
+        let owner = onscreenCandidates(excludingPID: pid).first { $0.bounds.contains(point) }?.owner
+        return owner?.isEmpty == false ? owner : nil
+    }
+
     static func onscreenCandidates(excludingPID pid: pid_t) -> [ScreenTranslate.HoverCandidate] {
         let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
         guard let info = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {

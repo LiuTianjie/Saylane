@@ -64,36 +64,73 @@ enum Fitter {
         return String(characters[..<low]).trimmingCharacters(in: CharacterSet.whitespaces.union(.punctuationCharacters)) + "…"
     }
 
+    /// What a translation may occupy, in picture pixels: the source's own footprint and the empty space around it.
+    struct Room: Sendable {
+        /// The width of the source.
+        var column: CGFloat
+        /// The widest a line may be: the source plus the proven space on the side it may grow to.
+        var wide: CGFloat
+        /// How much taller the block may become.
+        var growth: CGFloat
+        /// A snug container (button, bubble, chip): the text sits in the middle, and may grow both ways.
+        var snug: Bool
+        /// Baseline to baseline of the source, and from its first baseline to its last.
+        var pitch: CGFloat
+        var span: CGFloat
+    }
+
+    static func room(for block: TextBlock, scale: CGFloat) -> Room {
+        let sizePx = block.style.size * scale
+        let column = block.rect.width
+        let snug = block.free.upSolid && block.free.downSolid
+            && abs(block.free.up - block.free.down) <= max(2 * scale, sizePx * 0.3) && block.free.up < sizePx * 2.5
+        // Empty space the pixels prove, less a margin where something stopped the scan.
+        // Inside a container the source already keeps its own padding; a little of it may be used.
+        let margin = sizePx * 0.45, inner = sizePx * 0.12
+        func usable(_ free: CGFloat, _ stopped: Bool, _ margin: CGFloat) -> CGFloat { max(0, free - (stopped ? margin : 0)) }
+        let side = snug ? sizePx * 0.3 : margin
+        let roomRight = usable(block.free.right, block.free.rightEdge, side), roomLeft = usable(block.free.left, block.free.leftEdge, side)
+        let roomDown = usable(block.free.down, block.free.downEdge, snug ? inner : margin)
+        let roomUp = usable(block.free.up, block.free.upEdge, snug ? inner : margin)
+        let wide: CGFloat = switch block.align {
+        case .left: column + roomRight
+        case .right: column + roomLeft
+        case .center: column + 2 * min(roomLeft, roomRight)
+        }
+        let pitch = block.pitch > 0 ? block.pitch : sizePx * 1.28
+        return Room(column: column, wide: wide, growth: snug ? roomUp + roomDown : roomDown, snug: snug,
+                    pitch: pitch, span: CGFloat(block.lines.count - 1) * pitch)
+    }
+
+    /// Roughly how many characters of a translation fit where the source is, at the source's size
+    /// and in as many lines as the source has: the first thing `place` tries. Han, kana and hangul
+    /// are one em wide whatever the typeface; for other scripts the width of a typical character
+    /// is taken from ordinary words in the block's own font. An estimate: real words are wider or
+    /// narrower than typical ones, and a wrapped line seldom ends exactly at the edge.
+    static func capacity(_ block: TextBlock, scale: CGFloat, fullWidth: Bool) -> Int {
+        let room = Self.room(for: block, scale: scale)
+        let advance = fullWidth ? block.style.size : width(typicalWords, font: block.style.font()) / CGFloat(typicalWords.count)
+        let perLine = (room.wide / scale + 0.5) / max(1, advance)
+        let lines = CGFloat(block.lines.count)
+        // Where a line is broken, what is left of it stays empty: a character of Han, about half a word otherwise.
+        let lost: CGFloat = fullWidth ? 0.5 : 3
+        return max(1, Int(lines == 1 ? perLine : lines * perLine - (lines - 1) * lost))
+    }
+
+    private static let typicalWords = "Open the Settings window to change how New Messages are shown"
+
     /// `only`: the one size step to use, when a group of equals has agreed on it.
     static func place(_ block: TextBlock, scale: CGFloat, only: CGFloat? = nil) -> Placement {
         let text = block.translation.trimmingCharacters(in: .whitespacesAndNewlines)
         var placement = Placement(size: block.style.size)
         guard !text.isEmpty else { return placement }
         let sizePx = block.style.size * scale
-        let column = block.rect.width
-        // A snug container (button, bubble, chip): the text sits in the middle, and may grow both ways.
-        let snug = block.free.upSolid && block.free.downSolid
-            && abs(block.free.up - block.free.down) <= max(2 * scale, sizePx * 0.3) && block.free.up < sizePx * 2.5
-        // Empty space the pixels prove, less a margin where something stopped the scan.
-        // Inside a container the source already keeps its own padding; a little of it may be used.
-        let margin = sizePx * 0.45, inner = sizePx * 0.12
-        func room(_ free: CGFloat, _ stopped: Bool, _ margin: CGFloat) -> CGFloat { max(0, free - (stopped ? margin : 0)) }
-        let side = snug ? sizePx * 0.3 : margin
-        let roomRight = room(block.free.right, block.free.rightEdge, side), roomLeft = room(block.free.left, block.free.leftEdge, side)
-        let roomDown = room(block.free.down, block.free.downEdge, snug ? inner : margin)
-        let roomUp = room(block.free.up, block.free.upEdge, snug ? inner : margin)
-        let wide: CGFloat = switch block.align {
-        case .left: column + roomRight
-        case .right: column + roomLeft
-        case .center: column + 2 * min(roomLeft, roomRight)
-        }
-        let growth = snug ? roomUp + roomDown : roomDown
+        let room = Self.room(for: block, scale: scale)
+        let column = room.column, wide = room.wide, growth = room.growth, snug = room.snug
         let sourceLines = block.lines.count
 
         struct Fit { var lines: [(text: String, width: CGFloat)]; var shrink: CGFloat; var pitch: CGFloat; var width: CGFloat }
-        let sourcePitch = block.pitch > 0 ? block.pitch : sizePx * 1.28
-        // Baseline to baseline that the source occupies, plus what may be added.
-        let span = CGFloat(sourceLines - 1) * sourcePitch
+        let sourcePitch = room.pitch, span = room.span
         func attempt(_ shrink: CGFloat, _ width: CGFloat, grow: Bool) -> Fit? {
             let font = block.style.font(size: block.style.size * shrink)
             // Half a point of tolerance: the source itself must fit its own width.
