@@ -1,11 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// The small toolbar under a pin: original/translation toggle, direction, status, copy, close.
+/// The small toolbar under a pin: original/translation toggle, direction, status, copy (the picture), close.
 final class ScreenPinChromePanel: NSPanel {
     var onToggleOverlay: (() -> Void)?
     var onCopy: (() -> Void)?
-    var onRead: (() -> Void)?
     var onClose: (() -> Void)?
     var onCycle: (() -> Void)?
     private let model: ScreenPinModel
@@ -14,7 +13,7 @@ final class ScreenPinChromePanel: NSPanel {
     init(model: ScreenPinModel) {
         self.model = model
         hosting = TransparentPinView(rootView: ScreenPinChromeView(
-            model: model, onToggle: {}, onCopy: {}, onRead: {}, onClose: {}, onCycle: {}
+            model: model, onToggle: {}, onCopy: {}, onClose: {}, onCycle: {}
         ))
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 280, height: 36),
@@ -42,7 +41,6 @@ final class ScreenPinChromePanel: NSPanel {
             model: model,
             onToggle: { [weak self] in self?.onToggleOverlay?() },
             onCopy: { [weak self] in self?.onCopy?() },
-            onRead: { [weak self] in self?.onRead?() },
             onClose: { [weak self] in self?.onClose?() },
             onCycle: { [weak self] in self?.onCycle?() }
         )
@@ -73,7 +71,6 @@ struct ScreenPinChromeView: View {
     @Bindable var model: ScreenPinModel
     var onToggle: () -> Void
     var onCopy: () -> Void
-    var onRead: () -> Void
     var onClose: () -> Void
     var onCycle: () -> Void
 
@@ -106,12 +103,6 @@ struct ScreenPinChromeView: View {
                 .font(.system(size: 12, weight: .medium))
                 .buttonStyle(.plain)
                 .help(String(localized: "复制图片并关闭（⌘C）"))
-            if !model.fullText.isEmpty {
-                Button(String(localized: "全文"), action: onRead)
-                    .font(.system(size: 12, weight: .medium))
-                    .buttonStyle(.plain)
-                    .help(String(localized: "阅读并复制完整译文"))
-            }
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .semibold))

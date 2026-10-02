@@ -9,13 +9,6 @@ final class ScreenPinPanel: NSPanel, NSWindowDelegate {
     var onCycle: (() -> Void)?
     /// Install full-screen shields that block pointer input to other apps.
     var freezesScreen = false
-    private var fullTextPopover: NSPopover?
-    var hasTranslationDetail: Bool { fullTextPopover?.isShown == true }
-    @discardableResult func closeTranslationDetail() -> Bool {
-        let wasOpen = hasTranslationDetail
-        fullTextPopover?.close()
-        return wasOpen
-    }
     private(set) var canvasSize = CGSize.zero
     private let model: ScreenPinModel
     private let chrome: ScreenPinChromePanel
@@ -75,7 +68,6 @@ final class ScreenPinPanel: NSPanel, NSWindowDelegate {
 
         chrome.onToggleOverlay = { [weak self] in self?.onToggleOverlay?() }
         chrome.onCopy = { [weak self] in self?.onCopy?() }
-        chrome.onRead = { [weak self] in self?.showFullText() }
         chrome.onClose = { [weak self] in self?.onClose?() }
         chrome.onCycle = { [weak self] in self?.onCycle?() }
         addChildWindow(chrome, ordered: .above)
@@ -87,19 +79,6 @@ final class ScreenPinPanel: NSPanel, NSWindowDelegate {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
-    func showFullText() {
-        guard !model.fullText.isEmpty, let anchor = chrome.contentView else { return }
-        closeTranslationDetail()
-        let controller = ScreenTranslationDetailController(text: model.fullText)
-        let popover = NSPopover()
-        popover.behavior = .transient
-        popover.animates = false
-        popover.contentViewController = controller
-        popover.contentSize = controller.view.frame.size
-        fullTextPopover = popover
-        popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
-    }
-
     func present(source: NSImage, at rect: CGRect) {
         pinRect = rect
         canvasView.setSource(source)
@@ -108,11 +87,6 @@ final class ScreenPinPanel: NSPanel, NSWindowDelegate {
         if freezesScreen { installFreezePanels() }
         orderFrontRegardless()
         chrome.orderFrontRegardless()
-        // The pin's keys belong to it from the moment it appears: ⌘C right after a
-        // translation copies the picture. Left to the application in front, ⌘C
-        // copied whatever text was selected there (seen on device with 0.7.0).
-        // The panel does not activate this program; a click anywhere else gives the keys back.
-        makeKey()
     }
 
     private func layoutCard(size: CGSize) {
@@ -162,6 +136,12 @@ final class ScreenPinPanel: NSPanel, NSWindowDelegate {
 
     #if DEBUG
     /// What the pin shows, as a picture.
+    func chromeSnapshot() -> NSBitmapImageRep? {
+        guard let view = chrome.contentView, let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        return bitmap
+    }
+
     func snapshot() -> NSBitmapImageRep? {
         guard let view = contentView, let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
         view.cacheDisplay(in: view.bounds, to: bitmap)
@@ -183,7 +163,6 @@ final class ScreenPinPanel: NSPanel, NSWindowDelegate {
     }
 
     override func orderOut(_ sender: Any?) {
-        closeTranslationDetail()
         chrome.orderOut(sender)
         for panel in freezePanels { panel.orderOut(sender) }
         freezePanels = []

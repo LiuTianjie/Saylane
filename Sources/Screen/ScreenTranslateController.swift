@@ -10,7 +10,6 @@ final class ScreenPinModel {
     var directionTitle = ""
     var status = ""
     var isWorking = false
-    var fullText = ""
 }
 
 /// Screen translation: selection → capture → analyze → translate → compose → pin.
@@ -36,6 +35,8 @@ final class ScreenTranslateController {
     var polish: (@Sendable (String, String, String, String, String) async throws -> String)?
 
     private let pinModel = ScreenPinModel()
+    /// Where "Copy" puts the picture. The design preview uses a pasteboard of its own.
+    var pasteboard = NSPasteboard.general
     /// Own provider: the screen direction is independent of the voice direction.
     let translation = TranslationProvider()
     private var preparedDirection: TranslationDirection?
@@ -96,7 +97,6 @@ final class ScreenTranslateController {
         analyzedDirection = nil
         translatedImage = nil
         translationCache = ScreenTranslationCache()
-        pinModel.fullText = ""
         removeEventMonitor()
     }
 
@@ -125,16 +125,13 @@ final class ScreenTranslateController {
     func handlePinKey(_ key: ScreenPinKey, a: AppLanguage, b: AppLanguage) {
         switch key {
         case .close:
-            if pinPanel?.closeTranslationDetail() == true { return }
             cancel()
         case .toggleOverlay:
-            guard pinPanel?.hasTranslationDetail != true else { return }
             toggleOverlay()
         case .copy:
-            guard pinPanel?.hasTranslationDetail != true else { return }
             _ = copyImage()
         case .retry:
-            guard isPinVisible, pinPanel?.hasTranslationDetail != true else { return }
+            guard isPinVisible else { return }
             restartTranslation()
         case .cycleDirection:
             cycleDirection(a: a, b: b)
@@ -146,8 +143,8 @@ final class ScreenTranslateController {
         guard isPinVisible else { return false }
         let image = overlayEnabled ? (translatedImage ?? originalImage) : originalImage
         guard image.size.width > 0 else { return false }
-        NSPasteboard.general.clearContents()
-        let ok = NSPasteboard.general.writeObjects([image])
+        pasteboard.clearContents()
+        let ok = pasteboard.writeObjects([image])
         InputDiagnostics.record("screen-copy", "\(overlayEnabled && translatedImage != nil ? "translation" : "capture") \(ok ? "copied" : "failed")")
         if ok { cancel() }
         return ok
@@ -189,8 +186,16 @@ final class ScreenTranslateController {
     func preview(_ image: NSImage, direction: TranslationDirection) async -> (pin: NSBitmapImageRep?, status: String) {
         self.direction = direction
         await present(captured: image, at: CGRect(origin: CGPoint(x: 40, y: 40), size: image.size))
-        print("pin is key: \(pinPanel?.isKeyWindow == true)")
-        return (pinPanel?.snapshot(), pinModel.status)
+        let pin = pinPanel?.snapshot()
+        // The toolbar as it looks, then its Copy button the way a click runs it — on a pasteboard of our own.
+        if let toolbar = pinPanel?.chromeSnapshot(), let path = ProcessInfo.processInfo.environment["SAYLANE_TOOLBAR_SNAPSHOT"] {
+            try? toolbar.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+        }
+        pasteboard = NSPasteboard(name: NSPasteboard.Name("local.saylane.preview.\(ProcessInfo.processInfo.processIdentifier)"))
+        pinPanel?.onCopy?()
+        print("copy button → types \(pasteboard.types?.map(\.rawValue) ?? []), text: \(pasteboard.string(forType: .string) ?? "none"), pin still open: \(isPinVisible)")
+        pasteboard.releaseGlobally()
+        return (pin, pinModel.status)
     }
     #endif
 
@@ -309,8 +314,6 @@ final class ScreenTranslateController {
         }.value
         guard token == generation, !Task.isCancelled, let picture = composition.pixels.cgImage() else { return nil }
         translatedImage = NSImage(cgImage: picture, size: originalImage.size)
-        // What is on the picture, in reading order, for "full text".
-        pinModel.fullText = composition.placed.map { composition.blocks[$0.index].translation }.joined(separator: "\n")
         refreshDisplayed()
         return composition
     }
@@ -384,7 +387,6 @@ final class ScreenTranslateController {
 
     private func refreshDisplayed() {
         pinModel.overlayEnabled = overlayEnabled
-        if translatedImage == nil { pinModel.fullText = "" }
         pinPanel?.show(translated: translatedImage, overlayEnabled: overlayEnabled)
         pinPanel?.setWorking(pinModel.isWorking)
     }

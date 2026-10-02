@@ -2,6 +2,16 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.7.1 (local testing)
+
+- The pin's toolbar has one copy button, and it copies the picture. "Copy" and "Full text" stood side by side and read as a single "Copy Full text"; the full-text popover and its "Copy Text" are gone.
+- The timing of a dictation no longer takes the start sound for the speaker's voice.
+- Copies of a pin are logged (`screen-copy`).
+
+Looked at and left as it was: giving the pin the keyboard as soon as it appears (so ⌘C works without a click). It takes the keyboard away from the application in front and detaches the input method from its text field; that was not what was asked for.
+
+Seen on device with 0.7.0: dictations written by Qwen3-ASR every time, text 0.30–0.48 s after the release; seven screen translations, the largest with 109 blocks, 84 of them translated in place, one set smaller, none cut; recognition 0.6–0.95 s and measuring 0.02–0.10 s per capture.
+
 ## 0.7.0 (local testing)
 
 Screen translation is redone: the translation is set where the original was, as if the interface had switched language. Design, scoring and what is still missing: `docs/SCREEN_TRANSLATE_V2.md`.

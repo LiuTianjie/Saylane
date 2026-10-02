@@ -641,16 +641,6 @@
         }
       }
     },
-    "全文": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Full text"
-          }
-        }
-      }
-    },
     "全选": {
       "localizations": {
         "en": {
@@ -1201,16 +1191,6 @@
         }
       }
     },
-    "复制文字": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copy Text"
-          }
-        }
-      }
-    },
     "外接键盘上 Apple 听写默认“连按两次 ⌃”。若同时开启，请在系统设置 → 键盘 → 听写里改掉它。": {
       "localizations": {
         "en": {
@@ -1267,16 +1247,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Finish setup"
-          }
-        }
-      }
-    },
-    "完整译文": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Full Translation"
           }
         }
       }
@@ -3837,16 +3807,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keyboard Input"
-          }
-        }
-      }
-    },
-    "阅读并复制完整译文": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Read and copy the full translation"
           }
         }
       }
