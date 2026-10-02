@@ -16,8 +16,10 @@ final class Client: NSObject, IMKTextInput {
     func setMarkedText(_ string: Any!, selectionRange: NSRange, replacementRange: NSRange) {
         marked.append((string as? NSAttributedString)?.string ?? (string as? String ?? ""))
     }
-    func selectedRange() -> NSRange { NSRange(location: 0, length: 0) }
-    func markedRange() -> NSRange { NSRange(location: NSNotFound, length: 0) }
+    var asked = 0
+    var onAsk: (() -> Void)?
+    func selectedRange() -> NSRange { asked += 1; onAsk?(); return NSRange(location: 0, length: 0) }
+    func markedRange() -> NSRange { asked += 1; onAsk?(); return NSRange(location: NSNotFound, length: 0) }
     func attributedSubstring(from range: NSRange) -> NSAttributedString! { nil }
     func length() -> Int { 0 }
     func characterIndex(for point: NSPoint, tracking mappingMode: IMKLocationToOffsetMappingMode, inMarkedRange: UnsafeMutablePointer<ObjCBool>!) -> Int { 0 }
@@ -219,6 +221,29 @@ final class Client: NSObject, IMKTextInput {
             precondition(core.voiceInsert(session: session, text: "in time", deadline: 250))
             precondition(!core.voiceInsert(session: session, text: "twice", deadline: 250), "one dictation is written once")
             precondition(client.inserted == ["in time"])
+            passed += 1
+        }
+        do { // Learning asks the client where the text will stand. A client that is slow to say must not get the text twice.
+            let (core, _, client, _, _, _, setClock) = make()
+            let session = UUID()
+            var finalizing = context(1, .finalizing, session: session); finalizing.learnsCorrections = true
+            core.apply(finalizing)
+            client.onAsk = { setClock(300) }
+            precondition(!core.voiceInsert(session: session, text: "slow", deadline: 250) && client.inserted.isEmpty,
+                         "the main program stopped waiting and wrote the text itself")
+            precondition(client.asked > 0)
+            passed += 1
+        }
+        do { // The main program's own window: it waits for the answer, so it is asked nothing before the text is written.
+            let (core, manager, client, _, _, _, _) = make()
+            let session = UUID()
+            client.bundle = Bridge.appBundleID
+            manager.attach(SaylaneInputController(client))
+            var finalizing = context(1, .finalizing, session: session); finalizing.learnsCorrections = true
+            finalizing.sessionBundleID = Bridge.appBundleID
+            core.apply(finalizing)
+            precondition(core.voiceInsert(session: session, text: "own", deadline: 1_000) && client.inserted == ["own"])
+            precondition(client.asked == 0, "asked \(client.asked) times")
             passed += 1
         }
         do { // Hands-free: the key that ends the utterance is what the user types next, so it lands after the text.

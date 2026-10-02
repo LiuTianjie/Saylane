@@ -2,6 +2,18 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.8.1 (local testing)
+
+Found on device with 0.8.0.
+
+- **Letters said one by one stay together.** "A P P" was written with the spaces the downloaded model heard between the letters; it is written "APP". Inside an English sentence, where a single letter is also a word ("Plan A", "I"), three or more letters are joined, and two only where the system's recognizer wrote them as one.
+- **Names keep their own spelling.** "Chat GPT", "Mac OS", "Git Hub", "Power Point", "app store" come out as ChatGPT, macOS, GitHub, PowerPoint, App Store — a short list of names whose halves the model writes apart or in the wrong case. Your own vocabulary and what is learned from your corrections cover the rest.
+- **Version numbers are digits.** "零点八点一" is written 0.8.1 where the system's recognizer heard the same number.
+- **One way of spacing.** The model put a space between Chinese and English in some sentences and not in others. "Space between Chinese and Latin letters or digits" (Text Correction) now decides both ways: off — the default — means none, on means one everywhere. Spaces between English words are untouched.
+- **Dictating into Saylane's own windows** (the guide's try-it field, the settings) took two seconds to write the text and could write it twice: with learning from corrections on, the input method asked the window where the text would stand while that window was waiting for the input method. It no longer asks its own program, and it no longer writes a text the main program has stopped waiting for.
+
+Not a change in Saylane, and worth knowing: an application that was running while the input method was reinstalled many times in a row can stop talking to it until that application is quit and reopened (macOS does this per application). Seen with WeChat on the development Mac; typing and live preview return after relaunching it.
+
 ## 0.8.0 (local testing)
 
 ### First run

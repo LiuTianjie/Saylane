@@ -11,10 +11,11 @@ struct FinalPolishSettingsView: View {
         let p = model.prefs
         SettingsSection {
             Toggle("自动修正口误", isOn: model.binding(\.dictationCleanupEnabled))
+                .help("去掉嗯、呃和口吃重复；「不对，我是说…」「不是 A，是 B」直接写成改正后的内容。标记词必须独立成句，「不对称」「这个答案不对，我们再看看」不会被改。")
             Toggle("句末不加句号", isOn: model.binding(\.dictationDropFinalStop))
                 .help("聊天里常这样写。问号和感叹号保留。")
             Toggle("中文和英文、数字之间加空格", isOn: model.binding(\.dictationSpaceBetweenScripts))
-                .help("去掉嗯、呃和口吃重复；「不对，我是说…」「不是 A，是 B」直接写成改正后的内容。标记词必须独立成句，「不对称」「这个答案不对，我们再看看」不会被改。")
+                .help("关闭时都不加，开启时都加。英文单词之间的空格不变。")
             Toggle("常见术语", isOn: model.binding(\.dictationGlossaryEnabled))
                 .help("数学、科学、计算机、编程、生物化学和互联网热词。识别后按读音或拼写改回标准写法；人名和你们自己的词仍用个人词库。不含微信、翻译这类同音日常词。开启后每天从中文维基百科、维基词典的分类标题补新词（CC BY-SA）。")
             if p.dictationGlossaryEnabled {

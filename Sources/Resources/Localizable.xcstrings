@@ -701,6 +701,16 @@
         }
       }
     },
+    "关闭时都不加，开启时都加。英文单词之间的空格不变。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off: none anywhere. On: one everywhere. Spaces between English words stay as they are."
+          }
+        }
+      }
+    },
     "关闭窗口": {
       "localizations": {
         "en": {

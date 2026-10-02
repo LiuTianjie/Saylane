@@ -133,7 +133,7 @@ import Foundation
     }
 
     func finish() async throws -> String {
-        if let solo { return try await solo.finish() }
+        if let solo { return LatinWriting.tidied(try await solo.finish(), system: "") }
         guard active else { throw CancellationError() }
         active = false
         let token = generation
@@ -176,13 +176,19 @@ import Foundation
             } else {
                 parts.append(liveTail)
                 report("system:model-failed")
-                return NumeralFormat.followingSystem(model: Self.join(parts), system: liveText)
+                return Self.written(Self.join(parts), system: liveText)
             }
         }
         report("model")
         let result = Self.join(parts)
-        // Numbers the way they are written ("M1", "36G"): the model spells them out, the system does not.
-        return result.isEmpty ? liveText : NumeralFormat.followingSystem(model: result, system: liveText)
+        return result.isEmpty ? liveText : Self.written(result, system: liveText)
+    }
+
+    /// The model's text the way it is written: letters said one by one stand
+    /// together ("APP"), names keep their own spelling ("ChatGPT"), and numbers
+    /// are digits where the system's recognizer heard the same number ("M1", "36G").
+    nonisolated static func written(_ model: String, system: String) -> String {
+        NumeralFormat.followingSystem(model: LatinWriting.tidied(model, system: system), system: system)
     }
 
     func cancel() async {

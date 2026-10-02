@@ -7,15 +7,27 @@ enum DictationFormat {
     struct Options: Equatable, Sendable {
         /// No full stop at the very end, as people write in chats.
         var dropFinalStop = false
-        /// A space between Chinese and Latin letters or digits.
+        /// A space between Chinese and Latin letters or digits. Off means none:
+        /// recognizers put one there in some sentences and not in others.
         var spaceBetweenScripts = false
-        var isIdentity: Bool { !dropFinalStop && !spaceBetweenScripts }
     }
 
     static func apply(_ text: String, _ options: Options) -> String {
-        var result = text
+        var result = unspaced(text)
         if options.spaceBetweenScripts { result = spaced(result) }
         if options.dropFinalStop { result = withoutFinalStop(result) }
+        return result
+    }
+
+    /// No space where Chinese meets Latin letters or digits, and none beside
+    /// Chinese punctuation. Spaces between Latin words stay.
+    static func unspaced(_ text: String) -> String {
+        guard text.contains(" ") else { return text }
+        var result = text
+        for pattern in ["(?<=\\p{Han})[ \\t]+(?=[A-Za-z0-9])", "(?<=[A-Za-z0-9])[ \\t]+(?=\\p{Han})",
+                        "(?<=[，。；！？、：（）《》])[ \\t]+", "[ \\t]+(?=[，。；！？、：（）《》])"] {
+            result = result.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
+        }
         return result
     }
 
