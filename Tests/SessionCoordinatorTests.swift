@@ -450,6 +450,15 @@ import Foundation
             let waited = Date().timeIntervalSince(released)
             precondition(waited >= 0.18 && waited < 0.45, "the limit ends a recording that will not stop: \(waited)")
             talker.cancel()
+            // The start sound is not the speaker: loudness while it rings does not mark the start of the voice.
+            let c4 = SessionCoordinator(), speech4 = FakeSpeech(), audio4 = FakeCapture(), target4 = FakeTarget()
+            var marks: [String: Double] = [:]
+            c4.onMetrics = { marks = $0.elapsedMS }
+            c4.start(locale: .current, speech: speech4, capture: audio4, target: target4, passthrough: true) { $0 }
+            await settle(); c4.noteCue(lasting: 0.08)
+            audio4.emitVoice(); await settle(120); audio4.emitVoice(); await settle()
+            c4.release(); await settleUntilIdle(c4)
+            precondition((marks["voiceStarted"] ?? 0) - (marks["firstAudioFed"] ?? 0) > 80, "\(marks)")
             // A cancel during the tail writes nothing.
             let c3 = SessionCoordinator(releaseTail: ReleaseTail(minimum: 0.1, quiet: 0.05, limit: 0.3))
             let speech3 = FakeSpeech(), audio3 = FakeCapture(), target3 = FakeTarget()

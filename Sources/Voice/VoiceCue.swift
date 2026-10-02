@@ -7,6 +7,9 @@ import AppKit
 enum VoiceCue {
     case started, stopped
 
+    /// How long the sound is loud enough for the microphone to take it for a voice (the file rings for 0.56 s).
+    var audible: TimeInterval { self == .started ? 0.45 : 0.6 }
+
     private static let volume: Float = 0.3
     private static var sounds: [String: NSSound] = [:]
 

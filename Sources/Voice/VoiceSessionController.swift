@@ -285,7 +285,10 @@ final class VoiceSessionController {
             case .listening:
                 self.listeningStartedAt = ProcessInfo.processInfo.systemUptime
                 self.overlay.setPhase(.listening)
-                if p?.voiceCuesEnabled == true { self.playCue(.started) }
+                if p?.voiceCuesEnabled == true {
+                    self.playCue(.started)
+                    self.coordinator.noteCue(lasting: VoiceCue.started.audible)
+                }
             case .finalizing:
                 self.overlay.setPhase(.finalizing)
                 if p?.voiceCuesEnabled == true { self.playCue(.stopped) }

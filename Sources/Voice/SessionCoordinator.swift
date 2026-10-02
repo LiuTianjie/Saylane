@@ -105,6 +105,8 @@ final class SessionCoordinator {
         var typing: Task<Void, Never>?
         /// When the microphone last heard a voice.
         var lastVoiceAt: TimeInterval?
+        /// Until then what the microphone hears is the start sound, not a voice.
+        var cueUntil: TimeInterval = 0
         var tail: Task<Void, Never>?
         /// Complete local/translated output, available only while optional
         /// polishing is in flight. It is safe to commit when typing resumes.
@@ -177,7 +179,8 @@ final class SessionCoordinator {
                             let level = AudioLevel.normalized(from: frame.buffer)
                             // About -39 dB: a voice, not the room. From here to `firstPreview` is how long the first word takes.
                             if level >= 0.3 {
-                                self.mark("voiceStarted", for: context)
+                                // On device every dictation "heard a voice" 0.1 s after it began: that was the start sound.
+                                if self.now() >= context.cueUntil { self.mark("voiceStarted", for: context) }
                                 context.lastVoiceAt = self.now()
                             }
                             self.onLevel?(level)
@@ -202,6 +205,11 @@ final class SessionCoordinator {
                 if self.isCurrent(context) { self.cancel(error: error.localizedDescription) }
             }
         }
+    }
+
+    /// A sound of ours is playing into the room for this long: loudness in that time says nothing about the speaker.
+    func noteCue(lasting seconds: TimeInterval) {
+        run?.cueUntil = now() + seconds
     }
 
     func release() {
