@@ -30,6 +30,7 @@ Sources/
     SaylaneInputController   IMKInputController：激活、停用、按键回调
     IMEManager.swift         当前客户端的租约、marked text、写入、光标矩形
     InputMethodCore.swift    每个按键的本地决定；主程序请求的预览与终稿写入
+    DictationReadBack.swift  听写写入后读回那一段，供主程序从用户的修改里学词
     IMEHost.swift            进程接线：拼音、桥、按需拉起主程序
     BridgeResponder.swift    解码请求 → core → 编码回复
     Pinyin/ Rime/            拼音引擎、候选窗、librime 桥
@@ -61,8 +62,10 @@ Sources/
 
 两个本地 `CFMessagePort`，`Codable` JSON，各自一条串行发送队列。
 
-- 主程序 → 输入法（`com.rtranslate.saylane.ime-bridge`）：`status`、`context`、`pinyin`、`voiceMarked`、`voiceClear`、`voiceInsert`（带截止时间，返回是否写入）、`voiceEnd`。
-- 输入法 → 主程序（`com.rtranslate.saylane.app-bridge`）：`hello`、`attachment`、`key`、`talkKey`、`userTyped`、`typingResumed`、`menu`、`pinyinMode`。
+- 主程序 → 输入法（`com.rtranslate.saylane.ime-bridge`）：`status`、`context`、`pinyin`、`voiceMarked`、`voiceClear`、`voiceInsert`（带截止时间，返回是否写入）、`voiceEnd`、`voiceForget`。
+- 输入法 → 主程序（`com.rtranslate.saylane.app-bridge`）：`hello`、`attachment`、`key`、`talkKey`、`userTyped`、`typingResumed`、`readBack`、`menu`、`pinyinMode`。
+
+`readBack` 是唯一带文字的事件：用户允许从修改里学习时，输入法把一次听写所在的那一段现在读起来的样子发给主程序（`docs/SPEECH_PIPELINE.md` §8）。
 
 三条规则：
 

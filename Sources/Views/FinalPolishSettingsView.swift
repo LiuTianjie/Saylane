@@ -29,10 +29,15 @@ struct FinalPolishSettingsView: View {
                     .font(.system(size: 12.5))
                     .labelsHidden()
             }
+            Toggle("从我的修改里学习", isOn: model.binding(\.learnFromCorrections))
+                .help("听写写进输入框以后，你把一个人名或术语改掉，Saylane 会记下这一对写法。改成的写法从下一次听写起提示给识别；同样的修改做过两次，以后听成原来的写法时直接替换。日常用语、数字和大段改写不学。只在本机保存词对，不保存句子。")
+            if !model.corrections.corrections.isEmpty {
+                LearnedCorrectionsList()
+            }
         } header: {
             Text("本地修正")
         } footer: {
-            Text("口误和个人词库均在本机修正，不联网。常见术语默认关闭；开启后每日从维基百科和维基词典更新（CC BY-SA），不上传语音。")
+            Text("口误、个人词库和从修改里学到的写法都在本机处理，不联网。常见术语默认关闭；开启后每日从维基百科和维基词典更新（CC BY-SA），不上传语音。")
         }
         .disabled(model.isListening)
 
@@ -95,5 +100,51 @@ struct FinalPolishSettingsView: View {
             try PolishKeychain.delete(endpoint: config.endpoint)
             key = ""; notice = String(localized: "已删除")
         } catch { notice = error.localizedDescription }
+    }
+}
+
+/// What was learned from the user's corrections: one line a pair, each of
+/// which can be forgotten, and one button to forget them all.
+private struct LearnedCorrectionsList: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let learned = model.corrections.corrections
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("已学到 \(learned.items.count) 对写法").font(.system(size: 12.5))
+                Spacer()
+                Button("全部忘记") { model.corrections.forgetAll() }.controlSize(.small)
+            }
+            // A handful is shown whole; a long list scrolls inside its own frame.
+            if learned.items.count <= 5 {
+                rows(learned)
+            } else {
+                ScrollView { rows(learned) }.frame(height: 120)
+            }
+        }
+    }
+
+    private func rows(_ learned: LearnedCorrections) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            ForEach(learned.listed) { item in
+                HStack(spacing: 8) {
+                    Text(verbatim: "\(item.heard) → \(item.corrected)").font(.system(size: 12.5)).lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text(Self.label(learned.standing(of: item))).font(.system(size: 11.5)).foregroundStyle(.secondary)
+                    Button { model.corrections.forget(item.id) } label: { Image(systemName: "xmark.circle.fill") }
+                        .buttonStyle(.plain).foregroundStyle(.secondary)
+                        .help("忘记这一对").accessibilityLabel(Text("忘记这一对"))
+                }
+            }
+        }
+    }
+
+    private static func label(_ standing: LearnedCorrections.Standing) -> String {
+        switch standing {
+        case .replaces: return String(localized: "自动替换")
+        case .replacesAfterNext: return String(localized: "再改一次后自动替换")
+        case .hint: return String(localized: "只提示识别")
+        }
     }
 }

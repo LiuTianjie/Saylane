@@ -10,13 +10,22 @@ final class SaylaneInputController: InputClientController {
 
 final class Client: NSObject, IMKTextInput {
     var log: [String] = []
-    func insertText(_ string: Any!, replacementRange: NSRange) { log.append("insert:\(string as? String ?? "")") }
+    /// What the client holds: every insert, in order. Enough to be read back.
+    var text = ""
+    func insertText(_ string: Any!, replacementRange: NSRange) {
+        log.append("insert:\(string as? String ?? "")")
+        text += string as? String ?? ""
+    }
     func setMarkedText(_ string: Any!, selectionRange: NSRange, replacementRange: NSRange) {
         log.append("marked:\((string as? NSAttributedString)?.string ?? (string as? String ?? ""))")
     }
-    func selectedRange() -> NSRange { NSRange(location: 0, length: 0) }
+    func selectedRange() -> NSRange { NSRange(location: (text as NSString).length, length: 0) }
     func markedRange() -> NSRange { NSRange(location: NSNotFound, length: 0) }
-    func attributedSubstring(from range: NSRange) -> NSAttributedString! { nil }
+    func attributedSubstring(from range: NSRange) -> NSAttributedString! {
+        let all = text as NSString
+        guard range.location <= all.length else { return nil }
+        return NSAttributedString(string: all.substring(with: NSIntersectionRange(range, NSRange(location: 0, length: all.length))))
+    }
     func length() -> Int { 0 }
     func characterIndex(for point: NSPoint, tracking mappingMode: IMKLocationToOffsetMappingMode, inMarkedRange: UnsafeMutablePointer<ObjCBool>!) -> Int { 0 }
     func attributes(forCharacterIndex index: Int, lineHeightRectangle: UnsafeMutablePointer<NSRect>!) -> [AnyHashable: Any]! { [:] }
@@ -59,10 +68,22 @@ final class Client: NSObject, IMKTextInput {
                                             seen = pid
                                         })
         let listener = BridgeListener(name: Bridge.imePortName) { data in
-            // Plain text requests let the test read what the client saw and
-            // press the talk key in it, now or ten seconds ago.
+            // Plain text requests let the test read what the client saw,
+            // press the talk key in it, now or ten seconds ago, and be the
+            // user who changes a word of the dictation and presses Return.
             let command = String(decoding: data, as: UTF8.self)
             if command == "dump" { return Data(client.log.joined(separator: "|").utf8) }
+            if command.hasPrefix("edit:") {
+                let parts = command.dropFirst(5).split(separator: ">").map(String.init)
+                client.text = client.text.replacingOccurrences(of: parts[0], with: parts[1])
+                return Data("edited".utf8)
+            }
+            if command == "return" {
+                let press = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                             windowNumber: 0, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+                                             isARepeat: false, keyCode: UInt16(kVK_Return))!
+                return MainActor.assumeIsolated { Data((core.handle(press) ? "taken" : "passed").utf8) }
+            }
             if command == "talk" || command == "talk-old" {
                 let time = ProcessInfo.processInfo.systemUptime - (command == "talk" ? 0 : 10)
                 let press = NSEvent.keyEvent(with: .flagsChanged, location: .zero, modifierFlags: .command, timestamp: time,
@@ -93,8 +114,10 @@ final class Client: NSObject, IMKTextInput {
         // The main program starts first; the input method is not there yet.
         let ime = IMEBridgeClient()
         var events: [String] = []
+        var readBacks: [BridgeReadBack] = []
         ime.onEvent = { event in
             switch event {
+            case .readBack(let report): readBacks.append(report)
             case .hello: events.append("hello")
             case .pinyinMode(let english): events.append("pinyinMode:\(english)")
             case .attachment(let bundle): events.append("attachment:\(bundle ?? "nil")")
@@ -136,7 +159,7 @@ final class Client: NSObject, IMKTextInput {
 
         // A dictation into the application the input method is attached to.
         precondition(ime.canWrite(inFront: "test.editor") && !ime.canWrite(inFront: "another.app"))
-        ime.update { $0.phase = .listening; $0.session = session; $0.sessionBundleID = "test.editor" }
+        ime.update { $0.phase = .listening; $0.session = session; $0.sessionBundleID = "test.editor"; $0.learnsCorrections = true }
         precondition(ime.setMarked("你好", session: session, inFront: "test.editor"))
         precondition(ime.setMarked("你好世界", session: session, inFront: "test.editor"))
         ime.update { $0.phase = .finalizing }
@@ -144,6 +167,30 @@ final class Client: NSObject, IMKTextInput {
         precondition(!ime.insert("twice", session: session, inFront: "test.editor"), "one dictation is written once")
         ime.end(session: session)
         ime.update { $0.phase = .idle; $0.session = nil; $0.sessionBundleID = nil }
+
+        // The user changes a word of the dictation and presses Return: the
+        // stretch as it reads now comes back, once, and no more after the main
+        // program says it is done with that dictation.
+        func user(_ command: String, _ expected: String) {
+            let answer = BridgeSender(name: Bridge.imePortName).request(Data(command.utf8), timeout: 1)
+            precondition(answer.map { String(decoding: $0, as: UTF8.self) } == expected, command)
+        }
+        // The input method first makes sure the client reads back what was written.
+        spin(DictationReadBack.settleDelay + 0.3)
+        user("return", "passed")
+        spin(0.2)
+        precondition(readBacks.isEmpty, "untouched text is not reported")
+        user("edit:世界>视界", "edited")
+        user("return", "passed")
+        waitUntil("the edit was reported") { !readBacks.isEmpty }
+        precondition(readBacks == [BridgeReadBack(session: session, text: "你好，视界。", startsDocument: true,
+                                                  endsDocument: true, closed: false)], "\(readBacks)")
+        ime.forget(session: session)
+        spin(0.2)
+        user("edit:视界>世界", "edited")
+        user("return", "passed")
+        spin(0.3)
+        precondition(readBacks.count == 1, "a forgotten dictation is not read again")
 
         // A dictation that belongs to another application is refused, without a trace in the client.
         let other = UUID()
@@ -161,6 +208,6 @@ final class Client: NSObject, IMKTextInput {
         precondition(!ime.canWrite(inFront: "test.editor") && ime.attachedBundleID == nil)
         precondition(ime.keyboardOwner(front: "another.app") == "another.app")
         precondition(!ime.insert("gone", session: UUID(), inFront: "test.editor"))
-        print("PASS: bridge end to end: late start, pushed context, who has the keyboard, preview and final text, wrong application, a second write, the peer exiting")
+        print("PASS: bridge end to end: late start, pushed context, who has the keyboard, preview and final text, an edit read back and forgotten, wrong application, a second write, the peer exiting")
     }
 }

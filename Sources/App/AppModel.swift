@@ -32,6 +32,8 @@ final class AppModel: VoiceSessionHost {
     let screen = ScreenFeature()
     var screenTranslate: ScreenTranslateController { screen.controller }
     let ime = IMEBridgeClient()
+    /// Names and terms learned from what the user changes after a dictation.
+    let corrections = CorrectionLearner()
     let pinyinDictionaryUpdates = RimeDictionaryUpdateModel()
     let pinyinLanguageModel = PinyinLanguageModel()
     let router = InputEventRouter()
@@ -263,6 +265,8 @@ final class AppModel: VoiceSessionHost {
             $0.screenShortcutFlags = p.screenCaptureShortcut.normalizedFlags
             $0.keysEndDictation = p.tapToTalk
             $0.userInputFence = voice.policy.userInputFence
+            // A translation is not what was heard: its edits say nothing about recognition.
+            $0.learnsCorrections = p.learnFromCorrections && p.translationIsPassthrough
             $0.menu = BridgeMenuState(modes: modes.map(\.compactTitle),
                                       currentMode: modes.firstIndex(of: currentDirection),
                                       canChooseMode: !isPreparingModels && phase == .idle,
@@ -339,6 +343,7 @@ final class AppModel: VoiceSessionHost {
         if new.dictationGlossaryEnabled && !old.dictationGlossaryEnabled {
             Task { await DictationGlossaryStore.shared.refreshIfStale() }
         }
+        if !new.learnFromCorrections && old.learnFromCorrections { corrections.stopWatching() }
         if new.pinyinEnglishMode != old.pinyinEnglishMode || new.pinyinBarPreeditEnabled != old.pinyinBarPreeditEnabled
             || new.pinyinFuzzyEnabled != old.pinyinFuzzyEnabled || new.pinyinKeys != old.pinyinKeys {
             ime.push(pinyin: pinyinPreferences)
@@ -426,6 +431,15 @@ final class AppModel: VoiceSessionHost {
             }
         case .typingResumed, .talkKey:
             break
+        case .readBack(let report):
+            // The one event with text in it. It goes to the learner and
+            // nowhere else; the trace gets counts.
+            guard prefs.learnFromCorrections else { ime.forget(session: report.session); return }
+            let outcome = corrections.received(report)
+            if outcome.learned > 0 {
+                InputDiagnostics.record("correction-learning", "pairs=\(outcome.learned) new=\(outcome.new) replacing=\(outcome.replacing)")
+            }
+            if outcome.finished, !report.closed { ime.forget(session: report.session) }
         case .menu(let action):
             perform(action)
         case .menuMode(let index):
@@ -585,10 +599,15 @@ final class AppModel: VoiceSessionHost {
             makeSolo: { QwenSpeechEngine(variant: model, context: prompt, runtime: QwenRuntime.shared) })
     }
 
-    private var vocabularyTerms: [String] {
+    private var vocabularyTerms: [String] { vocabularyTerms(learned: true) }
+
+    /// What biases recognition. `learned`: with the spellings learned from the
+    /// user's corrections — for the recognizers on this Mac, and for nothing that is sent anywhere.
+    private func vocabularyTerms(learned: Bool) -> [String] {
         DictationGlossary.biasTerms(userRaw: prefs.speechHotwords, includeUser: prefs.speechHotwordsEnabled,
                                     includeGlossary: prefs.dictationGlossaryEnabled,
-                                    remote: DictationGlossaryStore.shared.terms)
+                                    remote: DictationGlossaryStore.shared.terms,
+                                    learned: learned && prefs.learnFromCorrections ? corrections.corrections.biasTerms : [])
     }
 
     /// Deterministic, on-device repair applied only to the final recognized text.
@@ -597,10 +616,15 @@ final class AppModel: VoiceSessionHost {
         let glossary = p.dictationGlossaryEnabled
             ? DictationVocabulary(entries: DictationGlossary.combined(remote: DictationGlossaryStore.shared.terms)) : nil
         let vocabulary = p.speechHotwordsEnabled ? DictationVocabulary(raw: p.speechHotwords) : nil
-        guard p.dictationCleanupEnabled || glossary?.isEmpty == false || vocabulary?.isEmpty == false else { return nil }
+        // Frozen for this utterance, like the rest.
+        let learned = p.learnFromCorrections && !corrections.corrections.replacements.isEmpty ? corrections.corrections : nil
+        guard p.dictationCleanupEnabled || glossary?.isEmpty == false || vocabulary?.isEmpty == false
+                || learned != nil else { return nil }
         return { text in
             var result = p.dictationCleanupEnabled ? DictationCleanup.clean(text) : text
             if let glossary { result = glossary.apply(to: result) }
+            // What the user corrected the same way twice. Their own vocabulary comes after it and has the last word.
+            if let learned { result = learned.apply(to: result, lexicon: .system) }
             if let vocabulary { result = vocabulary.apply(to: result) }
             return result
         }
@@ -612,7 +636,8 @@ final class AppModel: VoiceSessionHost {
         // Freeze the request destination and languages for this utterance.
         let endpoint = p.finalPolishEndpoint, model = p.finalPolishModel
         let sourceCode = p.sourceLanguage.rawValue, targetCode = p.targetLanguage.rawValue
-        let terms = vocabularyTerms
+        // The endpoint may be another machine: what was learned from corrections stays here.
+        let terms = vocabularyTerms(learned: false)
         return { original, draft in
             let config = try FinalPolishConfiguration(endpoint: endpoint, model: model)
             let key = try PolishKeychain.read(endpoint: config.endpoint)
@@ -635,6 +660,8 @@ final class AppModel: VoiceSessionHost {
         let options = DictationFormat.Options(dropFinalStop: prefs.dictationDropFinalStop,
                                               spaceBetweenScripts: prefs.dictationSpaceBetweenScripts)
         let format: (String) -> String = { options.isIdentity ? $0 : DictationFormat.apply($0, options) }
+        // The input method reads back only what was written through it, and only when the context says so.
+        let learner = prefs.learnFromCorrections && prefs.translationIsPassthrough ? corrections : nil
         InputDiagnostics.record("voice-target", "owner=\(bundleID ?? "none") input-method=\(ime.canWrite(inFront: bundleID)) attached=\(ime.attachedBundleID ?? "none") paste=\(AccessibilityInserter.isTrusted)")
         return VoiceTextSink(
             attached: { ime.canWrite(inFront: bundleID) },
@@ -642,7 +669,10 @@ final class AppModel: VoiceSessionHost {
             clearMarked: { ime.clearMarked(session: session) },
             insert: { raw in
                 let text = format(raw)
-                if ime.insert(text, session: session, inFront: bundleID) { return true }
+                if ime.insert(text, session: session, inFront: bundleID) {
+                    learner?.wrote(text, session: session)
+                    return true
+                }
                 // Our own text fields can always be written without anybody's help.
                 return own && LocalTextInserter.insert(text)
             },
@@ -670,6 +700,7 @@ final class AppModel: VoiceSessionHost {
         if committed {
             notice = nil
             if !prefs.onboardingCompleted { preferences.update { $0.onboardingVersion = Preferences.currentOnboardingVersion } }
+            if prefs.learnFromCorrections, let text = voice.lastDictation { corrections.noteWritten(text) }
         }
         releaseWatchdog?.cancel(); releaseWatchdog = nil
         router.reset()

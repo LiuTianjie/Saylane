@@ -10,23 +10,55 @@ import InputMethodKit
 /// Runs only in a test home (`SAYLANE_TEST_HOME`).
 @MainActor
 enum IMESelfTest {
+    /// Holds its text as a text field does: writes land at the caret, a
+    /// composition stands in the text, and what is there can be read back.
     private final class Client: NSObject, IMKTextInput {
         var marked = ""
         var inserted: [String] = []
         var calls = 0
+        let text = NSMutableString()
+        private var caret = 0
+        private var markedStart: Int?
+        /// Some clients cannot report their text: nothing is learned there, and nothing else changes.
+        var reportsText = true
+
+        private func write(_ string: String) -> Int {
+            let target = markedStart.map { NSRange(location: $0, length: (marked as NSString).length) } ?? NSRange(location: caret, length: 0)
+            text.replaceCharacters(in: target, with: string)
+            caret = target.location + (string as NSString).length
+            return target.location
+        }
+        /// The user's own edit: one stretch replaced by another, the caret left at the end.
+        func edit(_ old: String, _ new: String) {
+            let range = text.range(of: old, options: .backwards)
+            guard range.location != NSNotFound else { return }
+            text.replaceCharacters(in: range, with: new)
+            caret = text.length
+        }
         func insertText(_ string: Any!, replacementRange: NSRange) {
             calls += 1
-            inserted.append((string as? NSAttributedString)?.string ?? (string as? String ?? ""))
+            let string = (string as? NSAttributedString)?.string ?? (string as? String ?? "")
+            inserted.append(string)
+            _ = write(string)
             marked = ""
+            markedStart = nil
         }
         func setMarkedText(_ string: Any!, selectionRange: NSRange, replacementRange: NSRange) {
             calls += 1
-            marked = (string as? NSAttributedString)?.string ?? (string as? String ?? "")
+            let string = (string as? NSAttributedString)?.string ?? (string as? String ?? "")
+            let start = write(string)
+            marked = string
+            markedStart = string.isEmpty ? nil : start
         }
-        func selectedRange() -> NSRange { NSRange(location: 0, length: 0) }
-        func markedRange() -> NSRange { marked.isEmpty ? NSRange(location: NSNotFound, length: 0) : NSRange(location: 0, length: (marked as NSString).length) }
-        func attributedSubstring(from range: NSRange) -> NSAttributedString! { nil }
-        func length() -> Int { 0 }
+        func selectedRange() -> NSRange { NSRange(location: caret, length: 0) }
+        func markedRange() -> NSRange {
+            markedStart.map { NSRange(location: $0, length: (marked as NSString).length) } ?? NSRange(location: NSNotFound, length: 0)
+        }
+        func attributedSubstring(from range: NSRange) -> NSAttributedString! {
+            guard reportsText, range.location <= text.length else { return nil }
+            return NSAttributedString(string: text.substring(with: NSIntersectionRange(range, NSRange(location: 0, length: text.length))))
+        }
+        func length() -> Int { text.length }
         func characterIndex(for point: NSPoint, tracking mappingMode: IMKLocationToOffsetMappingMode, inMarkedRange: UnsafeMutablePointer<ObjCBool>!) -> Int { 0 }
         func attributes(forCharacterIndex index: Int, lineHeightRectangle: UnsafeMutablePointer<NSRect>!) -> [AnyHashable: Any]! {
             lineHeightRectangle?.pointee = NSRect(x: 400, y: 400, width: 2, height: 18)
@@ -168,6 +200,8 @@ enum IMESelfTest {
             check(false, "status is answered")
         }
 
+        await readBackChecks(client: client, controller: controller, context: &context)
+
         // Deactivation, as the controller does it: resolve the composition, detach, forget the session.
         _ = controller.handle(key("n", kVK_ANSI_N))
         check(!client.marked.isEmpty, "a new composition is showing")
@@ -181,6 +215,83 @@ enum IMESelfTest {
 
         print(failures == 0 ? "PASS: input method self-test" : "FAILED: \(failures) check(s)")
         return failures == 0 ? 0 : 1
+    }
+
+    /// The user changes a dictation after it was written. With the main
+    /// program's say-so the input method reads the stretch back and reports
+    /// it; without it, or in a client that cannot report its text, it reads
+    /// and reports nothing, and typing goes on as before.
+    private static func readBackChecks(client: Client, controller: StandIn, context: inout BridgeContext) async {
+        var reports: [BridgeReadBack] = []
+        // This process plays the main program's port as well: what the input method posts arrives here.
+        let listener = BridgeListener(name: Bridge.appPortName) { data in
+            if case .readBack(let report)? = Bridge.decode(BridgeEvent.self, from: data) { reports.append(report) }
+            return nil
+        }
+        check(listener != nil, "the self-test listens where the main program would")
+        defer { listener?.invalidate() }
+
+        func dictate(_ text: String, learns: Bool) async -> UUID {
+            let session = UUID()
+            context.learnsCorrections = learns
+            context.revision += 1; context.phase = .listening; context.session = session
+            context.sessionBundleID = "local.saylane.selftest"
+            _ = await ask(.context(context))
+            _ = await ask(.voiceMarked(session: session, seq: 1, text: String(text.prefix(2))))
+            context.revision += 1; context.phase = .finalizing
+            _ = await ask(.context(context))
+            let written = done(await ask(.voiceInsert(session: session, text: text, deadline: ProcessInfo.processInfo.systemUptime + 2)))
+            _ = await ask(.voiceEnd(session: session))
+            context.revision += 1; context.phase = .idle; context.session = nil; context.sessionBundleID = nil
+            _ = await ask(.context(context))
+            check(written && client.text.hasSuffix(text), "a dictation is written at the caret (\(client.inserted.suffix(1)))")
+            // The input method looks half a second after the write whether the client reads back.
+            try? await Task.sleep(for: .seconds(DictationReadBack.settleDelay + 0.2))
+            return session
+        }
+        func pressReturn() -> Bool { controller.handle(key("\r", kVK_Return)) }
+
+        // Not allowed: nothing comes back, whatever the user does to the text.
+        _ = await dictate("明天和黄根诚开会。", learns: false)
+        client.edit("黄根诚", "黄根成")
+        check(!pressReturn(), "Return is left to the application")
+        _ = await wait(0.3) { !reports.isEmpty }
+        check(reports.isEmpty, "without the main program's say-so nothing is read back")
+
+        // Allowed: untouched text says nothing; an edit comes back once, as the stretch reads now.
+        let session = await dictate("帮我找一下章三。", learns: true)
+        _ = pressReturn()
+        _ = await wait(0.3) { !reports.isEmpty }
+        check(reports.isEmpty, "an untouched dictation is not reported")
+        client.edit("章三", "张三")
+        check(!pressReturn(), "Return still reaches the application after an edit")
+        check(await wait(2) { !reports.isEmpty }, "an edit after a dictation is reported")
+        check(reports.first == BridgeReadBack(session: session, text: "帮我找一下张三。", startsDocument: false, endsDocument: true, closed: false),
+              "the report is the dictated stretch as it reads now, nothing before it (\(reports.first?.text?.count ?? -1) characters)")
+        _ = pressReturn()
+        _ = await wait(0.3) { reports.count > 1 }
+        check(reports.count == 1, "the same text is not reported twice")
+        // The main program is done with it.
+        check(done(await ask(.voiceForget(session: session))), "the bridge accepts a forget")
+        client.edit("张三", "张珊")
+        _ = pressReturn()
+        _ = await wait(0.3) { reports.count > 1 }
+        check(reports.count == 1, "a forgotten dictation is not read again")
+
+        // A client that cannot report its text: nothing is learned, and typing is what it was.
+        client.reportsText = false
+        _ = await dictate("帮我找一下章三。", learns: true)
+        client.edit("章三", "张三")
+        _ = pressReturn()
+        _ = await wait(0.3) { reports.count > 1 }
+        check(reports.count == 1, "a client that cannot report its text is left alone")
+        client.reportsText = true
+        if IMEHost.shared.englishMode { IMEHost.shared.toggleEnglishMode() }
+        for (letter, code) in [("n", kVK_ANSI_N), ("i", kVK_ANSI_I)] { _ = controller.handle(key(letter, code)) }
+        check(controller.handle(key(" ", kVK_Space)) && client.inserted.last == "你", "pinyin composes as before (\(client.inserted.suffix(1)))")
+        context.learnsCorrections = false
+        context.revision += 1
+        _ = await ask(.context(context))
     }
 
     private static func wait(_ seconds: TimeInterval, until condition: () -> Bool) async -> Bool {
@@ -269,6 +380,50 @@ enum IMESelfTest {
         _ = await wait(3) { host.menu.canChooseMode }
         host.chooseMode(0)
         check(await wait(5) { host.menu.currentMode == 0 }, "and choosing the first one changes it back")
+
+        // Learning from a correction, end to end (`SAYLANE_TEST_CORRECTION=heard>corrected`,
+        // with a scripted sentence that contains the heard spelling): the user
+        // fixes the name and leaves the field, twice; the third time the main
+        // program writes the corrected name by itself.
+        if let correction = ProcessInfo.processInfo.environment["SAYLANE_TEST_CORRECTION"]?.split(separator: ">").map(String.init),
+           correction.count == 2 {
+            let heard = correction[0], corrected = correction[1]
+            let fixed = expected.replacingOccurrences(of: heard, with: corrected)
+            func dictate() async -> String? {
+                let before = client.inserted.count
+                _ = controller.handle(modifier(trigger, down: true))
+                guard await wait(5, until: { host.isDictating }) else { return nil }
+                _ = await wait(3) { !client.marked.isEmpty }
+                _ = controller.handle(modifier(trigger, down: false))
+                guard await wait(5, until: { client.inserted.count > before && !host.isDictating }) else { return nil }
+                return client.inserted.last
+            }
+            /// How often the main program has seen the correction, from the file it keeps.
+            func seen() -> Int {
+                guard let data = try? Data(contentsOf: AppDirectories.learnedCorrectionsFile),
+                      let file = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let pairs = file["pairs"] as? [[String: Any]] else { return 0 }
+                return pairs.first { $0["heard"] as? String == heard && $0["corrected"] as? String == corrected }?["seen"] as? Int ?? 0
+            }
+            for round in 1...2 {
+                check(await dictate() == expected, "round \(round): the dictation is written as it was heard")
+                try? await Task.sleep(for: .seconds(DictationReadBack.settleDelay + 0.2))
+                client.edit(heard, corrected)
+                _ = controller.handle(key("\r", kVK_Return))
+                // The field loses focus, as the controller does it; then it is activated again.
+                if let lease = controller.sessionID {
+                    host.commitPinyin()
+                    IMEManager.shared.detach(controller, leaseID: lease)
+                    host.forgetClient(lease)
+                }
+                check(await wait(5) { seen() == round }, "round \(round): the main program learned the correction (seen \(seen()))")
+                controller.sessionID = UUID()
+                IMEManager.shared.attach(controller)
+            }
+            check(await dictate() == fixed, "the third time the corrected name is written without anyone's help (\(client.inserted.suffix(1)))")
+            let stored = (try? String(contentsOf: AppDirectories.learnedCorrectionsFile, encoding: .utf8)) ?? ""
+            check(stored.contains(heard) && !stored.contains(expected) && !stored.contains(fixed), "the file holds the pair and no sentence")
+        }
 
         print(failures == 0 ? "PASS: two-process self-test" : "FAILED: \(failures) check(s)")
         return failures == 0 ? 0 : 1

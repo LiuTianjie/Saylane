@@ -10,6 +10,7 @@ import Carbon.HIToolbox
             precondition(store.current == Preferences())
             precondition(store.current.pushToTalk == .rightOption)
             precondition(store.current.dictationGlossaryEnabled == false, "network access is opt-in")
+            precondition(store.current.learnFromCorrections, "learning from corrections stays on this Mac: on from the start")
             precondition(store.current.screenPinFreezesScreen == false)
             precondition(!store.current.onboardingCompleted)
             precondition(backing.storage.isEmpty, "nothing is written until something changes")
@@ -89,6 +90,8 @@ import Carbon.HIToolbox
             precondition(backing.storage["screenTranslateSource"] as? String == "en")
             store.update { $0.screenTranslateSource = nil }
             precondition(backing.storage["screenTranslateSource"] == nil)
+            store.update { $0.learnFromCorrections = false }
+            precondition(backing.storage["learnFromCorrections"] as? Bool == false)
             // Round trip.
             let reloaded = PreferencesStore(backing: backing)
             precondition(reloaded.current == store.current)

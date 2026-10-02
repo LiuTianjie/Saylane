@@ -4,7 +4,7 @@ import Foundation
 /// (`SaylaneIME`, typing and writing into the focused client) and the main
 /// program (`Saylane`, everything else). See `docs/DESIGN_0.3.md`.
 enum Bridge {
-    static let protocolVersion = 3
+    static let protocolVersion = 4
     /// The input method answers requests from the main program here.
     static let imePortName = "com.rtranslate.saylane.ime-bridge" + TestHome.suffix
     /// The main program receives events from the input method here.
@@ -89,6 +89,9 @@ struct BridgeContext: Codable, Equatable, Sendable {
     var keysEndDictation = false
     /// How long typed keys wait for the final text before typing wins.
     var userInputFence: TimeInterval = 0.6
+    /// The user lets Saylane learn names from what they change after a
+    /// dictation: the input method may read the dictated stretch back.
+    var learnsCorrections = false
     var menu = BridgeMenuState()
 }
 
@@ -124,11 +127,30 @@ enum BridgeRequest: Codable, Sendable {
     /// request that was stuck in a queue cannot write after the sender gave up.
     case voiceInsert(session: UUID, text: String, deadline: TimeInterval)
     case voiceEnd(session: UUID)
+    /// Stop reading this dictation back: its text is gone, or nothing is being learned.
+    case voiceForget(session: UUID)
 }
 
 enum BridgeReply: Codable, Sendable {
     case done(Bool)
     case status(BridgeIMEStatus)
+}
+
+/// What the client says now stands where a dictation was written. Sent only
+/// while `BridgeContext.learnsCorrections`, and only when the stretch no longer
+/// reads as it was written. It is the one event that carries text; neither
+/// process stores it or puts it in a diagnostic.
+struct BridgeReadBack: Codable, Equatable, Sendable {
+    var session: UUID
+    /// The stretch as it reads now and a few characters after it. Nil when
+    /// there is nothing new to say and the event only closes the dictation.
+    var text: String?
+    /// The dictation was written at the very start of the client's text.
+    var startsDocument = false
+    /// The client's text ends inside what was read.
+    var endsDocument = false
+    /// The input method has stopped watching this dictation.
+    var closed = false
 }
 
 enum BridgeMenuAction: String, Codable, Sendable {
@@ -150,6 +172,8 @@ enum BridgeEvent: Codable, Sendable {
     case userTyped(session: UUID)
     /// Typing went ahead of the pending text; the preview is gone.
     case typingResumed(session: UUID)
+    /// The user changed the text of a dictation after it was written.
+    case readBack(BridgeReadBack)
     case menu(BridgeMenuAction)
     /// One of `BridgeMenuState.modes` was chosen in the menu.
     case menuMode(Int)

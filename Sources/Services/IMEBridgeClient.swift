@@ -122,6 +122,12 @@ final class IMEBridgeClient {
         post(.voiceEnd(session: session))
     }
 
+    /// Nothing more is to be learned from this dictation: the input method stops reading it back.
+    func forget(session: UUID) {
+        guard isConnected else { return }
+        post(.voiceForget(session: session))
+    }
+
     // MARK: - Transport
 
     private func post(_ request: BridgeRequest) { sender.post(Bridge.encode(request)) }

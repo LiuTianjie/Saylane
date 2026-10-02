@@ -38,6 +38,9 @@ struct Preferences: Equatable, Sendable {
     var dictationCleanupEnabled = true
     /// Wikimedia harvest is network access from an input method; off until the user opts in.
     var dictationGlossaryEnabled = false
+    /// Learn names and terms from what the user changes in a dictation after
+    /// it was written. Nothing leaves this Mac, so it is on from the start.
+    var learnFromCorrections = true
 
     // Final polish (LLM)
     var finalPolishEnabled = false
