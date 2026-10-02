@@ -1,40 +1,313 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090b0c"><meta name="description" content="Saylane：按住说中文，英文直接出现在当前输入框。为 macOS 而生的语音翻译输入法。"><title>Saylane — Speak like native speaker in native way.</title><link rel="icon" type="image/png" sizes="32x32" href="./favicon.png"><link rel="icon" type="image/png" sizes="64x64" href="./favicon-64.png"><link rel="apple-touch-icon" sizes="256x256" href="./assets/brand-icon.png"><link rel="stylesheet" href="./style.css?v=brand-alignment-2"><script defer src="https://vibecafe.ai/telemetry/v1.js" data-vc-product-id="cmtsk7een00000agm9d82ff9f" data-vc-auth-key="vc_web_QiyGrUq2rzni6P87THnMkoUvRykblZjuu6GFoQs_d7c"></script></head>
-<body><header><a class="brand" href="#"><img class="brand-icon" src="./assets/brand-icon.png" width="32" height="32" alt=""><span class="brand-name">Saylane</span><span class="brand-tagline">让表达，即刻发生。</span></a><nav><span class="mac-label">为 macOS 而生</span><a href="https://github.com/LiuTianjie/Saylane">GitHub ↗</a><a class="get-app" href="#download">下载 Mac 版 ↓</a></nav></header>
-<main><section class="experience" aria-label="Saylane 语音翻译输入演示"><div class="headline"><h1>Saylane</h1><p class="tagline">Speak like native speaker in native way.</p></div>
-<div class="app-window chat-window" aria-label="macOS 风格聊天演示">
-  <aside class="chat-sidebar" aria-label="示例会话列表">
-    <div class="sidebar-toolbar"><div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div><span class="compose-icon" aria-hidden="true">↗</span></div>
-    <div class="chat-search" aria-hidden="true"><svg viewBox="0 0 20 20"><circle cx="8" cy="8" r="5.5"/><path d="m12 12 5 5"/></svg>Search</div>
-    <div class="conversation-item selected"><span class="chat-avatar jamie">JL</span><div><strong>Jamie Lee</strong><time>now</time><p>What have you been working on?</p></div></div>
-    <div class="conversation-item"><span class="chat-avatar sophie">SC</span><div><strong>Sophie Chen</strong><time>9:27</time><p>That sounds like a plan!</p></div></div>
-    <div class="conversation-item"><span class="chat-avatar design">D</span><div><strong>Design club</strong><time>Yesterday</time><p>Alex: See you tomorrow 👋</p></div></div>
-    <div class="sidebar-bottom">Messages</div>
-  </aside>
-  <div class="chat-main">
-    <div class="chat-toolbar"><span class="chat-avatar jamie">JL</span><div><strong>Jamie Lee</strong><span>iMessage</span></div><div class="chat-toolbar-icons" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="12" height="12" rx="3"/><path d="m15 10 6-4v12l-6-4"/></svg><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10v7m0-11v1"/></svg></div></div>
-    <div class="chat-history" id="chat-history" role="log" aria-label="示例聊天记录">
-      <div class="chat-timestamp">Today <span>9:41 AM</span></div>
-      <div class="chat-message incoming">Hey! It's been a while. How's everything?</div>
-      <div class="chat-message outgoing">Really good! Been exploring something new.</div>
-      <div class="chat-message incoming">Oh nice! What have you been working on?</div>
-      <div class="chat-message outgoing" id="sent-message" hidden></div>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090b0c">
+<meta name="description" content="Saylane 是 macOS 上的输入法：打拼音，按住说话写进当前输入框，说中文出英文；任何软件、任何画面，框住就能原地翻译。识别和翻译都在这台 Mac 上完成。">
+<meta property="og:title" content="Saylane — Speak like native speaker in native way.">
+<meta property="og:description" content="打拼音，按住说话，任何画面原地翻译。macOS 输入法，识别和翻译都在本机。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://liutianjie.github.io/Saylane/">
+<meta property="og:image" content="https://liutianjie.github.io/Saylane/assets/brand-icon.png">
+<title>Saylane — Speak like native speaker in native way.</title>
+<script>document.documentElement.className='js'</script>
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon.png">
+<link rel="icon" type="image/png" sizes="64x64" href="./favicon-64.png">
+<link rel="apple-touch-icon" sizes="256x256" href="./assets/brand-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="./style.css?v=0.8.1b">
+<script defer src="https://vibecafe.ai/telemetry/v1.js" data-vc-product-id="cmtsk7een00000agm9d82ff9f" data-vc-auth-key="vc_web_QiyGrUq2rzni6P87THnMkoUvRykblZjuu6GFoQs_d7c"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">跳到正文</a>
+
+<header class="site-header" id="top">
+  <div class="header-inner">
+    <a class="brand" href="#top"><img class="brand-icon" src="./assets/brand-icon.png" width="32" height="32" alt=""><span class="brand-name">Saylane</span><span class="brand-tagline">让表达，即刻发生。</span></a>
+    <nav class="site-nav" aria-label="页面导航">
+      <a class="nav-link" href="#dictation">听写</a>
+      <a class="nav-link" href="#modes">翻译</a>
+      <a class="nav-link" href="#screen">所见即译</a>
+      <a class="nav-link" href="#pinyin">拼音</a>
+      <a class="nav-link" href="#privacy">隐私</a>
+      <a class="nav-link nav-github" href="https://github.com/LiuTianjie/Saylane">GitHub <span aria-hidden="true">↗</span></a>
+      <a class="get-app" href="#download">下载 Mac 版</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="experience" aria-label="Saylane 语音翻译输入演示">
+  <div class="headline">
+    <h1>Saylane</h1>
+    <p class="tagline">Speak like native speaker in native way.</p>
+    <p class="lede">打拼音，按住说话，屏幕上看不懂的地方原地翻译。全部在这台 Mac 上完成。</p>
+    <div class="hero-actions">
+      <a class="button primary" href="#download">下载 Mac 版<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m-3.5-3.5L10 12l3.5-3.5M4 13.5V16h12v-2.5"/></svg></a>
+      <a class="button ghost" href="#dictation">看它怎么工作</a>
     </div>
-    <div class="chat-composer-area"><div class="chat-composer-row"><span class="chat-plus" aria-hidden="true">＋</span><div class="chat-input"><div class="output" id="translated" aria-live="polite">I have an idea. Let's make it happen.</div><button class="chat-send" id="chat-send" aria-label="发送示例消息（仅本页演示）"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 15V5M5 10l5-5 5 5"/></svg></button></div></div><div class="chat-input-status"><span class="local-only">仅本页演示</span></div></div>
   </div>
-</div>
-<div class="translation-scene"><canvas id="flow" aria-hidden="true"></canvas><div class="voice-center"><button id="voice-control" class="voice-capsule" aria-label="按住体验语音翻译动画" aria-describedby="hold-hint"><span id="waveform" class="waveform" aria-hidden="true"></span></button><div class="hold-hint" id="hold-hint"><kbd>⌥</kbd><span id="hold-status">按住这里，看中文变成英文</span></div></div><div class="static-pair"><span>我有一个想法</span><span>I have an idea</span></div></div>
-<div class="experience-footer"><span class="flow-manifesto">中文进来。<span>英文出去。</span></span></div></section>
-<section class="underneath"><div><h2>原汁原味，<br>地道出圈</h2></div><div class="steps"><article><span>01</span><h3>按住，说中文。</h3><p>默认按住右 Option，在熟悉的输入框里自然开口。</p></article><article><span>02</span><h3>松开，留下英文。</h3><p>短语级译文直接更新，松开提交最终文字。Esc 随时取消。</p></article><article><span>03</span><h3>继续你的思路。</h3><p>不用复制粘贴，不用打开另一个窗口。打字时，仍然是拼音输入法。</p></article></div></section>
-<section class="practice-section" id="practice" aria-labelledby="practice-title">
-  <div class="practice-heading"><h2 id="practice-title">从帮你说，<span>到自己说。</span></h2><p>双击右侧 <kbd>⌘</kbd>，换一种表达方式。<br>需要时翻译，准备好时，直接用英语开口。</p></div>
-  <div class="practice-content">
-  <div class="practice-workbench">
-    <div class="practice-topbar"><span class="practice-mode-title" id="practice-mode-title">中译英</span><span class="practice-demo-label">切换演示</span></div>
-    <div class="practice-modes" role="group" aria-label="语言模式"><button data-mode="0" aria-pressed="false">中文听写</button><button data-mode="1" aria-pressed="true">中译英</button><button data-mode="2" aria-pressed="false">英译中</button><button data-mode="3" aria-pressed="false">英文听写</button></div>
-    <div class="practice-conversion" aria-live="polite" aria-atomic="true"><div class="practice-speech"><span class="practice-field-label" id="practice-source-label">你说 · 中文</span><p id="practice-source">我想试试用英语表达自己的想法。</p></div><div class="practice-arrow" aria-hidden="true">→</div><div class="practice-result"><span class="practice-field-label" id="practice-target-label">输入框 · English</span><p id="practice-target">I'd like to try expressing my ideas in English.</p></div></div>
-    <div class="practice-switch-row"><button id="practice-key" class="practice-key" aria-label="双击切换模式；键盘 Enter 或空格可直接切换"><span aria-hidden="true">⌘</span><small>右 Command</small></button><div><strong>试试双击</strong></div></div>
+
+  <div class="app-window chat-window" aria-label="macOS 风格聊天演示">
+    <aside class="chat-sidebar" aria-label="示例会话列表">
+      <div class="sidebar-toolbar"><div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div><span class="compose-icon" aria-hidden="true">↗</span></div>
+      <div class="chat-search" aria-hidden="true"><svg viewBox="0 0 20 20"><circle cx="8" cy="8" r="5.5"/><path d="m12 12 5 5"/></svg>Search</div>
+      <div class="conversation-item selected"><span class="chat-avatar jamie">JL</span><div><strong>Jamie Lee</strong><time>now</time><p>What have you been working on?</p></div></div>
+      <div class="conversation-item"><span class="chat-avatar sophie">SC</span><div><strong>Sophie Chen</strong><time>9:27</time><p>That sounds like a plan!</p></div></div>
+      <div class="conversation-item"><span class="chat-avatar design">D</span><div><strong>Design club</strong><time>Yesterday</time><p>Alex: See you tomorrow 👋</p></div></div>
+      <div class="sidebar-bottom">Messages</div>
+    </aside>
+    <div class="chat-main">
+      <div class="chat-toolbar"><span class="chat-avatar jamie">JL</span><div><strong>Jamie Lee</strong><span>iMessage</span></div><div class="chat-toolbar-icons" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="12" height="12" rx="3"/><path d="m15 10 6-4v12l-6-4"/></svg><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10v7m0-11v1"/></svg></div></div>
+      <div class="chat-history" id="chat-history" role="log" aria-label="示例聊天记录">
+        <div class="chat-timestamp">Today <span>9:41 AM</span></div>
+        <div class="chat-message incoming">Hey! It's been a while. How's everything?</div>
+        <div class="chat-message outgoing">Really good! Been exploring something new.</div>
+        <div class="chat-message incoming">Oh nice! What have you been working on?</div>
+        <div class="chat-message outgoing" id="sent-message" hidden></div>
+      </div>
+      <div class="chat-composer-area">
+        <div class="chat-composer-row"><span class="chat-plus" aria-hidden="true">＋</span><div class="chat-input"><div class="output" id="translated" aria-live="polite">I have an idea. Let's make it happen.</div><button class="chat-send" id="chat-send" aria-label="发送示例消息（仅本页演示）"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 15V5M5 10l5-5 5 5"/></svg></button></div></div>
+        <div class="chat-input-status"><span class="local-only">仅本页演示</span></div>
+      </div>
+    </div>
   </div>
-  <div class="practice-path"><article><span>01</span><h3>先找到表达。</h3><p>切到中译英。把想说的话说出来，看看英文可以怎样表达。</p></article><article><span>02</span><h3>再亲口说一遍。</h3><p>切到英文听写。按住说话键，试着用自己的英语把想法说出来。</p></article><article><span>03</span><h3>让练习融入日常。</h3><p>对照转写文字，自行检查用词。从一条消息、一句回复开始。</p></article></div>
+
+  <div class="translation-scene">
+    <canvas id="flow" aria-hidden="true"></canvas>
+    <div class="voice-center">
+      <button id="voice-control" class="voice-capsule" aria-label="按住体验语音翻译动画" aria-describedby="hold-hint"><span id="waveform" class="waveform" aria-hidden="true"></span></button>
+      <div class="hold-hint" id="hold-hint"><kbd>⌥</kbd><span id="hold-status">按住这里，看中文变成英文</span></div>
+    </div>
+    <div class="static-pair"><span>我有一个想法</span><span>I have an idea</span></div>
+  </div>
+  <div class="experience-footer"><span class="flow-manifesto">中文进来。<span>英文出去。</span></span></div>
+</section>
+
+
+<section class="feature" id="dictation" aria-labelledby="dictation-title">
+  <div class="feature-copy reveal">
+    <h2 id="dictation-title">说的时候就出字，<br><span>松手之后更准。</span></h2>
+    <p class="feature-lede">说话时，字跟着声音出现。松开按键，本地模型用整段录音把终稿再写一遍。</p>
+    <ul class="points">
+      <li>数字、字母、名称，写成它们该有的样子：M1、APP、ChatGPT、0.8.1。</li>
+      <li>把写错的词改对，它会记住你的写法。</li>
+    </ul>
+  </div>
+  <div class="feature-visual reveal">
+    <div class="demo-card dictation-demo" id="dictation-demo">
+      <div class="demo-bar"><span class="demo-dot" id="dictation-dot" aria-hidden="true"></span><span id="dictation-state">按住说话</span><button class="demo-replay" id="dictation-replay" type="button">再看一遍</button></div>
+      <div class="demo-field" aria-live="polite"><span id="dictation-text"></span><span class="caret" aria-hidden="true"></span></div>
+    </div>
+    <dl class="stats">
+      <div><dt>0.26<small>秒</small></dt><dd>屏幕上的字更新一次</dd></div>
+      <div><dt>0.3<small>秒</small></dt><dd>从松手到终稿</dd></div>
+      <div><dt>2<small>个错字</small></dt><dd>每 100 个字</dd></div>
+    </dl>
+    <p class="footnote">150 条真人普通话录音的实测；系统识别约错 5 个。<a href="https://github.com/LiuTianjie/Saylane/blob/main/docs/SPEECH_PIPELINE.md">测量方法 ›</a></p>
   </div>
 </section>
-<section class="download-section" id="download" aria-labelledby="download-title"><div><h2 id="download-title">让表达，即刻发生。</h2><p class="download-meta">v0.2.75 <span>·</span> macOS 26+ <span>·</span> Apple Silicon <span>·</span> 40.8 MB</p></div><div class="download-actions"><a class="download-primary" href="https://github.com/LiuTianjie/Saylane/releases/download/v0.2.75/Saylane-0.2.75.pkg">下载 Mac 版<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m-3.5-3.5L10 12l3.5-3.5M4 13.5V16h12v-2.5"/></svg></a><div class="download-links"><a href="https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.75">版本说明 <span aria-hidden="true">›</span></a><a href="https://github.com/LiuTianjie/Saylane/blob/main/docs/安装说明.md">安装指南 <span aria-hidden="true">›</span></a><a href="https://github.com/LiuTianjie/Saylane/releases/download/v0.2.75/SHA256SUMS.txt">校验文件 <span aria-hidden="true">›</span></a></div></div><p class="download-notice">签名说明：包内应用已做 Developer ID 签名；PKG 安装器本身未签名、未完成 Apple 公证，macOS 可能阻止直接打开。</p></section></main><footer><a class="brand" href="#"><img class="brand-icon" src="./assets/brand-icon.png" width="32" height="32" alt=""><span class="brand-name">Saylane</span></a><span>macOS 26+ · Apple Silicon · 默认 Apple 端侧识别与翻译</span><a href="https://github.com/LiuTianjie/Saylane">在 GitHub 上探索 ↗</a></footer><script src="./app.js"></script><script src="./practice.js"></script></body></html>
+
+<section class="underneath" id="how" aria-labelledby="how-title">
+  <div class="reveal"><h2 id="how-title">原汁原味，<br>地道出圈</h2></div>
+  <div class="steps">
+    <article class="reveal"><span>01</span><h3>按住，开口。</h3><p>默认按住右 Option，在任何输入框里说。</p></article>
+    <article class="reveal"><span>02</span><h3>松开，留下文字。</h3><p>说话时看到的是草稿，松开才提交。按 Esc 取消。</p></article>
+    <article class="reveal"><span>03</span><h3>继续你的思路。</h3><p>不用复制粘贴，不用切换窗口。</p></article>
+  </div>
+</section>
+
+<section class="practice-section" id="modes" aria-labelledby="practice-title">
+  <div class="practice-heading reveal">
+    <h2 id="practice-title">从帮你说，<span>到自己说。</span></h2>
+    <p>双击右侧 <kbd>⌘</kbd>，换一种表达方式。<br>需要时翻译，准备好时，直接用英语开口。</p>
+    <p class="language-list">中、英、日、韩、法、西、德语</p>
+  </div>
+  <div class="practice-content reveal">
+    <div class="practice-workbench">
+      <div class="practice-topbar"><span class="practice-mode-title" id="practice-mode-title">中译英</span></div>
+      <div class="practice-modes" role="group" aria-label="语言模式"><button data-mode="0" aria-pressed="false">中文听写</button><button data-mode="1" aria-pressed="true">中译英</button><button data-mode="2" aria-pressed="false">英译中</button><button data-mode="3" aria-pressed="false">英文听写</button></div>
+      <div class="practice-conversion" aria-live="polite" aria-atomic="true"><div class="practice-speech"><span class="practice-field-label" id="practice-source-label">你说 · 中文</span><p id="practice-source">我想试试用英语表达自己的想法。</p></div><div class="practice-arrow" aria-hidden="true">→</div><div class="practice-result"><span class="practice-field-label" id="practice-target-label">输入框 · English</span><p id="practice-target">I'd like to try expressing my ideas in English.</p></div></div>
+      <div class="practice-switch-row"><button id="practice-key" class="practice-key" aria-label="双击切换模式；键盘 Enter 或空格可直接切换"><span aria-hidden="true">⌘</span><small>右 Command</small></button><div><strong>试试双击</strong></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="feature reverse" id="screen" aria-labelledby="screen-title">
+  <div class="feature-copy reveal">
+    <h2 id="screen-title">任何软件，<br>任何画面，<br><span>原地换成你的语言。</span></h2>
+    <p class="feature-lede">按 <kbd>⌥</kbd><kbd>T</kbd>，框住看不懂的那一块。网页、软件、图片、视频都行，屏幕上有字的地方就能译。</p>
+    <ul class="points">
+      <li>译文排在原文的位置上，字号、粗细、颜色照原样；背景和图片不动。</li>
+      <li>识别和翻译都在本机；想更地道，可以交给你自己的模型精翻。</li>
+    </ul>
+  </div>
+  <div class="feature-visual reveal">
+    <div class="shot" id="shot" data-scene="web" role="img" aria-label="演示：在网页、软件、图片和视频画面上框选一块，原地变成中文">
+      <div class="scene scene-web" data-scene="web" aria-hidden="true">
+        <div class="shot-page shot-original">
+          <div class="shot-chrome"><div class="traffic"><i></i><i></i><i></i></div><span class="shot-address">lakeside.example</span></div>
+          <div class="shot-nav"><b>Lakeside</b><span>Stays</span><span>Experiences</span><span>Journal</span><em>Sign in</em></div>
+          <div class="shot-listing">
+            <div class="shot-photo"><i class="sun"></i><i class="ridge far"></i><i class="ridge near"></i><i class="lake"></i><i class="cabin"></i><strong>Autumn by the water</strong></div>
+            <div class="shot-info">
+              <h4>Lakeside cabin with a mountain view</h4>
+              <p class="shot-meta">Entire cabin · 4 guests · 2 bedrooms</p>
+              <p class="shot-rating"><b>★ 4.96</b> · 128 reviews</p>
+              <p class="shot-text">Wake up to still water and the smell of pine. Ten minutes from the trailhead.</p>
+              <div class="shot-buy"><span class="shot-price"><b>$128</b> night</span><span class="shot-button">Reserve</span></div>
+              <p class="shot-note">Free cancellation before Oct 12</p>
+            </div>
+          </div>
+          <div class="shot-foot"><span>Help centre</span><span>Terms</span><span>Privacy</span></div>
+        </div>
+        <div class="shot-page shot-translated">
+          <div class="shot-chrome"><div class="traffic"><i></i><i></i><i></i></div><span class="shot-address">lakeside.example</span></div>
+          <div class="shot-nav"><b>Lakeside</b><span>Stays</span><span>Experiences</span><span>Journal</span><em>Sign in</em></div>
+          <div class="shot-listing">
+            <div class="shot-photo"><i class="sun"></i><i class="ridge far"></i><i class="ridge near"></i><i class="lake"></i><i class="cabin"></i><strong>水边的秋天</strong></div>
+            <div class="shot-info">
+              <h4>带山景的湖畔木屋</h4>
+              <p class="shot-meta">整套木屋 · 4 位房客 · 2 间卧室</p>
+              <p class="shot-rating"><b>★ 4.96</b> · 128 条评价</p>
+              <p class="shot-text">在平静的湖水和松林的气息中醒来。离步道起点十分钟。</p>
+              <div class="shot-buy"><span class="shot-price"><b>$128</b> / 晚</span><span class="shot-button">预订</span></div>
+              <p class="shot-note">10 月 12 日前可免费取消</p>
+            </div>
+          </div>
+          <div class="shot-foot"><span>Help centre</span><span>Terms</span><span>Privacy</span></div>
+        </div>
+      </div>
+      <div class="scene scene-app" data-scene="app" aria-hidden="true">
+        <div class="shot-page shot-original">
+          <div class="app-title"><div class="traffic"><i></i><i></i><i></i></div><span>Export</span></div>
+          <div class="app-body">
+            <div class="app-preview"><i></i><i></i><i></i></div>
+            <div class="app-form">
+              <div class="app-row"><span>Format</span><b>H.264</b></div>
+              <div class="app-row"><span>Resolution</span><b>3840 × 2160</b></div>
+              <div class="app-row"><span>Frame rate</span><b>60 fps</b></div>
+              <div class="app-row"><span>Quality</span><b>High</b></div>
+              <div class="app-row"><span>Include audio</span><i class="app-check"></i></div>
+              <p class="app-est">Estimated size: 1.2 GB</p>
+              <div class="app-actions"><span>Cancel</span><span class="go">Export</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="shot-page shot-translated">
+          <div class="app-title"><div class="traffic"><i></i><i></i><i></i></div><span>导出</span></div>
+          <div class="app-body">
+            <div class="app-preview"><i></i><i></i><i></i></div>
+            <div class="app-form">
+              <div class="app-row"><span>格式</span><b>H.264</b></div>
+              <div class="app-row"><span>分辨率</span><b>3840 × 2160</b></div>
+              <div class="app-row"><span>帧率</span><b>60 fps</b></div>
+              <div class="app-row"><span>画质</span><b>高</b></div>
+              <div class="app-row"><span>包含音频</span><i class="app-check"></i></div>
+              <p class="app-est">预计大小：1.2 GB</p>
+              <div class="app-actions"><span>取消</span><span class="go">导出</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="scene scene-board" data-scene="board" aria-hidden="true">
+        <div class="shot-page shot-original">
+          <div class="board">
+            <p class="board-head">本日のおすすめ</p>
+            <p class="board-item"><span>抹茶ラテ</span><b>¥580</b></p>
+            <p class="board-item"><span>ほうじ茶プリン</span><b>¥420</b></p>
+            <p class="board-item"><span>季節のフルーツタルト</span><b>¥650</b></p>
+            <p class="board-foot">テイクアウトできます</p>
+          </div>
+        </div>
+        <div class="shot-page shot-translated">
+          <div class="board">
+            <p class="board-head">今日推荐</p>
+            <p class="board-item"><span>抹茶拿铁</span><b>¥580</b></p>
+            <p class="board-item"><span>焙茶布丁</span><b>¥420</b></p>
+            <p class="board-item"><span>时令水果挞</span><b>¥650</b></p>
+            <p class="board-foot">可以外带</p>
+          </div>
+        </div>
+      </div>
+      <div class="scene scene-video" data-scene="video" aria-hidden="true">
+        <div class="shot-page shot-original">
+          <div class="film"><i class="moon"></i><i class="skyline"></i><i class="road"></i></div>
+          <p class="subtitle">I didn't come this far to only come this far.</p>
+          <div class="player"><i class="play"></i><div class="progress"><i></i></div><span>41:07</span></div>
+        </div>
+        <div class="shot-page shot-translated">
+          <div class="film"><i class="moon"></i><i class="skyline"></i><i class="road"></i></div>
+          <p class="subtitle">我走了这么远，不是为了只走到这里。</p>
+          <div class="player"><i class="play"></i><div class="progress"><i></i></div><span>41:07</span></div>
+        </div>
+      </div>
+      <div class="shot-selection" aria-hidden="true"><i class="shot-cursor"></i></div>
+      <div class="shot-toolbar" aria-hidden="true"><span class="on">译文</span><span id="shot-direction">英 → 中</span><span>拷贝</span><span>✕</span></div>
+    </div>
+    <div class="shot-tabs" id="shot-tabs" role="group" aria-label="演示的场景"><button type="button" data-scene="web" aria-pressed="true">网页</button><button type="button" data-scene="app" aria-pressed="false">软件</button><button type="button" data-scene="board" aria-pressed="false">图片</button><button type="button" data-scene="video" aria-pressed="false">视频</button><span>预设的演示</span></div>
+  </div>
+</section>
+
+<section class="feature" id="pinyin" aria-labelledby="pinyin-title">
+  <div class="feature-copy reveal">
+    <h2 id="pinyin-title">不说话的时候，<br><span>它就是拼音输入法。</span></h2>
+    <p class="feature-lede">说和打在同一个输入法里。整句、模糊音、中英混输，常用的词越打越靠前。</p>
+  </div>
+  <div class="feature-visual reveal">
+    <div class="demo-card pinyin-demo" aria-label="拼音候选演示">
+      <div class="demo-field"><span class="committed">今天下午</span><span class="composing" id="pinyin-composing">san dian kai hui</span><span class="caret" aria-hidden="true"></span></div>
+      <ol class="candidates" id="pinyin-candidates"><li class="on"><i>1</i>三点开会</li><li><i>2</i>三点</li><li><i>3</i>散</li><li><i>4</i>三</li><li><i>5</i>伞</li></ol>
+    </div>
+  </div>
+</section>
+
+<section class="underneath privacy" id="privacy" aria-labelledby="privacy-title">
+  <div class="reveal"><h2 id="privacy-title">你说的话，<br><span>留在这台 Mac 上。</span></h2></div>
+  <div class="statement reveal">
+    <p>语音识别、翻译、文字识别，都在本机完成。<br>不用账号，不用 API key。</p>
+    <p class="quiet">可选的 AI 润色默认关闭；打开后，文字只发到你自己配置的接口，不发声音，也不发截图。</p>
+  </div>
+</section>
+
+<section class="faq" id="faq" aria-labelledby="faq-title">
+  <h2 id="faq-title" class="reveal">开始之前</h2>
+  <div class="faq-list reveal">
+    <details><summary>需要什么样的 Mac？</summary><p>macOS 26 或更新的系统，Apple 芯片。</p></details>
+    <details><summary>要联网、要账号吗？</summary><p>不用账号。联网只用于下载模型和语言包，以及你主动打开的可选功能。</p></details>
+    <details><summary>在哪些应用里能用？</summary><p>能打字的地方基本都能用。少数接不上输入法的地方（比如一些终端），说完后会粘贴到光标处。</p></details>
+    <details><summary>安装时被 macOS 拦住了怎么办？</summary><p>安装包目前还没有经过 Apple 公证。按<a href="https://github.com/LiuTianjie/Saylane/blob/main/docs/安装说明.md">安装指南</a>操作，不需要关闭系统的安全保护。</p></details>
+  </div>
+</section>
+
+<section class="download-section" id="download" aria-labelledby="download-title">
+  <div class="download-card reveal">
+    <img src="./assets/brand-icon.png" width="72" height="72" alt="">
+    <h2 id="download-title">让表达，即刻发生。</h2>
+    <p class="download-meta"><span id="release-version">最新版本</span><span class="sep">·</span>macOS 26+<span class="sep">·</span>Apple Silicon<span id="release-size"></span></p>
+    <a class="button primary large" id="download-button" href="https://github.com/LiuTianjie/Saylane/releases/latest">下载 Mac 版<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m-3.5-3.5L10 12l3.5-3.5M4 13.5V16h12v-2.5"/></svg></a>
+    <div class="download-links">
+      <a id="release-notes" href="https://github.com/LiuTianjie/Saylane/releases/latest">版本说明 <span aria-hidden="true">›</span></a>
+      <a href="https://github.com/LiuTianjie/Saylane/blob/main/docs/安装说明.md">安装指南 <span aria-hidden="true">›</span></a>
+      <a href="https://github.com/LiuTianjie/Saylane">源代码 <span aria-hidden="true">›</span></a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <a class="brand" href="#top"><img class="brand-icon" src="./assets/brand-icon.png" width="32" height="32" alt=""><span class="brand-name">Saylane</span></a>
+  <span>macOS 26+ · Apple Silicon · 默认使用系统端侧识别与翻译</span>
+  <nav aria-label="页脚链接"><a href="https://github.com/LiuTianjie/Saylane">GitHub ↗</a><a href="https://github.com/LiuTianjie/Saylane/issues">反馈问题 ↗</a></nav>
+</footer>
+
+<script src="./app.js?v=0.8.1"></script>
+<script src="./practice.js?v=0.8.1"></script>
+<script src="./site.js?v=0.8.1c"></script>
+</body>
+</html>
