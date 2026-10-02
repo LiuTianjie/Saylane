@@ -67,7 +67,7 @@ Download the `.pkg` and `SHA256SUMS.txt` from [GitHub Releases](https://github.c
 
 > **Distribution status:** the [v0.2.75 release](https://github.com/LiuTianjie/Saylane/releases/tag/v0.2.75) contains an app signed with Developer ID Application. Its PKG installer is unsigned and has not been notarized by Apple. See the [installation guide](docs/安装说明.md) for the current installation requirements.
 
-After the installation Saylane adds itself to the input sources and switches to itself; no trip to System Settings. The welcome page that follows is a single screen: a practice field and three status rows. macOS asks about the microphone the first time you hold the key to talk; Accessibility is optional.
+After the installation Saylane adds itself to the input sources and switches to itself; no trip to System Settings. The guide that follows is a single screen that turns on the four things Saylane needs, once: the input method, the microphone, Accessibility and Screen Recording. Each has one button and ticks itself off; nothing is asked for later, while you are using it.
 
 ### 2. Speak into a text field
 

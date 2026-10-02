@@ -1,13 +1,15 @@
 import SwiftUI
 
-/// First run, on one page. The input method is added and made current from
-/// here; the talk key can be tried at once; what the system must be asked for
-/// is asked where it is needed. Nobody is sent to System Settings for anything
-/// that can be done in place.
+/// The first run, on one page: everything Saylane needs from the Mac is turned
+/// on here, once — the input method (added and switched to in place), the
+/// microphone, Accessibility and Screen Recording — so that nothing is asked
+/// for later, in the middle of a sentence or a capture. One button settles
+/// whatever is next; the page follows the system's prompts and panes by itself.
 struct WelcomeView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
+        let list = model.setupChecklist
         VStack(spacing: 0) {
             HStack {
                 SaylaneBrand()
@@ -16,54 +18,34 @@ struct WelcomeView: View {
             .padding(.horizontal, 36).padding(.top, 24)
 
             ScrollView {
-                VStack(spacing: 18) {
-                    VStack(spacing: 9) {
-                        Text(String(localized: "说出来，就写好了。"))
-                            .font(.system(size: 30, weight: .semibold))
-                        Text(model.prefs.tapToTalk
-                             ? String(localized: "点按 \(model.prefs.pushToTalk.shortLabel)，说完按任意键提交。")
-                             : String(localized: "按住 \(model.prefs.pushToTalk.shortLabel)，说完松开即可。"))
-                            .font(.system(size: 14)).foregroundStyle(.secondary)
-                    }
-                    .padding(.top, 4)
+                VStack(spacing: 20) {
+                    header(list)
                     if let notice = model.notice, notice.level == .actionable {
                         Text(notice.message).font(.system(size: 12)).foregroundStyle(.red)
                             .textSelection(.enabled)
                     }
-                    DictationTrialView(height: 88)
-                    if let conflict = ShortcutValidator.appleDictationConflict(for: model.prefs.pushToTalk) {
-                        Label(conflict, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundStyle(.orange)
-                    }
-                    if modelsPending {
-                        HStack(spacing: 12) {
-                            Text(model.readinessState.blocker?.message ?? String(localized: "正在检查模型…"))
-                                .font(.system(size: 12)).foregroundStyle(.secondary)
-                            Spacer()
-                            Button(String(localized: "准备模型")) { model.deferSetup(destination: 2) }.buttonStyle(.bordered)
+                    SetupChecklistView(guide: true)
+                    // With everything on, the page turns into a place to try it.
+                    if list.isComplete {
+                        DictationTrialView(height: 110)
+                            .transition(.opacity)
+                        if let conflict = ShortcutValidator.appleDictationConflict(for: model.prefs.pushToTalk) {
+                            Label(conflict, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundStyle(.orange)
                         }
                     }
-                    PermissionsSettingsView(welcome: true)
                 }
-                .frame(maxWidth: 560).frame(maxWidth: .infinity)
-                .padding(.horizontal, 36).padding(.bottom, 24)
+                .frame(maxWidth: 600).frame(maxWidth: .infinity)
+                .padding(.horizontal, 36).padding(.top, 6).padding(.bottom, 24)
+                .animation(.easeOut(duration: 0.2), value: list)
             }
 
-            HStack {
-                Text(String(localized: "为 macOS 而设计")).font(.system(size: 12)).foregroundStyle(.tertiary)
-                Spacer()
-                Button(String(localized: "开始使用")) { model.finishSetup() }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .selfTestAnchor("welcome-done")
-            }
-            .padding(.horizontal, 36).padding(.vertical, 20)
-            .background(Theme.cardBackground)
+            footer(list)
         }
         .background(Theme.settingsBackground)
         .selfTestAnchor("welcome")
         .task {
             // Saylane is put in the input-source list and made the current
-            // input method here, before the user is asked to talk.
+            // input method here, before anything else is asked.
             model.ensureInputSource()
             // The system's own prompts and panes change things behind this
             // window: follow them while it is open.
@@ -74,10 +56,66 @@ struct WelcomeView: View {
         }
     }
 
-    private var modelsPending: Bool {
-        switch model.readinessState.blocker {
-        case .modelsChecking, .modelsMissing: return true
-        default: return false
+    private func header(_ list: SetupChecklist) -> some View {
+        VStack(spacing: 10) {
+            Text(list.isComplete ? String(localized: "都准备好了") : String(localized: "先把这四项打开"))
+                .font(.system(size: 28, weight: .semibold))
+            Text(list.isComplete
+                 ? (model.prefs.tapToTalk ? String(localized: "点按 \(model.prefs.pushToTalk.shortLabel)，说完按任意键提交。")
+                                          : String(localized: "按住 \(model.prefs.pushToTalk.shortLabel)，说完松开即可。"))
+                 : String(localized: "只需要这一次。之后说话、打字和截屏翻译都不会再被权限打断。"))
+                .font(.system(size: 14)).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            HStack(spacing: 10) {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Theme.fillStrong)
+                        Capsule().fill(list.isComplete ? Theme.ready : Theme.accent)
+                            .frame(width: geo.size.width * CGFloat(list.count) / CGFloat(SetupStep.allCases.count))
+                    }
+                }
+                .frame(width: 180, height: 5)
+                Text(String(localized: "已开启 \(list.count) / \(SetupStep.allCases.count)"))
+                    .font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary).monospacedDigit()
+            }
+            .padding(.top, 4)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func footer(_ list: SetupChecklist) -> some View {
+        HStack(spacing: 14) {
+            if list.isComplete {
+                Text(String(localized: "这些都可以在“设置 → 权限管理”里再看。")).font(.system(size: 12)).foregroundStyle(.tertiary)
+            } else {
+                // Never a dead end: someone who will not grant an item can still get in.
+                Button(String(localized: "稍后再说")) { model.deferSetup() }
+                    .buttonStyle(.plain).font(.system(size: 13)).foregroundStyle(.secondary)
+                    .selfTestAnchor("welcome-later")
+            }
+            Spacer()
+            Button {
+                if list.isComplete { model.finishSetup() } else { model.performNextSetupStep() }
+            } label: {
+                Text(primaryTitle(list)).frame(minWidth: 132)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .keyboardShortcut(.defaultAction)
+            .selfTestAnchor("welcome-done")
+        }
+        .padding(.horizontal, 36).padding(.vertical, 18)
+        .background(Theme.cardBackground)
+        .overlay(alignment: .top) { Divider().opacity(0.45) }
+    }
+
+    private func primaryTitle(_ list: SetupChecklist) -> String {
+        switch list.next {
+        case .inputMethod: return String(localized: "添加输入法")
+        case .microphone: return String(localized: "允许麦克风")
+        case .accessibility: return String(localized: "开启辅助功能")
+        case .screenRecording: return String(localized: "允许屏幕录制")
+        case nil: return String(localized: "开始使用")
         }
     }
 }

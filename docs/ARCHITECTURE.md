@@ -135,13 +135,15 @@ CGEvent tap（主程序，需辅助功能）────────────
 
 ## 8. 首次使用
 
-没有向导。做法和成熟输入法一致（豆包的安装器自己注册、启用并选中输入源，权限用到时才问）：
+一页引导（`WelcomeView`），把 Saylane 需要的四样东西一次开好：输入法、麦克风、辅助功能、屏幕录制（`SetupStep`，状态由 `Readiness.checklist` 算出）。之后说话、打字、截屏翻译都不会再在用的时候被权限打断。
 
-- 主程序带 `--installed` 启动时调用 `ensureInputSource()`：注册、`TISEnableInputSource`、`TISSelectInputSource`。只有系统 8 秒内没有照办，才打开系统设置的输入法面板并说明怎么手动加。有辅助功能权限（触发键在任何输入法下都有效）时不切换当前输入法。
-- 欢迎页（`WelcomeView`）只有一屏：试说框、三行状态（输入法、麦克风、辅助功能）和一个按钮。完成一次后不再自动出现；`Preferences.currentOnboardingVersion` 加一可以让老用户再看一次。
-- 麦克风在第一次需要时询问：还没问过就按住了触发键，`VoiceSessionController` 不报错，而是让系统弹出询问。
-- 当前输入法不是 Saylane 不算“拦路项”：按键既然到了（自己的窗口，或者全局监听），文字就有地方写。它只是输入法那一行的状态，旁边有“切换到 Saylane”。
-- 在 `SAYLANE_TEST_HOME` 里运行的构建只读取、从不改动本机的输入源。
+- 主程序带 `--installed` 启动时调用 `ensureInputSource()`：注册、`TISEnableInputSource`、`TISSelectInputSource`，不用去系统设置。只有系统 8 秒内没有照办，才打开系统设置的输入法面板并说明怎么手动加。有辅助功能权限（触发键在任何输入法下都有效）时不切换当前输入法。
+- 引导页列出四项，每项一个状态、一个按钮；页面底部的主按钮总是去办“下一项没开的”（`performNextSetupStep`）：麦克风弹系统询问，辅助功能和屏幕录制打开对应的系统设置面板。页面每秒看一次系统的状态，开好的那一行自己变成已开启。四项都开了，列表收成一行，露出试说框，主按钮变成“开始使用”。
+- 允许屏幕录制后 macOS 会重新打开主程序。引导打开时留一个时间标记（`PreferencesStore.setGuideOpen`），十五分钟内被系统重开就回到引导，不会凭空消失。
+- 不是死胡同：“稍后再说”可以先进去；以后手动打开 Saylane 还会回到引导，侧栏也有“完成设置”。离开了引导又没给麦克风的，第一次按住说话时系统照样会问。
+- 老用户：四项都已经开着的不再看到引导；缺哪一项的，升级后看到一次（`Preferences.currentOnboardingVersion` = 3）。
+- “设置 → 权限管理”用的是同一个列表（`SetupChecklistView`）。
+- 在 `SAYLANE_TEST_HOME` 里运行的构建只读取、从不改动本机的输入源；四项的状态可以由测试指定（`AppModel.testChecklist`）。
 
 ## 9. 并发
 

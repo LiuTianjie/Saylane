@@ -20,7 +20,10 @@ enum UISelfTest {
             if !condition { failures.append(message) }
         }
 
-        // 1. The welcome page opens in a key window and its button answers a click.
+        // 1. The guide opens in a key window and lists the four items. What is
+        //    on and what is not is said here: a test binary's own permissions
+        //    are whatever the Mac happens to grant it.
+        model.testChecklist = SetupChecklist(inputMethod: true, microphone: false, accessibility: false, screenRecording: false)
         model.beginSetup()
         await settle()
         guard let window = NSApp.windows.first(where: { $0.isVisible && $0.title == "Saylane" }) else {
@@ -29,9 +32,19 @@ enum UISelfTest {
         }
         check(window.isKeyWindow, "the welcome window is key")
         check(model.isShowingSetup && UISelfTestAnchors.frames["welcome"] != nil, "the welcome page is showing")
+        check((0...3).allSatisfy { UISelfTestAnchors.frames["setup-row-\($0)"] != nil }, "the guide lists its four items")
+        // "Later" leaves without claiming the guide is done; opened again, it is back.
+        let later = click("welcome-later", in: window)
+        await settle()
+        check(later && !model.isShowingSetup && !model.setupCompleted, "“later” leaves the guide unfinished")
+        AppDelegate.showWelcomeIfNew { $0.openSettings() }
+        await settle()
+        check(model.isShowingSetup, "opened again, the guide comes back")
 
-        // 2. The trial field on that page is an ordinary text view: a dictation
-        //    can be written into it, and what is written reaches the model.
+        // 2. With all four on, the page offers the trial field: an ordinary text
+        //    view a dictation can be written into, and what is written reaches the model.
+        model.testChecklist = .complete
+        await settle()
         model.testText = ""
         let field = firstTextView(in: window.contentView)
         check(field != nil, "the welcome page has the trial field")

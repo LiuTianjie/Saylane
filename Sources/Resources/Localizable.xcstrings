@@ -521,12 +521,12 @@
         }
       }
     },
-    "为 macOS 而设计": {
+    "之前被拒绝了：在系统设置的“麦克风”里打开 Saylane": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Designed for macOS"
+            "value": "Denied earlier: turn Saylane on under Microphone in System Settings"
           }
         }
       }
@@ -551,12 +551,12 @@
         }
       }
     },
-    "仅听写时采集": {
+    "任何应用、任何输入法下都能按键说话": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Captured only while dictating"
+            "value": "The talk key works in every app and under every input method"
           }
         }
       }
@@ -631,6 +631,36 @@
         }
       }
     },
+    "允许屏幕录制": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow Screen Recording"
+          }
+        }
+      }
+    },
+    "允许麦克风": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow the microphone"
+          }
+        }
+      }
+    },
+    "先把这四项打开": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn these four on first"
+          }
+        }
+      }
+    },
     "全局按键拦截尚未接入，当前功能键无法可靠使用；请改用 Option、Command、Control、Shift 或 fn。": {
       "localizations": {
         "en": {
@@ -687,16 +717,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Any Chat Completions-compatible service works, including local Ollama / LM Studio. Keys are stored in the Keychain per endpoint."
-          }
-        }
-      }
-    },
-    "准备模型": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prepare models"
           }
         }
       }
@@ -777,16 +797,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Change this capture's direction without affecting voice (D)"
-          }
-        }
-      }
-    },
-    "划区翻译需要这项权限": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Region translation needs this permission"
           }
         }
       }
@@ -1001,12 +1011,12 @@
         }
       }
     },
-    "只截你划出的区域": {
+    "只在你按住说话时录音": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Only the region you select is captured"
+            "value": "Records only while you hold the key to talk"
           }
         }
       }
@@ -1021,12 +1031,12 @@
         }
       }
     },
-    "可选": {
+    "只需要这一次。之后说话、打字和截屏翻译都不会再被权限打断。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Optional"
+            "value": "Only this once. After that, speaking, typing and screen translation are never interrupted by a permission question."
           }
         }
       }
@@ -1137,6 +1147,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "A key press cut the dictation short. Nothing was written; the text is on the clipboard."
+          }
+        }
+      }
+    },
+    "四项都已开启。在“系统设置 → 隐私与安全性”里可以随时关掉其中任何一项。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All four are on. Any of them can be turned off at any time under System Settings → Privacy & Security."
+          }
+        }
+      }
+    },
+    "在打开的列表里把 Saylane 的开关打开，这里会自己变成已开启": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn Saylane on in the list that opened; this row updates by itself"
           }
         }
       }
@@ -1391,16 +1421,6 @@
         }
       }
     },
-    "已允许，任何应用和输入法下都能按键说话": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Allowed: the talk key works in every app and under every input method"
-          }
-        }
-      }
-    },
     "已允许，只截你划出的区域": {
       "localizations": {
         "en": {
@@ -1411,12 +1431,12 @@
         }
       }
     },
-    "已允许；全局按键监听尚未接入": {
+    "已允许；按键监听还没有接上": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Allowed, but the global key listener is not running yet"
+            "value": "Allowed; the key listener is not attached yet"
           }
         }
       }
@@ -1441,12 +1461,32 @@
         }
       }
     },
-    "已启用，其它输入法下也能按快捷键说话": {
+    "已加入输入法，现在用的就是 Saylane": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enabled; the shortcut also works under other input methods"
+            "value": "Added, and Saylane is the current input method"
+          }
+        }
+      }
+    },
+    "已加入输入法；在别的输入法下也能按键说话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added; the talk key also works under other input methods"
+          }
+        }
+      }
+    },
+    "已加入；现在用的是别的输入法，切到 Saylane 才能打字和说话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added, but another input method is current; switch to Saylane to type and talk"
           }
         }
       }
@@ -1481,6 +1521,16 @@
         }
       }
     },
+    "已开启 %lld / %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld of %lld on"
+          }
+        }
+      }
+    },
     "已开启：每天联网一次，从维基百科和维基词典的分类标题获取术语（CC BY-SA）。只下载标题，不上传任何内容。": {
       "localizations": {
         "en": {
@@ -1497,16 +1547,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Proofread and inserted"
-          }
-        }
-      }
-    },
-    "已添加；现在用的是别的输入法，切到 Saylane 才能打字和说话": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Added, but another input method is active right now"
           }
         }
       }
@@ -1541,16 +1581,6 @@
         }
       }
     },
-    "已选中 Saylane": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saylane is selected"
-          }
-        }
-      }
-    },
     "常见术语": {
       "localizations": {
         "en": {
@@ -1567,6 +1597,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "When on, other apps cannot be used while a capture is pinned."
+          }
+        }
+      }
+    },
+    "开启辅助功能": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on Accessibility"
           }
         }
       }
@@ -1631,36 +1671,6 @@
         }
       }
     },
-    "当前功能键需要辅助功能权限，才能拦截按键并可靠收到松开事件；也可以改用 Option、Command、Control、Shift 或 fn。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This function key needs Accessibility permission for key filtering and reliable release events. You can also use Option, Command, Control, Shift, or fn."
-          }
-        }
-      }
-    },
-    "当前功能键需要辅助功能权限；若不想开启，请改用 Option、Command、Control、Shift 或 fn。其它增强可以稍后开启。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This function key needs Accessibility permission. To leave it off, use Option, Command, Control, Shift, or fn. Other enhancements can be enabled later."
-          }
-        }
-      }
-    },
-    "当前功能键需要这项权限": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Required for the current function key"
-          }
-        }
-      }
-    },
     "当前模式": {
       "localizations": {
         "en": {
@@ -1677,6 +1687,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Current version %@"
+          }
+        }
+      }
+    },
+    "当前的说话键是功能键，必须开启这一项才能用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your talk key is a function key, which only works with this turned on"
           }
         }
       }
@@ -1741,16 +1761,6 @@
         }
       }
     },
-    "必需": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Required"
-          }
-        }
-      }
-    },
     "快捷键": {
       "localizations": {
         "en": {
@@ -1797,6 +1807,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Screen Translation"
+          }
+        }
+      }
+    },
+    "截屏翻译只截你框出的那一块": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen translation captures only the region you select"
+          }
+        }
+      }
+    },
+    "截屏翻译要用；只截你框出的那一块，不上传": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For screen translation; only the region you select is captured, and it is never uploaded"
           }
         }
       }
@@ -1851,12 +1881,42 @@
         }
       }
     },
+    "打开开关后系统会重新打开 Saylane，回来后从这里继续": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After you turn it on, macOS reopens Saylane and the guide continues from here"
+          }
+        }
+      }
+    },
+    "打开系统设置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open System Settings"
+          }
+        }
+      }
+    },
     "找不到这块屏幕。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "That display could not be found."
+          }
+        }
+      }
+    },
+    "把 Saylane 加入输入法并切换过去，不用去系统设置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adds Saylane to your input sources and switches to it; no trip to System Settings"
           }
         }
       }
@@ -1931,6 +1991,16 @@
         }
       }
     },
+    "按住说话时录音；不说话不采集": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records while you hold the key to talk, and at no other time"
+          }
+        }
+      }
+    },
     "按住说话，松开提交": {
       "localizations": {
         "en": {
@@ -1947,26 +2017,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Endpoint"
-          }
-        }
-      }
-    },
-    "推荐": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recommended"
-          }
-        }
-      }
-    },
-    "推荐与可选": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recommended and optional"
           }
         }
       }
@@ -2481,16 +2531,6 @@
         }
       }
     },
-    "正在检查模型…": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Checking models…"
-          }
-        }
-      }
-    },
     "正在检查词库更新…": {
       "localizations": {
         "en": {
@@ -2671,6 +2711,16 @@
         }
       }
     },
+    "添加输入法": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add the input method"
+          }
+        }
+      }
+    },
     "清理旧下载…": {
       "localizations": {
         "en": {
@@ -2687,16 +2737,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clear"
-          }
-        }
-      }
-    },
-    "点「添加」直接加入输入法列表，不用去系统设置": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "“Add” puts Saylane in the input sources right here; no trip to System Settings"
           }
         }
       }
@@ -2821,6 +2861,16 @@
         }
       }
     },
+    "稍后再说": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Later"
+          }
+        }
+      }
+    },
     "空格": {
       "localizations": {
         "en": {
@@ -2847,16 +2897,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Page %lld of %lld"
-          }
-        }
-      }
-    },
-    "第一次按住说话时系统会询问，也可以现在允许": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "macOS asks the first time you dictate, or allow it now"
           }
         }
       }
@@ -2961,26 +3001,6 @@
         }
       }
     },
-    "系统设置 → 隐私与安全性 → 辅助功能": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "System Settings → Privacy & Security → Accessibility"
-          }
-        }
-      }
-    },
-    "系统设置 → 隐私与安全性 → 麦克风": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "System Settings → Privacy & Security → Microphone"
-          }
-        }
-      }
-    },
     "系统识别": {
       "localizations": {
         "en": {
@@ -3007,16 +3027,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Registering the input method failed (error %d)."
-          }
-        }
-      }
-    },
-    "系统还没发现组件": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The system has not found the component yet"
           }
         }
       }
@@ -3181,22 +3191,12 @@
         }
       }
     },
-    "让快捷键在任何应用、任何输入法下都能用。可以跳过。": {
+    "让说话键在任何应用里都能用，并把文字直接写到光标处": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Makes the talk key work in every app and under every input method. Optional."
-          }
-        }
-      }
-    },
-    "让快捷键在任何应用、任何输入法下都能用，并把文字直接写到光标处。不开启时，只有 Saylane 是当前输入法时才能说话。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lets the talk key work in every app and under every input method, and writes the text at the caret. Without it you can only dictate while Saylane is the selected input method."
+            "value": "Lets the talk key work in every app and writes the text at the caret"
           }
         }
       }
@@ -3371,32 +3371,12 @@
         }
       }
     },
-    "说出来，就写好了。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Say it, and it's written."
-          }
-        }
-      }
-    },
     "说话": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Talking"
-          }
-        }
-      }
-    },
-    "说话和拼音所需权限已开启。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permissions for talking and Pinyin are granted."
           }
         }
       }
@@ -3561,16 +3541,6 @@
         }
       }
     },
-    "输入法在这里直接添加；麦克风会弹出系统的询问。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The input method is added right here; macOS asks about the microphone itself."
-          }
-        }
-      }
-    },
     "输入法尚未启用，不能切换。请在系统输入法设置中完成添加或允许。": {
       "localizations": {
         "en": {
@@ -3631,6 +3601,16 @@
         }
       }
     },
+    "还有没开启的项目：用到它的功能会在那时停下来问你。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something is still off: a feature that needs it will stop and ask when you use it."
+          }
+        }
+      }
+    },
     "还没有允许屏幕录制。允许后可以用 %@ 划区翻译。": {
       "localizations": {
         "en": {
@@ -3667,6 +3647,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "This combination is often taken by other apps and may not work everywhere."
+          }
+        }
+      }
+    },
+    "这些都可以在“设置 → 权限管理”里再看。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All of these are also under Settings → Permissions."
           }
         }
       }
@@ -3731,12 +3721,12 @@
         }
       }
     },
-    "都可以稍后开启。不开辅助功能时，在 Saylane 输入法下仍然可以说话和打字。": {
+    "都准备好了": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "All of these can be turned on later. Without Accessibility you can still dictate and type under the Saylane input method."
+            "value": "Everything is ready"
           }
         }
       }

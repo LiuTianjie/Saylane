@@ -100,24 +100,33 @@ struct SettingsView: View {
 
     private var sidebarFooter: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Button { model.beginSetup() } label: {
-                HStack(spacing: 9) {
-                    Image(systemName: "list.bullet.rectangle").font(.system(size: 15))
-                        .accessibilityHidden(true)
-                    Text(model.setupCompleted ? String(localized: "使用引导") : String(localized: "完成设置"))
-                        .font(.system(size: 13, weight: .semibold))
-                    Spacer(minLength: 4)
-                    Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold))
-                        .accessibilityHidden(true)
+            if !model.setupCompleted {
+                // Something is still off: the way back to the guide is the one loud thing in the sidebar.
+                Button { model.beginSetup() } label: {
+                    HStack(spacing: 9) {
+                        Image(systemName: "list.bullet.rectangle").font(.system(size: 15))
+                            .accessibilityHidden(true)
+                        Text(String(localized: "完成设置"))
+                            .font(.system(size: 13, weight: .semibold))
+                        Spacer(minLength: 4)
+                        Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold))
+                            .accessibilityHidden(true)
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 44)
                 }
-                .padding(.horizontal, 14)
-                .frame(height: 44)
+                .buttonStyle(SettingsGuideButtonStyle())
+                .accessibilityHint(String(localized: "打开 Saylane 的设置引导和语音试用"))
+                .selfTestAnchor("setup-guide")
             }
-            .buttonStyle(SettingsGuideButtonStyle())
-            .accessibilityHint(String(localized: "打开 Saylane 的设置引导和语音试用"))
-            .selfTestAnchor("setup-guide")
             VStack(alignment: .leading, spacing: 8) {
                 StatusText(text: model.ready ? String(localized: "已就绪") : String(localized: "待完成设置"), ready: model.ready)
+                if model.setupCompleted {
+                    Button(String(localized: "使用引导")) { model.beginSetup() }
+                        .buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(.secondary)
+                        .accessibilityHint(String(localized: "打开 Saylane 的设置引导和语音试用"))
+                        .selfTestAnchor("setup-guide")
+                }
                 // The program has no Dock icon and no menu of its own: this is its Quit.
                 Button(String(localized: "退出 Saylane")) { model.quitByUser() }
                     .buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(.secondary)
@@ -406,7 +415,13 @@ struct SettingsView: View {
     // MARK: - 权限
 
     @ViewBuilder private var setup: some View {
-        PermissionsSettingsView()
+        VStack(alignment: .leading, spacing: 9) {
+            SetupChecklistView()
+            Text(model.setupChecklist.isComplete
+                 ? String(localized: "四项都已开启。在“系统设置 → 隐私与安全性”里可以随时关掉其中任何一项。")
+                 : String(localized: "还有没开启的项目：用到它的功能会在那时停下来问你。"))
+                .font(.system(size: 11.5)).foregroundStyle(.secondary).padding(.horizontal, 4)
+        }
         DictationTrialView()
     }
 

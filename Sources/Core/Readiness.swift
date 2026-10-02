@@ -47,6 +47,16 @@ struct Readiness: Equatable, Sendable {
     var blocker: SetupReadiness.Blocker? { setup.blocker }
     var isReady: Bool { blocker == nil }
 
+    /// The guide's four items. The input method counts once it is in the list
+    /// and either current or not needed to be: with the listener that works
+    /// under every input method, the talk key arrives whichever one is selected.
+    var checklist: SetupChecklist {
+        SetupChecklist(inputMethod: inputSource.enabled && (inputSource.selected || globalInvokeAvailable),
+                       microphone: permissions.microphone == .granted,
+                       accessibility: permissions.accessibility,
+                       screenRecording: permissions.screenCapture)
+    }
+
     /// Required onboarding items are satisfied (permissions may still be pending for optional features).
     var requiredSetupComplete: Bool {
         SetupFlow.isComplete(installationPathValid: inputSource.installedLocation,

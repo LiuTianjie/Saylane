@@ -62,10 +62,12 @@ struct Preferences: Equatable, Sendable {
 
     // The welcome page. Bump `Preferences.currentOnboardingVersion` only when
     // existing users should see it once more (2: the 0.4 page, where the
-    // input method is added in place and nothing is a wizard any more).
+    // input method is added in place and nothing is a wizard any more;
+    // 3: the 0.8 guide, which settles all four permissions on the first run —
+    // someone who already has all four is not shown it again).
     var onboardingVersion = 0
 
-    static let currentOnboardingVersion = 2
+    static let currentOnboardingVersion = 3
     var onboardingCompleted: Bool { onboardingVersion >= Self.currentOnboardingVersion }
 
     var currentDirection: TranslationDirection { TranslationDirection(source: sourceLanguage, target: targetLanguage) }

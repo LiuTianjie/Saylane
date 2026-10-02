@@ -88,17 +88,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Self.showWelcomeIfNew { _ in }
         } else if arguments.contains("--settings") {
             AppModel.shared.openSettings()
+        } else if AppModel.shared.guideWasInterrupted {
+            // macOS reopened the program in the middle of the guide: go on where it was.
+            AppModel.shared.beginSetup()
         } else if !arguments.contains("--background"), !Self.launchedAsLoginItem {
             // Opened by hand: show something.
             Self.showWelcomeIfNew { $0.openSettings() }
         }
     }
 
-    /// The welcome page until it has been finished once; `otherwise` after that.
-    /// Permissions are not a reason to show it again: each is asked for where
-    /// it is first needed.
+    /// The guide until it has been finished once; `otherwise` after that.
+    /// It turns on everything Saylane needs in one go, so that nothing is
+    /// asked for later, in the middle of a sentence or a capture.
     @MainActor static func showWelcomeIfNew(otherwise: (AppModel) -> Void) {
         let model = AppModel.shared
+        model.skipGuideIfNothingIsMissing()
         if model.setupCompleted { otherwise(model) } else { model.beginSetup() }
     }
 

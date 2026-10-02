@@ -31,6 +31,18 @@ import Carbon.HIToolbox
             precondition(backing.storage["screenHoldEnabled"] == nil && store.current.sourceLanguage == .en)
             precondition(backing.storage.count == 1, "\(backing.storage)")
         }
+        // The guide leaves a mark while it is open, so a program reopened by the system comes back to it.
+        do {
+            let backing = InMemoryPreferencesBacking([:])
+            let store = PreferencesStore(backing: backing)
+            precondition(!store.guideWasInterrupted)
+            store.setGuideOpen(true)
+            precondition(store.guideWasInterrupted)
+            backing.set(Date().timeIntervalSince1970 - 3600, forKey: "setupGuideOpenedAt")
+            precondition(!store.guideWasInterrupted, "an hour later it is not an interruption any more")
+            store.setGuideOpen(true); store.setGuideOpen(false)
+            precondition(!store.guideWasInterrupted && backing.object(forKey: "setupGuideOpenedAt") == nil)
+        }
         // Upgrade: every pre-0.3 key is read under its old name.
         do {
             let backing = InMemoryPreferencesBacking([

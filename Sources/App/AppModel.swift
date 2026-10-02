@@ -71,6 +71,10 @@ final class AppModel: VoiceSessionHost {
     var isSettingsWindowVisible: Bool { settingsWindow.isVisible }
     var isVoiceTrialActive: Bool { dictationTrialVisible && settingsWindow.isFocused }
     var setupCompleted: Bool { prefs.onboardingCompleted }
+    /// The guide's four items as they stand. A test home may say what they are:
+    /// its own permissions are whatever the Mac happens to grant a test binary.
+    var setupChecklist: SetupChecklist { TestHome.isActive ? (testChecklist ?? readinessState.checklist) : readinessState.checklist }
+    var testChecklist: SetupChecklist?
     var pinyinEnglishMode: Bool { prefs.pinyinEnglishMode }
 
     private init() {
@@ -669,7 +673,10 @@ final class AppModel: VoiceSessionHost {
     func voiceSessionDidEnd(committed: Bool) {
         if committed {
             notice = nil
-            if !prefs.onboardingCompleted { preferences.update { $0.onboardingVersion = Preferences.currentOnboardingVersion } }
+            // A dictation that worked ends the guide only when nothing is left to turn on.
+            if !prefs.onboardingCompleted, setupChecklist.isComplete, !isShowingSetup {
+                preferences.update { $0.onboardingVersion = Preferences.currentOnboardingVersion }
+            }
         }
         releaseWatchdog?.cancel(); releaseWatchdog = nil
         router.reset()
@@ -684,6 +691,7 @@ final class AppModel: VoiceSessionHost {
 
     func beginSetup() {
         isShowingSetup = true
+        preferences.setGuideOpen(true)
         refreshInputSourceStatus()
         settingsTab = 0
         notice = nil
@@ -694,8 +702,36 @@ final class AppModel: VoiceSessionHost {
         settingsTab = destination
         voice.cancel()
         isShowingSetup = false
+        preferences.setGuideOpen(false)
         preferences.update { $0.onboardingVersion = Preferences.currentOnboardingVersion }
     }
+
+    /// The guide's one button: settle the first item that is still open.
+    func performNextSetupStep() {
+        guard let step = setupChecklist.next else { return }
+        perform(step)
+    }
+
+    func perform(_ step: SetupStep) {
+        notice = nil
+        switch step {
+        case .inputMethod: openInputMethodPermission()
+        case .microphone: Task { await requestMicrophonePermission() }
+        case .accessibility: requestAccessibility()
+        case .screenRecording: _ = permissionsController.requestScreenCapture()
+        }
+        InputDiagnostics.record("setup-step", String(describing: step))
+    }
+
+    /// Someone who finished an earlier guide and has all four items on has nothing to be shown.
+    func skipGuideIfNothingIsMissing() {
+        refreshInputSourceStatus()
+        guard !prefs.onboardingCompleted, prefs.onboardingVersion >= 2, setupChecklist.isComplete else { return }
+        preferences.update { $0.onboardingVersion = Preferences.currentOnboardingVersion }
+    }
+
+    /// macOS reopened the program in the middle of the guide (it does after Screen Recording is allowed).
+    var guideWasInterrupted: Bool { !prefs.onboardingCompleted && preferences.guideWasInterrupted }
 
     /// Leave the guide without claiming it was completed. Reopening Saylane
     /// returns to setup until the user finishes or successfully tries voice.
@@ -703,9 +739,11 @@ final class AppModel: VoiceSessionHost {
         settingsTab = destination
         voice.cancel()
         isShowingSetup = false
+        preferences.setGuideOpen(false)
     }
 
     func openSettings(tab: Int? = nil) {
+        skipGuideIfNothingIsMissing()
         if let tab { settingsTab = tab }
         settingsWindow.show(model: self)
         refreshInputSourceStatus()

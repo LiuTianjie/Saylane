@@ -14,6 +14,11 @@ enum PreviewSnapshot {
     }
 
     static func takeSetupSnapshot(model: AppModel, path: String) {
+        // "SAYLANE_SNAPSHOT_SETUP=2": the guide with its first two items on.
+        if let count = ProcessInfo.processInfo.environment["SAYLANE_SNAPSHOT_SETUP"].flatMap(Int.init) {
+            model.testChecklist = SetupChecklist(inputMethod: count >= 1, microphone: count >= 2,
+                                                 accessibility: count >= 3, screenRecording: count >= 4)
+        }
         model.isShowingSetup = true
         model.settingsTab = 0
         write(SettingsView().environment(model).frame(width: 880, height: height), to: path, label: "Setup")

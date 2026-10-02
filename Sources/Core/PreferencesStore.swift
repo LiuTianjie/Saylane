@@ -73,6 +73,7 @@ final class PreferencesStore {
         static let pinyinEnglishPunctuation = "pinyinEnglishPunctuation"
         static let onboardingVersion = "onboardingVersion"
         static let quitByUser = "mainProgramQuitByUser"
+        static let guideOpenedAt = "setupGuideOpenedAt"
         /// Settings of features that no longer exist (0.4: the Control long-press
         /// for screen translation; 0.6: "recognize only", which the direction
         /// already says; 0.7: the font-weight experiment, now always measured).
@@ -107,6 +108,18 @@ final class PreferencesStore {
     /// input method reads it and then leaves the main program alone.
     func setQuitByUser(_ quit: Bool) {
         if quit { backing.set(true, forKey: Key.quitByUser) } else { backing.removeObject(forKey: Key.quitByUser) }
+    }
+
+    /// Not a setting: the guide is open. Allowing Screen Recording makes macOS
+    /// reopen the program; it then comes back to the guide instead of vanishing.
+    func setGuideOpen(_ open: Bool) {
+        if open { backing.set(Date().timeIntervalSince1970, forKey: Key.guideOpenedAt) } else { backing.removeObject(forKey: Key.guideOpenedAt) }
+    }
+
+    /// The guide was open within the last quarter of an hour and was not closed by the user.
+    var guideWasInterrupted: Bool {
+        guard let opened = backing.object(forKey: Key.guideOpenedAt) as? Double else { return false }
+        return Date().timeIntervalSince1970 - opened < 15 * 60
     }
 
     // MARK: - Migration

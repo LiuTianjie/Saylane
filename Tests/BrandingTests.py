@@ -99,9 +99,8 @@ assert 'setActivationPolicy(.regular)' not in settings
 assert 'setActivationPolicy(.accessory)' in settings
 assert not (root / 'Sources/Services/SetupController.swift').exists()
 assert not (root / 'Sources/Views/SetupView.swift').exists()
-permissions = read('Sources/Views/PermissionsSettingsView.swift')
-assert '去开通' in permissions
-assert '系统设置' in permissions
+permissions = read('Sources/Views/SetupChecklistView.swift')
+assert '打开系统设置' in permissions
 controller = read('Sources/IME/SaylaneInputController.swift')
 assert 'overrideKeyboard(withKeyboardNamed: latinKeyboardLayout)' in controller
 assert 'NSEvent.EventTypeMask([.keyDown, .flagsChanged])' in controller

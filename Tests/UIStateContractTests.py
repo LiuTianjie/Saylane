@@ -11,18 +11,18 @@ class UIStateContractTests(unittest.TestCase):
         return (ROOT / relative).read_text(encoding="utf-8")
 
     def test_permission_ui_reports_what_the_talk_key_can_reach(self) -> None:
-        source = self.source("Sources/Views/PermissionsSettingsView.swift")
-        self.assertIn("model.router.isGlobalTapListening", source)
+        source = self.source("Sources/Views/SetupChecklistView.swift")
+        # Accessibility decides whether the talk key works everywhere. Allowed
+        # but with the listener not attached is said so, with the control that attaches it.
         self.assertIn("model.router.isGlobalTapFiltering", source)
-        self.assertIn("if globalTriggerUsable", source)
-        # Accessibility decides whether the talk key works everywhere; it is
-        # shown as granted only when the listener really runs.
-        self.assertIn("ready: accessibilityReady && globalEventFiltering", source)
-        self.assertIn("recommended: true", source)
-        self.assertIn("任何应用、任何输入法下都能用", source)
-        self.assertIn("只有 Saylane 是当前输入法时才能说话", source)
-        self.assertIn("已允许；全局按键监听尚未接入", source)
-        self.assertIn("当前功能键需要这项权限", source)
+        self.assertIn("model.reconnectGlobalKeys()", source)
+        self.assertIn("任何应用、任何输入法下都能按键说话", source)
+        self.assertIn("已允许；按键监听还没有接上", source)
+        self.assertIn("当前的说话键是功能键，必须开启这一项才能用", source)
+        # The input method counts as settled when it is current, or when the
+        # talk key arrives under any input method.
+        readiness = self.source("Sources/Core/Readiness.swift")
+        self.assertIn("inputSource.enabled && (inputSource.selected || globalInvokeAvailable)", readiness)
         # Input Monitoring is no longer asked for: Accessibility covers it.
         self.assertNotIn("输入监控", source)
         self.assertNotIn("requestInputMonitoring", source)
@@ -43,17 +43,28 @@ class UIStateContractTests(unittest.TestCase):
         self.assertIn("当前功能键需要辅助功能权限才能可靠使用", source)
         self.assertIn("model.requestAccessibility()", source)
 
-    def test_welcome_is_one_page_with_nothing_to_do_elsewhere(self) -> None:
+    def test_guide_is_one_page_that_turns_everything_on(self) -> None:
         welcome = self.source("Sources/Views/WelcomeView.swift")
-        # One page: the trial, the short permission list, one button. No steps.
+        # One page, not a wizard of pages: the list of four, one button that
+        # settles whatever is next, a way out, and the trial once all are on.
+        self.assertIn("SetupChecklistView(guide: true)", welcome)
+        self.assertIn("model.performNextSetupStep()", welcome)
+        self.assertIn("model.deferSetup()", welcome)
         self.assertIn("DictationTrialView(", welcome)
-        self.assertIn("PermissionsSettingsView(welcome: true)", welcome)
         self.assertIn("model.ensureInputSource()", welcome)
-        self.assertNotIn("step", welcome)
+        self.assertNotIn("TabView", welcome)
         self.assertFalse((ROOT / "Sources/Views/OnboardingView.swift").exists())
+        self.assertFalse((ROOT / "Sources/Views/PermissionsSettingsView.swift").exists())
+        # Everything Saylane needs is on the list: nothing is left to be asked for at first use.
+        flow = self.source("Sources/Models/SetupFlow.swift")
+        for step in ("case inputMethod", "case microphone", "case accessibility", "case screenRecording"):
+            self.assertIn(step, flow)
+        # macOS reopens the program when Screen Recording is allowed: the guide comes back.
+        delegate = self.source("Sources/App/AppDelegate.swift")
+        self.assertIn("AppModel.shared.guideWasInterrupted", delegate)
         # The input method is added and switched to in place. System Settings
         # is opened for it only after the system has had its chance.
-        rows = self.source("Sources/Views/PermissionsSettingsView.swift")
+        rows = self.source("Sources/Views/SetupChecklistView.swift")
         self.assertIn('String(localized: "添加")', rows)
         self.assertIn('String(localized: "切换到 Saylane")', rows)
         self.assertNotIn("openSystemInputSourceSettings", rows)
@@ -65,7 +76,7 @@ class UIStateContractTests(unittest.TestCase):
         delegate = self.source("Sources/App/AppDelegate.swift")
         self.assertLess(delegate.index("AppModel.shared.ensureInputSource()"), delegate.index("Self.showWelcomeIfNew { _ in }"))
 
-    def test_microphone_is_asked_for_where_it_is_first_needed(self) -> None:
+    def test_microphone_is_still_asked_for_at_first_use_if_the_guide_was_left(self) -> None:
         voice = self.source("Sources/Voice/VoiceSessionController.swift")
         self.assertIn("if blocker == .microphoneNotRequested {", voice)
         self.assertIn("host.requestMicrophoneForDictation()", voice)

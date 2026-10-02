@@ -20,6 +20,16 @@ import Foundation
         state = ReadinessReducer.reduce(state, .translationModel(ready: true, detail: "ok"))
         precondition(state.isReady)
         precondition(state.requiredSetupComplete)
+        // The guide's list: the input method counts when it is current, or when the talk key does not need it to be.
+        precondition(state.checklist.isDone(.inputMethod) && state.checklist.isDone(.microphone), "global keys are available")
+        precondition(!state.checklist.isDone(.accessibility) && state.checklist.next == .accessibility)
+        var noGlobal = state
+        noGlobal.globalInvokeAvailable = false
+        precondition(!noGlobal.checklist.isDone(.inputMethod), "another input method is current and the talk key cannot arrive")
+        var all = state
+        all.permissions.accessibility = true
+        all.permissions.screenCapture = true
+        precondition(all.checklist.isComplete)
         // Preparing or downloading something else blocks nothing that is ready; invalidation drops readiness.
         precondition(ReadinessReducer.reduce(state, .modelsDownloading(true)).isReady)
         precondition(ReadinessReducer.reduce(state, .modelsPreparing(true)).isReady)
