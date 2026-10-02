@@ -148,6 +148,7 @@ final class ScreenTranslateController {
         guard image.size.width > 0 else { return false }
         NSPasteboard.general.clearContents()
         let ok = NSPasteboard.general.writeObjects([image])
+        InputDiagnostics.record("screen-copy", "\(overlayEnabled && translatedImage != nil ? "translation" : "capture") \(ok ? "copied" : "failed")")
         if ok { cancel() }
         return ok
     }
@@ -188,6 +189,7 @@ final class ScreenTranslateController {
     func preview(_ image: NSImage, direction: TranslationDirection) async -> (pin: NSBitmapImageRep?, status: String) {
         self.direction = direction
         await present(captured: image, at: CGRect(origin: CGPoint(x: 40, y: 40), size: image.size))
+        print("pin is key: \(pinPanel?.isKeyWindow == true)")
         return (pinPanel?.snapshot(), pinModel.status)
     }
     #endif

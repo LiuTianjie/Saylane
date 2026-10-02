@@ -108,6 +108,11 @@ final class ScreenPinPanel: NSPanel, NSWindowDelegate {
         if freezesScreen { installFreezePanels() }
         orderFrontRegardless()
         chrome.orderFrontRegardless()
+        // The pin's keys belong to it from the moment it appears: ⌘C right after a
+        // translation copies the picture. Left to the application in front, ⌘C
+        // copied whatever text was selected there (seen on device with 0.7.0).
+        // The panel does not activate this program; a click anywhere else gives the keys back.
+        makeKey()
     }
 
     private func layoutCard(size: CGSize) {
