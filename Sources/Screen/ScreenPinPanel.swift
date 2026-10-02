@@ -1,7 +1,7 @@
 import AppKit
 
-/// The pinned capture with its translation overlay: a floating, draggable,
-/// non-activating panel. It never brings the input-method host to the front.
+/// The pinned capture and, over it, the same picture with the text
+/// translated in place: a floating, draggable, non-activating panel. It never brings the input-method host to the front.
 final class ScreenPinPanel: NSPanel, NSWindowDelegate {
     var onToggleOverlay: (() -> Void)?
     var onCopy: (() -> Void)?
@@ -10,14 +10,10 @@ final class ScreenPinPanel: NSPanel, NSWindowDelegate {
     /// Install full-screen shields that block pointer input to other apps.
     var freezesScreen = false
     private var fullTextPopover: NSPopover?
-    private var sourcePixels: CGImage?
-    var hasTranslationDetail: Bool {
-        fullTextPopover?.isShown == true || canvasView.subviews.contains { ($0 as? ScreenPinBlockView)?.hasTranslationDetail == true }
-    }
+    var hasTranslationDetail: Bool { fullTextPopover?.isShown == true }
     @discardableResult func closeTranslationDetail() -> Bool {
         let wasOpen = hasTranslationDetail
         fullTextPopover?.close()
-        for block in canvasView.subviews.compactMap({ $0 as? ScreenPinBlockView }) { block.closeTranslationDetail() }
         return wasOpen
     }
     private(set) var canvasSize = CGSize.zero
@@ -27,15 +23,10 @@ final class ScreenPinPanel: NSPanel, NSWindowDelegate {
     private let scrollView = NSScrollView()
     private let canvasView = ScreenPinCanvasView()
     private let borderView = ScreenPinBorderView()
-    private var sourceImage = NSImage()
-    private var blurredBackdropImage: CGImage?
     private var freezePanels: [ScreenPinFreezePanel] = []
     private let glowPad: CGFloat = 10
     private var pinRect = CGRect.zero
     private var displayRect = CGRect.zero
-    private var showingOverlay = true
-    private var translatedScrollY: CGFloat = 0
-    private var sourceStyles: [String: ScreenLaidOutBlock] = [:]
 
     init(model: ScreenPinModel) {
         self.model = model
@@ -111,10 +102,6 @@ final class ScreenPinPanel: NSPanel, NSWindowDelegate {
 
     func present(source: NSImage, at rect: CGRect) {
         pinRect = rect
-        sourceImage = source
-        sourcePixels = source.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        blurredBackdropImage = nil
-        sourceStyles = [:]
         canvasView.setSource(source)
         layoutCard(size: rect.size)
         refreshChrome()
@@ -161,76 +148,21 @@ final class ScreenPinPanel: NSPanel, NSWindowDelegate {
         }
     }
 
-    func prepareBackdrop(items: [ScreenLaidOutBlock]) async {
-        guard let cgImage = sourcePixels,
-              blurredBackdropImage == nil else { return }
-        let source = sourceImage
-        let size = canvasSize
-        let task = Task.detached(priority: .userInitiated) { () -> (CGImage?, [ScreenLaidOutBlock]) in
-            guard !Task.isCancelled else { return (nil, []) }
-            let styles = ScreenPinRenderer.prepareItems(items, image: cgImage, canvasSize: size)
-            guard !Task.isCancelled else { return (nil, []) }
-            let blurred = ScreenPinRenderer.blurredBackdrop(image: cgImage, items: items, canvasSize: size)
-            return (blurred, styles)
-        }
-        let result = await withTaskCancellationHandler(operation: { await task.value }, onCancel: { task.cancel() })
-        guard !Task.isCancelled, sourceImage === source else { return }
-        blurredBackdropImage = result.0
-        for item in result.1 {
-            sourceStyles[NSStringFromRect(item.sourceRect)] = item
-        }
-    }
-
-    func updateOverlay(items: [ScreenLaidOutBlock], overlayEnabled: Bool) {
-        guard let cgImage = sourcePixels else {
-            canvasView.update(items: [], blurredImage: nil, canvasSize: canvasSize)
-            return
-        }
-        let missing = items.filter { sourceStyles[NSStringFromRect($0.sourceRect)] == nil }
-        if overlayEnabled, !missing.isEmpty {
-            for item in ScreenPinRenderer.prepareItems(missing, image: cgImage, canvasSize: canvasSize) {
-                sourceStyles[NSStringFromRect(item.sourceRect)] = item
-            }
-        }
-        let prepared: [ScreenLaidOutBlock] = overlayEnabled ? ScreenTranslate.nonOverlapping(items.map { item in
-            var next = item
-            if let style = sourceStyles[NSStringFromRect(item.sourceRect)] {
-                next.background = style.background
-                next.foreground = style.foreground
-                next.centered = style.centered
-                next = ScreenTranslate.fitViewport(next, available: style.availableRect)
-            }
-            return next
-        }) : []
-        if overlayEnabled, !prepared.isEmpty, blurredBackdropImage == nil {
-            blurredBackdropImage = ScreenPinRenderer.blurredBackdrop(
-                image: cgImage,
-                items: prepared,
-                canvasSize: canvasSize
-            )
-        }
-        let clip = scrollView.contentView
-        if showingOverlay { translatedScrollY = clip.bounds.minY }
-        let height = overlayEnabled
-            ? ScreenTranslate.contentHeight(items: prepared, canvasHeight: sourceImage.size.height)
-            : sourceImage.size.height
-        canvasView.setFrameSize(CGSize(width: sourceImage.size.width, height: height))
-        scrollView.hasVerticalScroller = height > displayRect.height + 1
-        let scrollY = overlayEnabled ? translatedScrollY : 0
-        clip.scroll(to: NSPoint(x: 0, y: min(max(0, scrollY), max(0, height - clip.bounds.height))))
-        scrollView.reflectScrolledClipView(clip)
-        showingOverlay = overlayEnabled
-        canvasView.update(
-            items: prepared,
-            blurredImage: blurredBackdropImage,
-            canvasSize: canvasSize
-        )
+    /// The translated picture, the size of the capture; nil while there is none.
+    /// With the overlay off the capture itself is shown.
+    func show(translated: NSImage?, overlayEnabled: Bool) {
+        canvasView.setTranslated(overlayEnabled ? translated : nil)
         refreshChrome()
     }
 
-    func displayedItemsForCopy() -> [ScreenLaidOutBlock] {
-        canvasView.displayedItemsForCopy()
+    #if DEBUG
+    /// What the pin shows, as a picture.
+    func snapshot() -> NSBitmapImageRep? {
+        guard let view = contentView, let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        return bitmap
     }
+    #endif
 
     func setWorking(_ working: Bool) {
         borderView.setWorking(working)

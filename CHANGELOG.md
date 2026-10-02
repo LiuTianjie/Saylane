@@ -2,6 +2,32 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.7.0 (local testing)
+
+Screen translation is redone: the translation is set where the original was, as if the interface had switched language. Design, scoring and what is still missing: `docs/SCREEN_TRANSLATE_V2.md`.
+
+### Screen translation
+
+- Size, weight and colour of every line are measured from the pixels of the capture instead of being guessed from the recogniser's boxes. On 24 samples with ground truth (Apple support, GitHub Docs, MDN, Vue, and an application interface of our own, light and dark, 1x and 2x) the median font-size error went from 17.4% — the old pipeline set everything almost a fifth too large — to 0.9%; 86% of the blocks are within 5%.
+- Only the strokes of the original are erased. Background, icons, pictures and the edges of buttons and bubbles stay pixel for pixel. No blurred patches, no plates, no scrolling inside a block.
+- The translation keeps the original's alignment and line pitch. When it does not fit it uses the free space the pixels show, then a smaller size, and is cut only as a last resort. English to Chinese: one block in 544 had to be set smaller. Chinese to English is the hard direction (the containers were drawn for the Chinese): 17% smaller, 6% cut.
+- The pin shows two pictures, the capture and its translation; Tab switches, ⌘C copies the one on screen.
+- A capture larger than 2200 points (a whole 1x screen) is read a second time in tiles, so small type is not lost.
+- From releasing the mouse to the picture: about 1.3–2 s on the development Mac at 1x (recognition 0.55 s, measuring 0.3 s, translation 0.4–1.2 s).
+
+### Removed
+
+- "On-device font weight detection" (Settings → Screen Translation) and its Core ML model: weight is always measured now.
+
+### Not done, and said plainly
+
+- Wording: Apple's on-device translation works sentence by sentence and gets interface terms wrong ("Share" → 份额, "Live" → 过) and translates logos. A translation that sees the whole screen is designed and not built.
+- Icons are sometimes read as letters; a link or a bold word inside a paragraph loses its own style; serif type is set in sans.
+- All samples are web pages and an interface of our own. Native applications, chat applications and video frames have not been scored: that needs the feature on a real screen.
+- The live region (subtitles, chat) is designed only.
+
+Verified on the development Mac: all tests, the three self-tests, the scoring harness, and pictures through the application's own path (`--pin-snapshot`). Not yet on device: 0.6.1, 0.6.2 and this.
+
 ## 0.6.2 (local testing)
 
 "Is the pre-processing and post-processing state of the art? Are there better models?" Measured, not argued: `docs/SPEECH_PIPELINE.md` §5–7 lists what can go wrong between the mouth and the screen, what Doubao and Typeless do about each case, and what was tried here.

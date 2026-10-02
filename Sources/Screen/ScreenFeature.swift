@@ -38,7 +38,6 @@ final class ScreenFeature {
 
     func apply(_ p: Preferences) {
         controller.freezesScreen = p.screenPinFreezesScreen
-        controller.fontWeightDetection = p.screenFontWeightExperiment
     }
 
     func handleCaptureHotkey(preserveKeyboardFocus: Bool = false) {

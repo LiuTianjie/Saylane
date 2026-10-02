@@ -316,7 +316,7 @@ enum InkAnalyzer {
             if others.count >= 2, height > typical * 1.45, width < typical * 2.2 { return true }
             return false
         }
-        if ProcessInfo.processInfo.environment["V2_DEBUG"] != nil {
+        if ScreenPipeline.debug {
             print("  runs", words.map { "\(Int($0.minX))-\(Int($0.maxX)) h\(String(format: "%.1f", $0.bottom - $0.top)) s\(String(format: "%.2f", $0.solidity))" })
         }
         var trimmed = false

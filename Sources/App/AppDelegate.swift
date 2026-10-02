@@ -49,6 +49,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)
             return
         }
+        if let idx = CommandLine.arguments.firstIndex(of: "--pin-snapshot"), idx + 5 < CommandLine.arguments.count {
+            // "--pin-snapshot in.png scale source target out.png": a picture through the screen-translation path, as the pin shows it.
+            let a = CommandLine.arguments
+            guard let loaded = NSImage(contentsOfFile: a[idx + 1]), let scale = Double(a[idx + 2]),
+                  let cg = loaded.cgImage(forProposedRect: nil, context: nil, hints: nil),
+                  let source = AppLanguage(rawValue: a[idx + 3]), let target = AppLanguage(rawValue: a[idx + 4]) else { exit(2) }
+            let image = NSImage(cgImage: cg, size: CGSize(width: Double(cg.width) / scale, height: Double(cg.height) / scale))
+            Task { @MainActor in
+                let controller = ScreenTranslateController()
+                let result = await controller.preview(image, direction: TranslationDirection(source: source, target: target))
+                try? result.pin?.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: a[idx + 5]))
+                print("pin snapshot written; status: \(result.status.isEmpty ? "done" : result.status)")
+                exit(result.pin == nil ? 1 : 0)
+            }
+            return
+        }
         if let idx = CommandLine.arguments.firstIndex(of: "--setup-snapshot"), idx + 1 < CommandLine.arguments.count {
             let path = CommandLine.arguments[idx + 1]
             PreviewSnapshot.takeSetupSnapshot(model: AppModel.shared, path: path)

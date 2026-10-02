@@ -109,9 +109,9 @@ AI editing has its own voice-input switch; turn it off to keep text out of the e
 
 ## Screen translation
 
-Press **⌥T** (configurable in Settings, with conflict checks against system shortcuts) to start region selection, then select the area to translate. The pinned result floats above other windows and can be dragged; other apps stay usable while it is open. The app pins the captured region and overlays translated text using Vision OCR and Apple Translation. Screen Recording permission is required.
+Press **⌥T** (configurable in Settings, with conflict checks against system shortcuts) to start region selection, then select the area to translate. The pinned result floats above other windows and can be dragged; other apps stay usable while it is open. The translation is set where the original was: size, weight and colour are measured from the pixels of the capture, only the strokes of the original are erased, and background, icons and pictures stay as they are — as if the interface had switched language. On 24 samples with ground truth the median font-size error is 0.9%. Screen Recording permission is required.
 
-This is a translated view of a captured image; the underlying application remains unchanged. Dense layouts, small text, and complex backgrounds can affect OCR and text placement. The [screen translation notes](docs/history/SCREEN_TRANSLATE.md) and [scenario checks](docs/history/SCREEN_TRANSLATE_SCENARIOS.md) document the implementation and its remaining visual limitations.
+This is a translated view of a captured image; the underlying application remains unchanged. From Chinese to English the translation is longer than the original, so text in buttons and bubbles may be set smaller or wrapped; translation is Apple's on-device one, sentence by sentence, and interface terms are not always idiomatic. Method, scoring and known gaps: [screen translation V2](docs/SCREEN_TRANSLATE_V2.md).
 
 Optional screen editing has its own switch and uses the configured AI endpoint. It can send recognized text, the translation draft, and nearby recognized context; it is off by default.
 

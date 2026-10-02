@@ -87,6 +87,12 @@ enum StyleEstimator {
         return Double(scalars.filter(isHan).count) / Double(scalars.count)
     }
 
+    /// A stroke width within this (log ratio) of the regular face's is regular.
+    private static let plainEnough: CGFloat = CGFloat(Double(ProcessInfo.processInfo.environment["V2_PLAIN"] ?? "") ?? 0.08)
+
+    /// How the height of a word is read off its ink; "mass" is an experiment kept for the scoring harness.
+    private static let riseMode = ProcessInfo.processInfo.environment["V2_RISE"] ?? "edge"
+
     private static func inkBounds(_ text: String, font: NSFont) -> CGRect {
         CTLineGetImageBounds(CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: [.font: font])), nil)
     }
@@ -95,7 +101,7 @@ enum StyleEstimator {
     /// rise above the baseline (the typical word, so one icon or one odd glyph
     /// does not decide); for Han, the full height of the ink.
     private static func extent(_ ink: LineInk, han: Bool) -> CGFloat {
-        let mode = ProcessInfo.processInfo.environment["V2_RISE"] ?? "edge"
+        let mode = riseMode
         if han { return mode == "mass" ? ink.strokeHeight : ink.rect.height }
         let rises = (mode == "mass" ? ink.blobs.map(\.rise) : ink.blobs.map { ink.baseline - $0.top }).filter { $0 > 0 }.sorted()
         guard !rises.isEmpty else { return ink.ascent }
@@ -170,13 +176,15 @@ enum StyleEstimator {
         if ink.stem > 0.2 {
             var best: (error: CGFloat, weight: Weight, smoothed: Bool)?
             let sample = String(text.prefix(40))
-            for candidate in Weight.allCases {
+            search: for candidate in Weight.allCases {
                 for smoothing in [true, false] {
                     guard let drawn = reference(size, weight: candidate, smoothed: smoothing, text: sample), drawn.stem > 0.2 else { continue }
                     // A slight preference for the plain variants, so noise does not invent medium text.
                     let penalty: CGFloat = (candidate == .medium ? 0.05 : 0) + (smoothing ? 0 : 0.02)
                     let error = abs(log(drawn.stem / ink.stem)) + penalty
                     if best == nil || error < best!.error { best = (error, candidate, smoothing) }
+                    // Most text is plain: strokes as thick as the regular face's settle it without drawing the other six.
+                    if candidate == .regular, error < Self.plainEnough { break search }
                 }
             }
             if let best { weight = best.weight; smoothed = best.smoothed }

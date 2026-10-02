@@ -1291,16 +1291,6 @@
         }
       }
     },
-    "实验功能：按原图字形判断粗细，可能漏识别小字号粗体；更改后下次划选生效": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Experimental: judges weight from the captured glyphs; may miss small bold text. Takes effect on the next selection."
-          }
-        }
-      }
-    },
     "密钥": {
       "localizations": {
         "en": {
@@ -2221,27 +2211,6 @@
         }
       }
     },
-    "本地字重识别": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On-device font weight detection"
-          }
-        }
-      }
-    },
-    "本地模型单次最多 30 秒，已提交听到的部分。": {
-      "extractionState": "stale",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Local models take at most 30 s per utterance; what was heard has been inserted."
-          }
-        }
-      }
-    },
     "本地模型单次最多识别 30 秒，已保留听到的部分。": {
       "localizations": {
         "en": {
@@ -2778,16 +2747,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Click, then press the new capture shortcut; Esc cancels"
-          }
-        }
-      }
-    },
-    "点击展开，或在这段文字内滚动": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Click to expand, or scroll inside this text"
           }
         }
       }

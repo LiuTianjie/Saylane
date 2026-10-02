@@ -381,8 +381,6 @@ struct SettingsView: View {
         }
 
         SettingsSection {
-            Toggle(String(localized: "本地字重识别"), isOn: model.binding(\.screenFontWeightExperiment))
-                .help(String(localized: "实验功能：按原图字形判断粗细，可能漏识别小字号粗体；更改后下次划选生效"))
             LabeledContent(String(localized: "大模型润色")) {
                 Text(p.screenPolishEnabled ? String(localized: "已开启") : String(localized: "未开启")).foregroundStyle(.secondary)
             }

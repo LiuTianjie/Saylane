@@ -1,6 +1,6 @@
 # Saylane 架构（当前实现）
 
-更新：2026-10-02（0.6.0）。本文描述仓库的实际结构。为什么拆成两个进程见 `docs/DESIGN_0.3.md`；更早的设计稿在 `docs/history/`。
+更新：2026-10-02（0.7.0）。本文描述仓库的实际结构。为什么拆成两个进程见 `docs/DESIGN_0.3.md`；更早的设计稿在 `docs/history/`。
 
 Saylane 提供三件事：按住快捷键说话并把识别 / 译文写进当前文本框、Rime 拼音打字、划区截屏翻译。识别与翻译全部在本机完成。
 
@@ -47,7 +47,9 @@ Sources/
     RightCommandDoubleTap / ShortcutValidator
   Voice/                   VoiceSessionController、SessionCoordinator、VoiceTarget（写入路线）、
                            PrerollCapture、OverlayController（HUD）、AccessibilityInserter（粘贴）、LocalTextInserter
-  Screen/                  截屏翻译：划选、OCR、版面、钉住面板
+  Screen/                  截屏翻译：划选、截取、钉住面板
+    Pipeline/                原位翻译流水线（识别 → 从像素测量 → 分块 → 排版 → 擦笔画 → 合成），纯值纯函数；
+                             评测工具 scripts/screen-eval 编的是同一份源码。见 docs/SCREEN_TRANSLATE_V2.md
   Services/                IMEBridgeClient（主程序一侧的桥）、InputSourceInstall、LoginItem、
                            识别 / 翻译引擎、模型安装、权限、润色、词库更新
   Models/ Views/ Support/  类型、SwiftUI 设置与欢迎页、诊断、自测

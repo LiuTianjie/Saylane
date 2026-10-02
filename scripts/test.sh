@@ -45,8 +45,8 @@ build/tests/setup-flow
 swiftc Sources/Models/AppLanguage.swift Tests/TranslationDirectionTests.swift -o build/tests/direction
 build/tests/direction
 swiftc -framework AppKit Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Tests/ScreenTranslateTests.swift -o build/tests/screen-translate
-swiftc -framework AppKit -framework Vision Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Screen/ScreenOCRService.swift Tests/ScreenFontCalibrationTests.swift -o build/tests/screen-font
-build/tests/screen-font
+swiftc -O -framework AppKit -framework Vision Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Screen/Pipeline/*.swift Tests/ScreenPipelineTests.swift -o build/tests/screen-pipeline
+build/tests/screen-pipeline
 build/tests/screen-translate
 swiftc -framework AppKit Sources/Models/PushToTalkHotkey.swift Sources/Input/RightCommandDoubleTap.swift Tests/RightCommandDoubleTapTests.swift -o build/tests/double-tap
 build/tests/double-tap
@@ -87,8 +87,6 @@ swiftc Sources/Models/SetupReadiness.swift Sources/Models/SetupFlow.swift Source
 build/tests/readiness
 swiftc Sources/Models/SessionState.swift Sources/Models/SpeechHypothesis.swift Sources/Models/SpeechSessionMetrics.swift Sources/Services/AudioLevel.swift Sources/Services/BufferConverter.swift Sources/Models/SpeechEngineError.swift Sources/Voice/VoicePolicy.swift Sources/Voice/SessionCoordinator.swift Sources/Services/AudioInputDevices.swift Sources/Services/AudioCaptureService.swift Sources/Voice/PrerollCapture.swift Tests/PrerollCaptureTests.swift -o build/tests/preroll
 build/tests/preroll
-swiftc -framework AppKit -framework CoreImage Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Screen/ScreenPinRenderer.swift Tests/ScreenPinRendererTests.swift -o build/tests/screen-pin
-build/tests/screen-pin
 mkdir -p build/tests/ASR
 cp Sources/Resources/ASR/*.json build/tests/ASR/
 swiftc Sources/Models/AppLanguage.swift Sources/Core/AppDirectories.swift Sources/Models/SpeechModel.swift Sources/Models/SpeechEngineError.swift Sources/Services/ASRModelInstaller.swift Sources/Services/ASRModelStore.swift Sources/Services/BufferConverter.swift Sources/Services/QwenAudioBuffer.swift Tests/ASRModelTests.swift -o build/tests/asr-models

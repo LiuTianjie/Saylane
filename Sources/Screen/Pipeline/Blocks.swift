@@ -217,10 +217,12 @@ enum BlockBuilder {
         let firstWord: CGFloat = han ? size : (next.ink.blobs.first.map { $0.maxX - $0.minX } ?? size) + size * 0.3
         let free = Space.around(a, in: image, background: previous.ink.background, limit: size * 30)
         // A boundary between the two lines: they sit in different containers.
-        if free.downSolid, free.down < b.minY - a.maxY - 2 { return false }
+        if !overPicture, free.downSolid, free.down < b.minY - a.maxY - 2 { return false }
         // Each hugged by its own container (two pills, two tags): their right edges differ.
+        // Over a picture there is no container to see: the picture itself stops the search at once,
+        // and a subtitle's short last line ("…走到这一 / 步。") was taken for a second item.
         let below = Space.around(b, in: image, background: next.ink.background, limit: size * 30)
-        if free.rightEdge, below.rightEdge, free.right < size * 1.5, below.right < size * 1.5,
+        if !overPicture, free.rightEdge, below.rightEdge, free.right < size * 1.5, below.right < size * 1.5,
            abs((a.maxX + free.right) - (b.maxX + below.right)) > size * 0.5 { return false }
         let padding = min(free.left, size * 1.5)
         let room = max(free.right, groupRight - a.maxX)

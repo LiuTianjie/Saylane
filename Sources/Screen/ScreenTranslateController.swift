@@ -13,7 +13,8 @@ final class ScreenPinModel {
     var fullText = ""
 }
 
-/// Screen translation: selection → capture → OCR → group → translate → pin.
+/// Screen translation: selection → capture → analyze → translate → compose → pin.
+/// The picture work is `ScreenPipeline`; this object owns the windows' state.
 /// Windows live in `ScreenSelectionPanel` / `ScreenPinPanel`; this object owns
 /// state and the pipeline only.
 @MainActor
@@ -25,8 +26,6 @@ final class ScreenTranslateController {
     var overlayEnabled = true
     /// Block pointer input to other applications while a pin is visible (off by default).
     var freezesScreen = false
-    /// Font-weight detection on the captured image.
-    var fontWeightDetection = true
     /// True when a global key router already delivers Esc/⌘C/Tab for us.
     var keysHandledGlobally: () -> Bool = { false }
     private(set) var direction = TranslationDirection(source: .zhHans, target: .en)
@@ -44,9 +43,10 @@ final class ScreenTranslateController {
     private var pinPanel: ScreenPinPanel?
     private var eventMonitor: Any?
     private var work: Task<Void, Never>?
-    private var lines: [ScreenOCRLine] = []
-    private var paragraphs: [ScreenParagraph] = []
-    private var recognizedSource: AppLanguage?
+    /// What was read off the captured picture, and for which direction.
+    private var analysis: ScreenPipeline.Analysis?
+    private var analyzedDirection: TranslationDirection?
+    private var translatedImage: NSImage?
     private var originalImage = NSImage()
     private var generation = 0
     private var translationCache = ScreenTranslationCache()
@@ -92,8 +92,9 @@ final class ScreenTranslateController {
         isPinVisible = false
         if wasVisible { onPinVisibilityChanged?(false) }
         onScreenActiveChanged?(false)
-        lines = []
-        paragraphs = []
+        analysis = nil
+        analyzedDirection = nil
+        translatedImage = nil
         translationCache = ScreenTranslationCache()
         pinModel.fullText = ""
         removeEventMonitor()
@@ -111,7 +112,7 @@ final class ScreenTranslateController {
             for panel in selectionPanels { panel.setTitle(direction.compactTitle) }
             return
         }
-        restartTranslation(reRecognize: recognizedSource != direction.source)
+        restartTranslation()
     }
 
     func toggleOverlay() {
@@ -134,7 +135,7 @@ final class ScreenTranslateController {
             _ = copyImage()
         case .retry:
             guard isPinVisible, pinPanel?.hasTranslationDetail != true else { return }
-            restartTranslation(reRecognize: false)
+            restartTranslation()
         case .cycleDirection:
             cycleDirection(a: a, b: b)
         }
@@ -143,12 +144,7 @@ final class ScreenTranslateController {
     @discardableResult
     func copyImage() -> Bool {
         guard isPinVisible else { return false }
-        let image: NSImage
-        if overlayEnabled {
-            image = renderedOverlay()
-        } else {
-            image = originalImage
-        }
+        let image = overlayEnabled ? (translatedImage ?? originalImage) : originalImage
         guard image.size.width > 0 else { return false }
         NSPasteboard.general.clearContents()
         let ok = NSPasteboard.general.writeObjects([image])
@@ -167,28 +163,7 @@ final class ScreenTranslateController {
             do {
                 let image = try await ScreenCaptureService.capture(rectInScreen: rect, display: display)
                 guard token == self.generation, !Task.isCancelled else { return }
-                self.originalImage = image
-                self.lines = []
-                self.paragraphs = []
-                self.showPin(image: image, at: rect)
-                self.setChromeStatus(String(localized: "正在识别"), working: true)
-                let languages = ScreenTranslate.ocrLanguageHints(
-                    source: self.direction.source,
-                    target: self.direction.target
-                )
-                async let recognized = ScreenOCRService.recognize(image, languages: languages)
-                async let prepared: Void = self.prepareEngine()
-                let lines = try await ScreenFontWeightService.annotate(try await recognized, image: image, enabled: self.fontWeightDetection)
-                guard token == self.generation, !Task.isCancelled else { return }
-                self.lines = lines
-                self.recognizedSource = self.direction.source
-                if lines.isEmpty {
-                    self.setChromeStatus(String(localized: "没有识别到文字"), working: false)
-                    return
-                }
-                do { try await prepared } catch { throw error }
-                guard token == self.generation, !Task.isCancelled else { return }
-                await self.retranslate()
+                await self.present(captured: image, at: rect)
             } catch is CancellationError {
             } catch {
                 guard token == self.generation else { return }
@@ -198,113 +173,125 @@ final class ScreenTranslateController {
         }
     }
 
-    /// Direction changes and manual retries must supersede an in-flight translation.
-    private func restartTranslation(reRecognize: Bool) {
+    /// Pin a captured picture where it was taken and translate it in place.
+    func present(captured image: NSImage, at rect: CGRect) async {
+        originalImage = image
+        analysis = nil
+        analyzedDirection = nil
+        translatedImage = nil
+        showPin(image: image, at: rect)
+        await translate()
+    }
+
+    #if DEBUG
+    /// For the design preview: a picture file through the same path as a capture, in a given direction.
+    func preview(_ image: NSImage, direction: TranslationDirection) async -> (pin: NSBitmapImageRep?, status: String) {
+        self.direction = direction
+        await present(captured: image, at: CGRect(origin: CGPoint(x: 40, y: 40), size: image.size))
+        return (pinPanel?.snapshot(), pinModel.status)
+    }
+    #endif
+
+    /// A change of direction or a manual retry supersedes whatever is in flight.
+    private func restartTranslation() {
         work?.cancel()
         work = nil
         generation += 1
-        if reRecognize {
-            recognizedSource = nil
-            lines = []
-            paragraphs = []
+        if analyzedDirection != direction {
+            // Which lines are text to translate depends on both languages: read the picture again.
+            translatedImage = nil
             refreshDisplayed()
-            setChromeStatus(String(localized: "正在识别"), working: true)
             InputDiagnostics.record("screen-reocr", direction.id)
         }
-        work = Task { [weak self] in
-            await self?.retranslate(reRecognizing: reRecognize)
-        }
+        work = Task { [weak self] in await self?.translate() }
     }
 
-    private func retranslate(reRecognizing: Bool = false) async {
+    private func translate() async {
         let token = generation
+        let direction = self.direction
         pinModel.directionTitle = direction.compactTitle
-        setChromeStatus(reRecognizing ? String(localized: "正在识别") : String(localized: "正在翻译"), working: true)
         do {
-            if reRecognizing {
-                let languages = ScreenTranslate.ocrLanguageHints(
-                    source: direction.source,
-                    target: direction.target
-                )
-                async let recognized = ScreenOCRService.recognize(originalImage, languages: languages)
-                async let prepared: Void = prepareEngine()
-                let recognizedLines = try await ScreenFontWeightService.annotate(try await recognized, image: originalImage, enabled: fontWeightDetection)
-                guard token == generation, !Task.isCancelled else { return }
-                lines = recognizedLines
-                recognizedSource = direction.source
-                if recognizedLines.isEmpty {
-                    paragraphs = []
-                    refreshDisplayed()
+            async let prepared: Void = prepareEngine()
+            var analysis = self.analysis
+            if analysis == nil || analyzedDirection != direction {
+                setChromeStatus(String(localized: "正在识别"), working: true)
+                guard let picture = originalImage.cgImage(forProposedRect: nil, context: nil, hints: nil),
+                      originalImage.size.width > 0 else {
+                    _ = try? await prepared
                     setChromeStatus(String(localized: "没有识别到文字"), working: false)
                     return
                 }
-                try await prepared
-            } else {
-                try await prepareEngine()
+                let scale = CGFloat(picture.width) / originalImage.size.width
+                // Reading and measuring the picture takes a few tenths of a second on every core: not on the main actor.
+                analysis = try await Task.detached(priority: .userInitiated) {
+                    try ScreenPipeline.analyze(picture, scale: scale, source: direction.source, target: direction.target)
+                }.value
+                guard token == generation, !Task.isCancelled else { _ = try? await prepared; return }
+                self.analysis = analysis
+                analyzedDirection = direction
             }
+            guard let analysis, analysis.recognized > 0 else {
+                _ = try? await prepared
+                guard token == generation else { return }
+                refreshDisplayed()
+                setChromeStatus(String(localized: "没有识别到文字"), working: false)
+                return
+            }
+            let wanted = analysis.blocks.indices.filter { analysis.blocks[$0].translate }
+            try await prepared
             guard token == generation, !Task.isCancelled else { return }
-            setChromeStatus(String(localized: "正在翻译"), working: true)
-            var grouped = ScreenTranslate.groupParagraphs(from: lines, canvasSize: originalImage.size)
-            guard !grouped.isEmpty else {
-                paragraphs = []
+            guard !wanted.isEmpty else {
+                // Text, but nothing to translate: code, numbers, or already the target language.
                 refreshDisplayed()
                 setChromeStatus("", working: false)
                 return
             }
-            let probes = backdropProbeItems(for: grouped)
-            async let backdrop: Void? = pinPanel?.prepareBackdrop(items: probes)
-            paragraphs = grouped
-            refreshDisplayed()
-            let originals = grouped.map(\.original)
+            setChromeStatus(String(localized: "正在翻译"), working: true)
+            let originals = wanted.map { analysis.blocks[$0].original }
             let missing = translationCache.missing(originals, direction: direction.id)
             let fresh = missing.isEmpty ? [] : try await translation.translateBatch(missing)
-            await backdrop
             guard token == generation, !Task.isCancelled else { return }
-            let freshByText = Dictionary(uniqueKeysWithValues: zip(missing, fresh))
-            for index in grouped.indices {
-                grouped[index].translation = freshByText[grouped[index].original]
-                    ?? translationCache.value(grouped[index].original, direction: direction.id) ?? grouped[index].original
+            for (text, translated) in zip(missing, fresh) {
+                translationCache.store(text, translation: translated, direction: direction.id)
             }
-            for (text, translation) in zip(missing, fresh) {
-                translationCache.store(text, translation: translation, direction: direction.id)
+            let freshByText = Dictionary(zip(missing, fresh), uniquingKeysWith: { first, _ in first })
+            var translations: [Int: String] = [:]
+            for (index, original) in zip(wanted, originals) {
+                translations[index] = freshByText[original] ?? translationCache.value(original, direction: direction.id) ?? original
             }
-            applyNavigationLabels(&grouped)
-            paragraphs = grouped
-            refreshDisplayed()
+            let composition = await show(analysis, translations: translations, token: token)
             guard token == generation, !Task.isCancelled else { return }
             if let polish {
                 setChromeStatus(String(localized: "正在润色"), working: true)
                 let sourceName = direction.source.displayName
                 let targetName = direction.target.displayName
                 // Bound concurrent network work, and publish one coherent result
-                // instead of moving the page after every polished paragraph.
-                for start in stride(from: 0, to: grouped.count, by: 4) {
+                // instead of redrawing the picture after every polished block.
+                for start in stride(from: 0, to: wanted.count, by: 4) {
                     guard token == generation, !Task.isCancelled else { return }
-                    let inputs = (start..<min(start + 4, grouped.count)).map {
-                        ($0, grouped[$0], ScreenTranslate.translationContext(for: $0, paragraphs: grouped))
+                    let inputs = wanted[start..<min(start + 4, wanted.count)].map { index in
+                        (index, analysis.blocks[index].original, translations[index] ?? "", Self.context(for: index, in: analysis.blocks))
                     }
-                    let tasks = inputs.map { index, paragraph, context in
+                    let tasks = inputs.map { index, original, translated, context in
                         Task { @MainActor () -> (Int, String?) in
-                            let result = try? await polish(paragraph.original, paragraph.translation, sourceName, targetName, context)
-                            return (index, result)
+                            (index, try? await polish(original, translated, sourceName, targetName, context))
                         }
                     }
                     var results: [(Int, String?)] = []
                     for task in tasks { results.append(await task.value) }
                     guard token == generation, !Task.isCancelled else { return }
                     for (index, result) in results {
-                        if let result, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            grouped[index].translation = result
-                        }
+                        if let result, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { translations[index] = result }
                     }
                 }
-                applyNavigationLabels(&grouped)
-                paragraphs = grouped
-                refreshDisplayed()
+                _ = await show(analysis, translations: translations, token: token)
                 guard token == generation, !Task.isCancelled else { return }
             }
             setChromeStatus("", working: false)
-            InputDiagnostics.record("screen-translated", "paragraphs=\(grouped.count)")
+            let seconds = analysis.seconds
+            InputDiagnostics.record("screen-translated", String(format: "blocks=%d placed=%d shrunk=%d cut=%d ocr=%.2f measure=%.2f",
+                analysis.blocks.count, composition?.placed.count ?? 0, composition?.shrunk ?? 0, composition?.cut ?? 0,
+                seconds.recognize, seconds.measure))
         } catch is CancellationError {
         } catch {
             guard token == generation else { return }
@@ -313,13 +300,41 @@ final class ScreenTranslateController {
         }
     }
 
-    private func applyNavigationLabels(_ grouped: inout [ScreenParagraph]) {
-        for index in grouped.indices {
-            if let text = ScreenTranslate.navigationTranslation(for: index, paragraphs: grouped,
-                canvasSize: originalImage.size, source: direction.source, target: direction.target) {
-                grouped[index].translation = text
+    /// Fit, erase and draw; then show the picture. Off the main actor: a few hundredths of a second.
+    private func show(_ analysis: ScreenPipeline.Analysis, translations: [Int: String], token: Int) async -> ScreenPipeline.Composition? {
+        let composition = await Task.detached(priority: .userInitiated) {
+            ScreenPipeline.compose(analysis, translations: translations)
+        }.value
+        guard token == generation, !Task.isCancelled, let picture = composition.pixels.cgImage() else { return nil }
+        translatedImage = NSImage(cgImage: picture, size: originalImage.size)
+        // What is on the picture, in reading order, for "full text".
+        pinModel.fullText = composition.placed.map { composition.blocks[$0.index].translation }.joined(separator: "\n")
+        refreshDisplayed()
+        return composition
+    }
+
+    /// The blocks around one, nearest first: what a proofreading model gets to see of the page.
+    static func context(for index: Int, in blocks: [TextBlock]) -> String {
+        guard blocks.indices.contains(index) else { return "" }
+        let anchor = blocks[index].rect
+        let neighbors = blocks.indices.filter { $0 != index }.sorted { lhs, rhs in
+            func distance(_ i: Int) -> CGFloat {
+                let box = blocks[i].rect
+                let gap = max(0, max(anchor.minX - box.maxX, box.minX - anchor.maxX))
+                return gap * 3 + abs(anchor.midY - box.midY)
             }
+            let a = distance(lhs), b = distance(rhs)
+            return a == b ? lhs < rhs : a < b
         }
+        var parts: [String] = []
+        var bytes = 0
+        for i in neighbors.prefix(12) {
+            let text = String(blocks[i].original.prefix(400))
+            guard bytes + text.utf8.count + 2 <= 4_000 else { continue }
+            parts.append(text)
+            bytes += text.utf8.count + 2
+        }
+        return parts.joined(separator: "\n\n")
     }
 
     private func prepareEngine() async throws {
@@ -365,35 +380,11 @@ final class ScreenTranslateController {
         installEventMonitor()
     }
 
-    /// Probe blocks include untranslated paragraphs so the live blur radius is
-    /// based on all OCR blocks, not only the first paragraph that finishes.
-    private func backdropProbeItems(for grouped: [ScreenParagraph]) -> [ScreenLaidOutBlock] {
-        var probes = grouped
-        for index in probes.indices where probes[index].translation.isEmpty {
-            probes[index].translation = probes[index].original
-        }
-        return ScreenTranslate.layoutPlates(probes, canvasSize: originalImage.size)
-    }
-
     private func refreshDisplayed() {
         pinModel.overlayEnabled = overlayEnabled
-        pinModel.fullText = paragraphs.map(\.translation).filter { !$0.isEmpty }.joined(separator: "\n\n")
-        let items = ScreenTranslate.layoutPlates(paragraphs, canvasSize: originalImage.size)
-        pinPanel?.updateOverlay(items: items, overlayEnabled: overlayEnabled)
+        if translatedImage == nil { pinModel.fullText = "" }
+        pinPanel?.show(translated: translatedImage, overlayEnabled: overlayEnabled)
         pinPanel?.setWorking(pinModel.isWorking)
-    }
-
-    private func renderedOverlay() -> NSImage {
-        guard overlayEnabled else { return originalImage }
-        let sourceCanvas = originalImage.size
-        let items = pinPanel?.displayedItemsForCopy()
-            ?? ScreenTranslate.layoutPlates(paragraphs, canvasSize: sourceCanvas)
-        return ScreenPinRenderer.composite(
-            image: originalImage,
-            items: items,
-            canvasSize: sourceCanvas,
-            overlayEnabled: !items.isEmpty
-        )
     }
 
     private func setChromeStatus(_ text: String, working: Bool) {

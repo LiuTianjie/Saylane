@@ -59,7 +59,6 @@ final class PreferencesStore {
         static let screenCaptureKeyCode = "screenCaptureKeyCode"
         static let screenCaptureModifiers = "screenCaptureModifiers"
         static let screenPinFreezesScreen = "screenPinFreezesScreen"
-        static let screenFontWeightExperiment = "screenFontWeightExperiment"
         static let screenTranslateSource = "screenTranslateSource"
         static let screenTranslateTarget = "screenTranslateTarget"
         static let pinyinEnglishMode = "pinyinEnglishMode"
@@ -76,8 +75,9 @@ final class PreferencesStore {
         static let quitByUser = "mainProgramQuitByUser"
         /// Settings of features that no longer exist (0.4: the Control long-press
         /// for screen translation; 0.6: "recognize only", which the direction
-        /// already says). Removed from storage when found.
-        static let retired = ["screenHoldEnabled", "recognitionOnly"]
+        /// already says; 0.7: the font-weight experiment, now always measured).
+        /// Removed from storage when found.
+        static let retired = ["screenHoldEnabled", "recognitionOnly", "screenFontWeightExperiment"]
         /// Pre-0.3 flag. Read once for migration, never written again.
         static let legacySetupVerified = "setupVerifiedV7"
         static let legacyDomain = "com.rtranslate.app"
@@ -186,7 +186,6 @@ final class PreferencesStore {
             p.screenCaptureShortcut = shortcut.isUsable ? shortcut : .optionT
         }
         p.screenPinFreezesScreen = bool(Key.screenPinFreezesScreen, default: p.screenPinFreezesScreen)
-        p.screenFontWeightExperiment = bool(Key.screenFontWeightExperiment, default: p.screenFontWeightExperiment)
         p.screenTranslateSource = language(Key.screenTranslateSource)
         p.screenTranslateTarget = language(Key.screenTranslateTarget)
         p.pinyinEnglishMode = bool(Key.pinyinEnglishMode, default: p.pinyinEnglishMode)
@@ -236,7 +235,6 @@ final class PreferencesStore {
             b.set(Int(p.screenCaptureShortcut.modifierFlags), forKey: Key.screenCaptureModifiers)
         }
         put(p.screenPinFreezesScreen, o.screenPinFreezesScreen, Key.screenPinFreezesScreen) { $0 }
-        put(p.screenFontWeightExperiment, o.screenFontWeightExperiment, Key.screenFontWeightExperiment) { $0 }
         put(p.screenTranslateSource, o.screenTranslateSource, Key.screenTranslateSource) { $0?.rawValue }
         put(p.screenTranslateTarget, o.screenTranslateTarget, Key.screenTranslateTarget) { $0?.rawValue }
         put(p.pinyinEnglishMode, o.pinyinEnglishMode, Key.pinyinEnglishMode) { $0 }

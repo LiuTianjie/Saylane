@@ -156,7 +156,8 @@ final class ScreenPinBorderView: NSView {
 
 final class ScreenPinCanvasView: NSView {
     private var sourceImage = NSImage()
-    private var scrollOffsets: [String: CGFloat] = [:]
+    /// The capture with its text translated in place; drawn instead of the capture when set.
+    private var translatedImage: NSImage?
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { true }
@@ -175,47 +176,21 @@ final class ScreenPinCanvasView: NSView {
 
     func setSource(_ image: NSImage) {
         sourceImage = image
-        scrollOffsets = [:]
+        translatedImage = nil
         frame = CGRect(origin: .zero, size: image.size)
         needsDisplay = true
     }
 
-    func update(
-        items: [ScreenLaidOutBlock],
-        blurredImage: CGImage?,
-        canvasSize: CGSize
-    ) {
-        for item in displayedItemsForCopy() {
-            scrollOffsets[NSStringFromRect(item.sourceRect)] = item.textScrollOffset
-        }
-        let visible = items.filter { !$0.text.isEmpty && !$0.rect.isEmpty }.map { item in
-            var next = item
-            next.textScrollOffset = scrollOffsets[NSStringFromRect(item.sourceRect)] ?? 0
-            return next
-        }
-        while subviews.count < visible.count {
-            addSubview(ScreenPinBlockView(
-                item: visible[subviews.count],
-                blurredImage: blurredImage,
-                canvasSize: canvasSize
-            ))
-        }
-        for (index, item) in visible.enumerated() {
-            guard let block = subviews[index] as? ScreenPinBlockView else { continue }
-            block.configure(item: item, blurredImage: blurredImage, canvasSize: canvasSize)
-        }
-        if subviews.count > visible.count {
-            subviews[visible.count...].forEach { $0.removeFromSuperview() }
-        }
+    func setTranslated(_ image: NSImage?) {
+        translatedImage = image
         needsDisplay = true
     }
 
-    func displayedItemsForCopy() -> [ScreenLaidOutBlock] {
-        subviews.compactMap { ($0 as? ScreenPinBlockView)?.displayedItem }
-    }
+    var showsTranslation: Bool { translatedImage != nil }
 
     override func draw(_ dirtyRect: NSRect) {
-        sourceImage.draw(
+        // Pixel for pixel: both pictures are the capture's own size, nothing is resampled.
+        (translatedImage ?? sourceImage).draw(
             in: CGRect(origin: .zero, size: sourceImage.size),
             from: .zero,
             operation: .copy,
@@ -226,193 +201,15 @@ final class ScreenPinCanvasView: NSView {
     }
 }
 
-final class ScreenPinBlockView: NSView {
-    private var item: ScreenLaidOutBlock
-    private var blurredImage: CGImage?
-    private var canvasSize: CGSize
-    private let textScroll = NSScrollView()
-    private let textDocument = ScreenPinTextView()
-    private var detailPopover: NSPopover?
-
-    init(
-        item: ScreenLaidOutBlock,
-        blurredImage: CGImage?,
-        canvasSize: CGSize
-    ) {
-        self.item = item
-        self.blurredImage = blurredImage
-        self.canvasSize = canvasSize
-        super.init(frame: item.rect)
-        wantsLayer = true
-        layer?.masksToBounds = true
-        textScroll.drawsBackground = false
-        textScroll.contentView.drawsBackground = false
-        textScroll.borderType = .noBorder
-        textScroll.scrollerStyle = .overlay
-        textScroll.autohidesScrollers = true
-        textScroll.hasHorizontalScroller = false
-        textScroll.verticalScrollElasticity = .none
-        textScroll.documentView = textDocument
-        textDocument.onExpand = { [weak self] in self?.showFullTranslation() }
-        addSubview(textScroll)
-        configure(item: item, blurredImage: blurredImage, canvasSize: canvasSize)
-    }
-
-    func configure(
-        item: ScreenLaidOutBlock,
-        blurredImage: CGImage?,
-        canvasSize: CGSize
-    ) {
-        if self.item.text != item.text || self.item.sourceRect != item.sourceRect { detailPopover?.close() }
-        self.item = item
-        self.blurredImage = blurredImage
-        self.canvasSize = canvasSize
-        frame = item.rect
-        let oldY = item.textScrollOffset
-        textScroll.frame = bounds
-        textDocument.item = item
-        textDocument.frame = CGRect(x: 0, y: 0, width: bounds.width,
-            height: max(bounds.height, item.textContentHeight))
-        textScroll.hasVerticalScroller = textDocument.frame.height > bounds.height + 1
-        textDocument.canExpand = textScroll.hasVerticalScroller
-        textScroll.contentView.scroll(to: NSPoint(x: 0, y: min(oldY, max(0, textDocument.frame.height - bounds.height))))
-        textScroll.reflectScrolledClipView(textScroll.contentView)
-        textDocument.needsDisplay = true
-        let overflowHint = textScroll.hasVerticalScroller
-            ? item.text + "\n\n" + String(localized: "点击展开，或在这段文字内滚动") : nil
-        toolTip = overflowHint
-        textScroll.toolTip = overflowHint
-        textDocument.toolTip = overflowHint
-        needsDisplay = true
-    }
-
-    func showFullTranslation() {
-        guard textScroll.hasVerticalScroller, window != nil else { return }
-        detailPopover?.close()
-        let controller = ScreenTranslationDetailController(text: item.text)
-        let popover = NSPopover()
-        popover.behavior = .transient
-        popover.animates = false
-        popover.contentViewController = controller
-        popover.contentSize = controller.view.frame.size
-        detailPopover = popover
-        popover.show(relativeTo: bounds, of: self, preferredEdge: .maxY)
-    }
-
-    var hasTranslationDetail: Bool { detailPopover?.isShown == true }
-    func closeTranslationDetail() { detailPopover?.close() }
-
-    override func viewWillMove(toWindow newWindow: NSWindow?) {
-        if newWindow == nil { detailPopover?.close() }
-        super.viewWillMove(toWindow: newWindow)
-    }
-
-    var displayedItem: ScreenLaidOutBlock {
-        var current = item
-        current.textScrollOffset = textScroll.contentView.bounds.minY
-        return current
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:)") }
-
-    override var isFlipped: Bool { true }
-    override var isOpaque: Bool { false }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let radius = min(5, bounds.height / 2.4)
-        let plate = NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius)
-
-        NSGraphicsContext.saveGraphicsState()
-        plate.addClip()
-        drawBackdrop()
-        plate.fill()
-        NSGraphicsContext.restoreGraphicsState()
-
-        plate.lineWidth = 0.5
-        borderColor().setStroke()
-        plate.stroke()
-    }
-
-    private func drawBackdrop() {
-        if let blurredImage {
-            drawCroppedBackdrop(blurredImage)
-            return
-        }
-        item.background.withAlphaComponent(0.97).setFill()
-    }
-
-    private func drawCroppedBackdrop(_ image: CGImage) {
-        guard canvasSize.width > 0, canvasSize.height > 0, bounds.width > 0, bounds.height > 0 else {
-            item.background.withAlphaComponent(0.97).setFill()
-            return
-        }
-        let crop = CGRect(
-            x: item.sourceRect.minX / canvasSize.width * CGFloat(image.width),
-            y: item.sourceRect.minY / canvasSize.height * CGFloat(image.height),
-            width: item.sourceRect.width / canvasSize.width * CGFloat(image.width),
-            height: item.sourceRect.height / canvasSize.height * CGFloat(image.height)
-        ).integral
-        guard let cropped = image.cropping(to: crop) else {
-            item.background.withAlphaComponent(0.97).setFill()
-            return
-        }
-        let backdrop = NSImage(cgImage: cropped, size: bounds.size)
-        backdrop.draw(
-            in: bounds,
-            from: .zero,
-            operation: .sourceOver,
-            fraction: 1,
-            respectFlipped: true,
-            hints: [.interpolation: NSImageInterpolation.high.rawValue]
-        )
-        veilColor().setFill()
-    }
-
-    private func veilColor() -> NSColor {
-        return isLightBackdrop()
-            ? NSColor.white.withAlphaComponent(0.42)
-            : NSColor.black.withAlphaComponent(0.34)
-    }
-
-    private func isLightBackdrop() -> Bool {
-        let red = item.background.redComponent
-        let green = item.background.greenComponent
-        let blue = item.background.blueComponent
-        return 0.2126 * red + 0.7152 * green + 0.0722 * blue > 0.58
-    }
-
-    private func borderColor() -> NSColor {
-        NSColor.black.withAlphaComponent(isLightBackdrop() ? 0.06 : 0.18)
-    }
-}
-
-final class ScreenPinTextView: NSView {
-    var item: ScreenLaidOutBlock?
-    var onExpand: (() -> Void)?
-    var canExpand = false
-    override var isFlipped: Bool { true }
-    override var isOpaque: Bool { false }
-    override func resetCursorRects() {
-        if canExpand { addCursorRect(visibleRect, cursor: .pointingHand) }
-    }
-    override func mouseDown(with event: NSEvent) {
-        if canExpand { onExpand?() } else { window?.performDrag(with: event) }
-    }
-    override func draw(_ dirtyRect: NSRect) {
-        guard let item else { return }
-        guard let context = NSGraphicsContext.current?.cgContext else { return }
-        ScreenPinRenderer.drawInk(item, in: context, visibleRange: visibleRect.minY...visibleRect.maxY)
-    }
-}
-
 final class ScreenTranslationDetailController: NSViewController {
     private let text: String
     init(text: String) { self.text = text; super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { fatalError("init(coder:)") }
     override func loadView() {
         let width: CGFloat = 360
-        let height = min(400, max(90, ScreenTranslate.textHeight(text: text, fontSize: 15,
-            width: width - 32, heading: false) + 20))
+        let measured = (text as NSString).boundingRect(with: CGSize(width: width - 40, height: 10_000),
+            options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: NSFont.systemFont(ofSize: 15)])
+        let height = min(400, max(90, ceil(measured.height) + 28))
         view = NSView(frame: CGRect(x: 0, y: 0, width: width, height: height + 52))
         let title = NSTextField(labelWithString: String(localized: "完整译文"))
         title.font = .systemFont(ofSize: 13, weight: .semibold)

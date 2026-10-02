@@ -343,7 +343,7 @@ final class AppModel: VoiceSessionHost {
             || new.pinyinFuzzyEnabled != old.pinyinFuzzyEnabled || new.pinyinKeys != old.pinyinKeys {
             ime.push(pinyin: pinyinPreferences)
         }
-        if new.screenPinFreezesScreen != old.screenPinFreezesScreen || new.screenFontWeightExperiment != old.screenFontWeightExperiment {
+        if new.screenPinFreezesScreen != old.screenPinFreezesScreen {
             screen.apply(new)
         }
         syncRouterContext()

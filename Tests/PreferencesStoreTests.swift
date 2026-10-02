@@ -42,7 +42,7 @@ import Carbon.HIToolbox
                 "dictationGlossaryEnabled": true, "finalPolishEnabled": true, "finalPolishEndpoint": "https://x/v1",
                 "finalPolishModel": "m", "screenPolishEnabled": true,
                 "screenCaptureKeyCode": Int(kVK_ANSI_S), "screenCaptureModifiers": Int(ScreenModifier.command | ScreenModifier.option),
-                "screenFontWeightExperiment": false, "screenTranslateSource": "ja", "screenTranslateTarget": "en",
+                "screenTranslateSource": "ja", "screenTranslateTarget": "en",
                 "pinyinEnglishMode": true, "pinyinBarPreeditEnabled": true, "pinyinFuzzyEnabled": false,
                 "setupVerifiedV7": true
             ])
@@ -56,7 +56,7 @@ import Carbon.HIToolbox
             precondition(!p.dictationCleanupEnabled && p.dictationGlossaryEnabled && p.finalPolishEnabled)
             precondition(p.finalPolishEndpoint == "https://x/v1" && p.finalPolishModel == "m" && p.screenPolishEnabled)
             precondition(p.screenCaptureShortcut.keyCode == UInt16(kVK_ANSI_S) && p.screenCaptureShortcut.normalizedFlags == (ScreenModifier.command | ScreenModifier.option))
-            precondition(!p.screenFontWeightExperiment && p.screenTranslateSource == .ja && p.screenTranslateTarget == .en)
+            precondition(p.screenTranslateSource == .ja && p.screenTranslateTarget == .en)
             precondition(p.pinyinEnglishMode && p.pinyinBarPreeditEnabled && !p.pinyinFuzzyEnabled)
             // The old flag stood for the first guide; the 0.4 welcome page is shown once more.
             precondition(p.onboardingVersion == 1 && !p.onboardingCompleted, "setupVerifiedV7 migrates to onboardingVersion 1")

@@ -51,7 +51,6 @@ struct Preferences: Equatable, Sendable {
     /// users hold Control before deciding what to press.
     /// Block pointer input to other apps while a pin is visible.
     var screenPinFreezesScreen = false
-    var screenFontWeightExperiment = true
     var screenTranslateSource: AppLanguage?
     var screenTranslateTarget: AppLanguage?
 
