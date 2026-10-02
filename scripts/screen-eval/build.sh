@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 mkdir -p build/screen-eval/pages build/screen-eval/out
 PRODUCTION="Sources/Models/AppLanguage.swift Sources/Core/AppDirectories.swift Sources/Models/SpeechModel.swift
-  Sources/Screen/ScreenLayout.swift Sources/Services/TranslationEngine.swift"
+  Sources/Screen/ScreenLayout.swift Sources/Screen/ScreenPreciseTranslator.swift Sources/Services/TranslationEngine.swift"
 FLAGS="-O -swift-version 6 -strict-concurrency=complete -parse-as-library -framework AppKit -framework Vision -framework CoreImage -framework Translation"
 what="${1:-all}"
 if [[ $what == snapshot || $what == all ]]; then

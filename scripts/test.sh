@@ -48,6 +48,8 @@ swiftc -framework AppKit Sources/Models/AppLanguage.swift Sources/Screen/ScreenL
 swiftc -O -framework AppKit -framework Vision Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Screen/Pipeline/*.swift Tests/ScreenPipelineTests.swift -o build/tests/screen-pipeline
 build/tests/screen-pipeline
 build/tests/screen-translate
+swiftc -O -framework AppKit -framework Vision Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Screen/Pipeline/*.swift Sources/Screen/ScreenPreciseTranslator.swift Tests/PreciseTranslationTests.swift -o build/tests/precise-translation
+build/tests/precise-translation
 swiftc -framework AppKit Sources/Models/PushToTalkHotkey.swift Sources/Input/RightCommandDoubleTap.swift Tests/RightCommandDoubleTapTests.swift -o build/tests/double-tap
 build/tests/double-tap
 INPUT_SOURCES="Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Models/PushToTalkHotkey.swift Sources/Input/VoiceGesture.swift Sources/Input/RightCommandDoubleTap.swift Sources/Input/InputEvent.swift Sources/Input/GestureArbiter.swift Sources/Input/ShortcutValidator.swift"

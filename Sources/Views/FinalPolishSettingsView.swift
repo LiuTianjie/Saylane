@@ -39,12 +39,12 @@ struct FinalPolishSettingsView: View {
         SettingsSection {
             Toggle("语音输入", isOn: model.binding(\.finalPolishEnabled))
                 .help("说写语言相同时只修同音错字、口误和标点，不改措辞；需要翻译时用整句原文修正译文")
-            Toggle("截屏翻译", isOn: model.binding(\.screenPolishEnabled))
-                .help("结合周边文字修正划选区域的译文")
+            Toggle("截屏精翻", isOn: model.binding(\.screenPolishEnabled))
+                .help("把划选区域里的文字整屏交给大模型翻译：按界面语境选词，品牌名和代码保持原样，译文尽量放得进原来的位置。先显示本机翻译，精翻完成后替换。")
         } header: {
-            Text("大模型校对")
+            Text("大模型校对与精翻")
         } footer: {
-            Text("仅发送文字进行校对。先显示本地结果，校对成功后更新；失败、超时或改动过大时保留原文。")
+            Text("只发送文字，不发送语音和图片。先显示本地结果，成功后更新；失败、超时或改动过大时保留本地结果。开启截屏精翻后，划选区域里识别出的文字和所在应用的名称会发送到下面配置的接口，截图本身不会发送。")
         }
         .disabled(model.isListening)
 

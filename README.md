@@ -113,7 +113,7 @@ Press **⌥T** (configurable in Settings, with conflict checks against system sh
 
 This is a translated view of a captured image; the underlying application remains unchanged. From Chinese to English the translation is longer than the original, so text in buttons and bubbles may be set smaller or wrapped; translation is Apple's on-device one, sentence by sentence, and interface terms are not always idiomatic. Method, scoring and known gaps: [screen translation V2](docs/SCREEN_TRANSLATE_V2.md).
 
-Optional screen editing has its own switch and uses the configured AI endpoint. It can send recognized text, the translation draft, and nearby recognized context; it is off by default.
+Optional precise screen translation has its own switch and uses the configured AI endpoint: the whole capture is translated in one request, so interface terms are chosen in context, brand names and code stay as they are, and translations are kept short enough for their place. Apple's translation is shown first and replaced when the answer arrives; if none arrives it stays. It sends the text recognized in the captured region (with, for each piece, what kind of element it looks like and how much text fits in its place) and the name of the application the capture was taken from; the picture is never sent. It is off by default.
 
 ## Privacy and network behavior
 

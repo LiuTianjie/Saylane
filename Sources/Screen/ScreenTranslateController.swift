@@ -14,6 +14,8 @@ final class ScreenPinModel {
 
 /// Screen translation: selection → capture → analyze → translate → compose → pin.
 /// The picture work is `ScreenPipeline`; this object owns the windows' state.
+/// With precise translation on, a language model reads the whole screen while the
+/// quick translation is made and shown; its answer is set over the quick one.
 /// Windows live in `ScreenSelectionPanel` / `ScreenPinPanel`; this object owns
 /// state and the pipeline only.
 @MainActor
@@ -32,7 +34,8 @@ final class ScreenTranslateController {
     var onPinVisibilityChanged: ((Bool) -> Void)?
     var onScreenActiveChanged: ((Bool) -> Void)?
     var onDirectionChanged: ((TranslationDirection) -> Void)?
-    var polish: (@Sendable (String, String, String, String, String) async throws -> String)?
+    /// The whole-screen translation by a language model, when the user has switched it on.
+    var precise: ScreenPreciseTranslator?
 
     private let pinModel = ScreenPinModel()
     /// Where "Copy" puts the picture. The design preview uses a pasteboard of its own.
@@ -53,6 +56,8 @@ final class ScreenTranslateController {
     private var translationCache = ScreenTranslationCache()
     private var pairA: AppLanguage = .zhHans
     private var pairB: AppLanguage = .en
+    /// The application the capture was taken from: context for the precise translation.
+    private var capturedApp: String?
 
     func beginSelection(a: AppLanguage, b: AppLanguage, last: TranslationDirection?, preserveKeyboardFocus: Bool = false) {
         cancel()
@@ -96,6 +101,7 @@ final class ScreenTranslateController {
         analysis = nil
         analyzedDirection = nil
         translatedImage = nil
+        capturedApp = nil
         translationCache = ScreenTranslationCache()
         removeEventMonitor()
     }
@@ -155,6 +161,8 @@ final class ScreenTranslateController {
         tearDownSelection()
         let token = generation
         onDirectionChanged?(direction)
+        capturedApp = ScreenWindowProbe.owner(at: CGPoint(x: rect.midX, y: rect.midY),
+                                              excludingPID: ProcessInfo.processInfo.processIdentifier)
         let display = ScreenCaptureService.Display(screen)
         work = Task { [weak self] in
             guard let self else { return }
@@ -185,6 +193,18 @@ final class ScreenTranslateController {
     /// For the design preview: a picture file through the same path as a capture, in a given direction.
     func preview(_ image: NSImage, direction: TranslationDirection) async -> (pin: NSBitmapImageRep?, status: String) {
         self.direction = direction
+        // SAYLANE_PRECISE_ANSWERS names a file that stands in for the language model: a table of
+        // source text → translation (null: keep), or any other text, returned as the model's whole answer.
+        if let path = ProcessInfo.processInfo.environment["SAYLANE_PRECISE_ANSWERS"],
+           let data = FileManager.default.contents(atPath: path) {
+            if let table = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                precise = ScreenPreciseTranslator(transport: ScreenPreciseTranslator.canned(table.mapValues { $0 as? String }))
+            } else {
+                let answer = String(decoding: data, as: UTF8.self)
+                precise = ScreenPreciseTranslator(transport: { _, _ in answer })
+            }
+            onError = { print("notice: \($0)") }
+        }
         await present(captured: image, at: CGRect(origin: CGPoint(x: 40, y: 40), size: image.size))
         let pin = pinPanel?.snapshot()
         // The toolbar as it looks, then its Copy button the way a click runs it — on a pasteboard of our own.
@@ -245,6 +265,13 @@ final class ScreenTranslateController {
                 return
             }
             let wanted = analysis.blocks.indices.filter { analysis.blocks[$0].translate }
+            // The language model reads the whole screen while the quick translation is made.
+            // Same language on both sides is a passthrough: there is nothing to ask.
+            let model = wanted.isEmpty || direction.source == direction.target ? nil : precise
+            let app = capturedApp
+            async let refined = model?.translate(
+                PreciseTranslation.requests(analysis.blocks, scale: analysis.scale, target: direction.target),
+                source: direction.source, target: direction.target, app: app)
             try await prepared
             guard token == generation, !Task.isCancelled else { return }
             guard !wanted.isEmpty else {
@@ -266,35 +293,29 @@ final class ScreenTranslateController {
             for (index, original) in zip(wanted, originals) {
                 translations[index] = freshByText[original] ?? translationCache.value(original, direction: direction.id) ?? original
             }
-            let composition = await show(analysis, translations: translations, token: token)
+            // The quick picture first: nothing waits for the model.
+            var composition = await show(analysis, translations: translations, token: token)
             guard token == generation, !Task.isCancelled else { return }
-            if let polish {
-                setChromeStatus(String(localized: "正在润色"), working: true)
-                let sourceName = direction.source.displayName
-                let targetName = direction.target.displayName
-                // Bound concurrent network work, and publish one coherent result
-                // instead of redrawing the picture after every polished block.
-                for start in stride(from: 0, to: wanted.count, by: 4) {
+            var notice: String?
+            if model != nil {
+                setChromeStatus(String(localized: "正在精翻"), working: true)
+                if let outcome = await refined {
                     guard token == generation, !Task.isCancelled else { return }
-                    let inputs = wanted[start..<min(start + 4, wanted.count)].map { index in
-                        (index, analysis.blocks[index].original, translations[index] ?? "", Self.context(for: index, in: analysis.blocks))
+                    let accepted = outcome.accepted
+                    if !accepted.isEmpty {
+                        // Once more, with the model's words where it gave good ones and the original pixels where it said keep.
+                        composition = await show(analysis, translations: PreciseTranslation.merge(translations, accepted), token: token) ?? composition
+                        guard token == generation, !Task.isCancelled else { return }
                     }
-                    let tasks = inputs.map { index, original, translated, context in
-                        Task { @MainActor () -> (Int, String?) in
-                            (index, try? await polish(original, translated, sourceName, targetName, context))
-                        }
-                    }
-                    var results: [(Int, String?)] = []
-                    for task in tasks { results.append(await task.value) }
-                    guard token == generation, !Task.isCancelled else { return }
-                    for (index, result) in results {
-                        if let result, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { translations[index] = result }
-                    }
+                    notice = outcome.failure.map { Self.notice(for: $0, partial: !accepted.isEmpty) }
+                    InputDiagnostics.record("screen-precise", String(format: "requests=%d translated=%d kept=%d rejected=%d long=%d seconds=%.1f %@",
+                        outcome.requests, accepted.translations.count, accepted.kept.count, accepted.rejected, accepted.long, outcome.seconds,
+                        outcome.failure.map { "failed=\($0.name)" } ?? "ok"))
                 }
-                _ = await show(analysis, translations: translations, token: token)
-                guard token == generation, !Task.isCancelled else { return }
             }
             setChromeStatus("", working: false)
+            // The quick picture stays; say once why the precise one did not come.
+            if let notice { onError?(notice) }
             let seconds = analysis.seconds
             InputDiagnostics.record("screen-translated", String(format: "blocks=%d placed=%d shrunk=%d cut=%d ocr=%.2f measure=%.2f",
                 analysis.blocks.count, composition?.placed.count ?? 0, composition?.shrunk ?? 0, composition?.cut ?? 0,
@@ -318,28 +339,14 @@ final class ScreenTranslateController {
         return composition
     }
 
-    /// The blocks around one, nearest first: what a proofreading model gets to see of the page.
-    static func context(for index: Int, in blocks: [TextBlock]) -> String {
-        guard blocks.indices.contains(index) else { return "" }
-        let anchor = blocks[index].rect
-        let neighbors = blocks.indices.filter { $0 != index }.sorted { lhs, rhs in
-            func distance(_ i: Int) -> CGFloat {
-                let box = blocks[i].rect
-                let gap = max(0, max(anchor.minX - box.maxX, box.minX - anchor.maxX))
-                return gap * 3 + abs(anchor.midY - box.midY)
-            }
-            let a = distance(lhs), b = distance(rhs)
-            return a == b ? lhs < rhs : a < b
+    /// A few words for when the precise translation did not arrive, or only some of it did.
+    static func notice(for failure: ScreenPreciseTranslator.Failure, partial: Bool) -> String {
+        if partial { return String(localized: "精翻只完成了一部分，其余保留本机翻译。") }
+        switch failure {
+        case .timeout: return String(localized: "精翻超时，已保留本机翻译。")
+        case .unusable: return String(localized: "精翻的回答无法使用，已保留本机翻译。")
+        case .endpoint(let reason): return String(localized: "精翻未完成，已保留本机翻译：\(reason)")
         }
-        var parts: [String] = []
-        var bytes = 0
-        for i in neighbors.prefix(12) {
-            let text = String(blocks[i].original.prefix(400))
-            guard bytes + text.utf8.count + 2 <= 4_000 else { continue }
-            parts.append(text)
-            bytes += text.utf8.count + 2
-        }
-        return parts.joined(separator: "\n\n")
     }
 
     private func prepareEngine() async throws {
