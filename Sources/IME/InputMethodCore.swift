@@ -32,8 +32,12 @@ final class InputMethodCore {
     private let send: (BridgeEvent) -> Void
     private let now: () -> TimeInterval
     private let fence: InputDeferralDeadline
+    /// What the user changes in a dictation after it was written; see `DictationReadBack`.
+    let readBack: DictationReadBack
     /// Metadata-only trace: stages and states, never key codes of typing or text.
-    var trace: (String, String) -> Void = { _, _ in }
+    var trace: (String, String) -> Void = { _, _ in } {
+        didSet { readBack.trace = trace }
+    }
 
     private(set) var context = BridgeContext()
     private(set) var trigger: PushToTalkHotkey = .rightOption
@@ -58,15 +62,26 @@ final class InputMethodCore {
     private static let modifierMask = UInt64(NSEvent.ModifierFlags([.command, .option, .control, .shift]).rawValue)
     /// Function and arrow keys carry `.function`, so they are forwarded too.
     private static let chordMask = UInt64(NSEvent.ModifierFlags([.command, .option, .control, .shift, .function]).rawValue)
+    /// Keys that may send the text or move on from it.
+    private static let leavingKeys: Set<UInt16> = [UInt16(kVK_Return), UInt16(kVK_ANSI_KeypadEnter), UInt16(kVK_Tab)]
 
     init(manager: IMEManager, pinyin: any PinyinHandling, send: @escaping (BridgeEvent) -> Void,
          now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
-         fence: InputDeferralDeadline = InputDeferralDeadline()) {
+         fence: InputDeferralDeadline = InputDeferralDeadline(),
+         readBackSleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }) {
         self.manager = manager
         self.pinyin = pinyin
         self.send = send
         self.now = now
         self.fence = fence
+        readBack = DictationReadBack(manager: manager, send: send, now: now, sleep: readBackSleep)
+        readBack.isQuiet = { [weak self] in
+            guard let self else { return false }
+            return self.context.phase == .idle && !self.pinyin.isComposing
+        }
+        manager.onLeaseEnding = { [weak self] leaseID, readable in
+            self?.readBack.leaseEnding(leaseID, readable: readable)
+        }
     }
 
     // MARK: - Keys
@@ -87,6 +102,11 @@ final class InputMethodCore {
         }
         if !repeated, !context.appOwnsKeys, forwards(meta) { send(.key(meta)) }
         if consumesLocally(meta) { return true }
+        if meta.kind == .keyDown, !meta.isRepeat, context.phase == .idle, readBack.isWatching {
+            // The user is editing near a dictation: look before the text can
+            // leave, and again once the typing has paused.
+            readBack.keyDown(leaves: Self.leavingKeys.contains(meta.keyCode))
+        }
         switch context.phase {
         case .idle:
             return pinyin.handle(event, pushToTalk: trigger)
@@ -174,7 +194,10 @@ final class InputMethodCore {
         if previous.phase == .idle, next.phase == .listening {
             // A composition in progress is committed before speech is written.
             if pinyin.isComposing { pinyin.commit() }
+            // The last look at the earlier dictations before a preview stands in their text.
+            readBack.read()
         }
+        if !next.learnsCorrections, readBack.isWatching { readBack.reset() }
         if next.phase == .idle, previous.phase != .idle { finish() }
     }
 
@@ -197,8 +220,12 @@ final class InputMethodCore {
               manager.canWriteVoice(inFront: context.sessionBundleID) else { return false }
         // `insertText` would replace a composition typed meanwhile.
         if pinyin.isComposing { pinyin.commit() }
+        // Where the text will stand, asked before it is written and only when
+        // the user lets Saylane learn from what they change in it.
+        let point = context.learnsCorrections ? manager.voiceInsertionPoint(inFront: context.sessionBundleID) : nil
         guard manager.insertVoiceText(text, inFront: context.sessionBundleID) else { return false }
         closedSession = session
+        if let point { readBack.wrote(text, session: session, at: point) }
         replayDeferred()
         return true
     }
@@ -210,11 +237,15 @@ final class InputMethodCore {
         replayDeferred()
     }
 
+    /// The main program has learned what it can from this dictation, or its text is gone.
+    func voiceForget(session: UUID) { readBack.forget(session) }
+
     /// The main program is gone: nothing it promised will arrive.
     func appExited() {
         var reset = BridgeContext()
         reset.trigger = context.trigger
         context = reset
+        readBack.reset()
         finish()
     }
 

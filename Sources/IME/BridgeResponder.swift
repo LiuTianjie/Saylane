@@ -36,6 +36,9 @@ struct BridgeResponder {
         case .voiceEnd(let session):
             core.voiceEnd(session: session)
             return Bridge.encode(BridgeReply.done(true))
+        case .voiceForget(let session):
+            core.voiceForget(session: session)
+            return Bridge.encode(BridgeReply.done(true))
         }
     }
 }

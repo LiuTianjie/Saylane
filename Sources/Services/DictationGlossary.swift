@@ -21,8 +21,10 @@ enum DictationGlossary {
         return entries + extra
     }
 
+    /// `learned`: spellings the user corrected dictations to. They come after
+    /// the vocabulary the user wrote down and before the general glossary.
     static func biasTerms(userRaw: String, includeUser: Bool, includeGlossary: Bool,
-                          remote: [String] = [], limit: Int = 50) -> [String] {
+                          remote: [String] = [], learned: [String] = [], limit: Int = 50) -> [String] {
         var seen = Set<String>()
         var terms: [String] = []
         if includeUser {
@@ -30,6 +32,10 @@ enum DictationGlossary {
                 terms.append(term)
                 if terms.count == limit { return terms }
             }
+        }
+        for term in learned where seen.insert(term).inserted {
+            terms.append(term)
+            if terms.count == limit { return terms }
         }
         if includeGlossary {
             // Aliases are known mishearings; send those to the recognizer first.

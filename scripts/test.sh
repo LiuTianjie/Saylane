@@ -33,6 +33,8 @@ swiftc Sources/Core/AppDirectories.swift Sources/Models/SpeechModel.swift Source
 build/tests/dictation-vocabulary
 swiftc Sources/Core/AppDirectories.swift Sources/Models/SpeechModel.swift Sources/Services/DictationVocabulary.swift Sources/Services/DictationGlossary.swift Sources/Services/DictationGlossaryRemote.swift Tests/DictationGlossaryRemoteTests.swift -o build/tests/dictation-glossary-remote
 build/tests/dictation-glossary-remote
+swiftc Sources/Core/AppDirectories.swift Sources/Models/SpeechModel.swift Sources/Shared/PinyinKeyOptions.swift Sources/Shared/BridgeMessages.swift Sources/Shared/TestHome.swift Sources/Services/DictationVocabulary.swift Sources/Services/CorrectionRules.swift Sources/Services/LearnedCorrections.swift Tests/CorrectionLearningTests.swift -o build/tests/correction-learning
+build/tests/correction-learning
 bash -n scripts/pkg/preinstall scripts/pkg/postinstall
 swiftc -parse-as-library Tests/InputIconTests.swift -o build/tests/input-icon
 build/tests/input-icon
@@ -71,12 +73,17 @@ build/tests/dictation-format
 swiftc Sources/IME/InputDeferralDeadline.swift Tests/InputDeferralDeadlineTests.swift -o build/tests/input-deferral
 build/tests/input-deferral
 swiftc -framework AppKit -framework InputMethodKit Sources/Shared/PinyinKeyOptions.swift Sources/Shared/BridgeMessages.swift Sources/Shared/TestHome.swift \
-  Sources/IME/InputMethodCore.swift Sources/IME/IMEManager.swift Sources/IME/CurrentInputSource.swift \
+  Sources/IME/InputMethodCore.swift Sources/IME/DictationReadBack.swift Sources/IME/IMEManager.swift Sources/IME/CurrentInputSource.swift \
   Sources/IME/InputDeferralDeadline.swift Sources/IME/Pinyin/PinyinHandling.swift Sources/IME/Pinyin/PinyinKeyEvent.swift \
   Sources/Models/PushToTalkHotkey.swift Tests/InputMethodCoreTests.swift -o build/tests/ime-core
 build/tests/ime-core
+swiftc -framework AppKit -framework InputMethodKit Sources/Shared/PinyinKeyOptions.swift Sources/Shared/BridgeMessages.swift Sources/Shared/TestHome.swift \
+  Sources/IME/InputMethodCore.swift Sources/IME/DictationReadBack.swift Sources/IME/IMEManager.swift Sources/IME/CurrentInputSource.swift \
+  Sources/IME/InputDeferralDeadline.swift Sources/IME/Pinyin/PinyinHandling.swift Sources/IME/Pinyin/PinyinKeyEvent.swift \
+  Sources/Models/PushToTalkHotkey.swift Tests/DictationReadBackTests.swift -o build/tests/read-back
+build/tests/read-back
 swiftc -framework AppKit -framework InputMethodKit Sources/Shared/PinyinKeyOptions.swift Sources/Shared/BridgeMessages.swift Sources/Shared/BridgePort.swift Sources/Shared/TestHome.swift \
-  Sources/IME/InputMethodCore.swift Sources/IME/BridgeResponder.swift Sources/IME/IMEManager.swift Sources/IME/CurrentInputSource.swift \
+  Sources/IME/InputMethodCore.swift Sources/IME/DictationReadBack.swift Sources/IME/BridgeResponder.swift Sources/IME/IMEManager.swift Sources/IME/CurrentInputSource.swift \
   Sources/IME/InputDeferralDeadline.swift Sources/IME/Pinyin/PinyinHandling.swift Sources/IME/Pinyin/PinyinKeyEvent.swift \
   Sources/Models/PushToTalkHotkey.swift Sources/Services/IMEBridgeClient.swift Sources/Support/InputDiagnostics.swift \
   Sources/Core/AppDirectories.swift Tests/BridgeEndToEndTests.swift -o build/tests/bridge-e2e

@@ -21,6 +21,10 @@ enum AppDirectories {
     static var diagnostics: URL { resolve("Diagnostics") }
     static var rime: URL { root.appendingPathComponent("Rime", isDirectory: true) }
     static var glossary: URL { root.appendingPathComponent("Glossary", isDirectory: true) }
+    /// What was learned from the user's corrections: pairs of spellings, never sentences.
+    static var learnedCorrectionsFile: URL {
+        root.appendingPathComponent("Learned", isDirectory: true).appendingPathComponent("corrections.json")
+    }
     static var glossaryFile: URL {
         let new = glossary.appendingPathComponent("dictation-glossary.json")
         let old = legacyRoot.appendingPathComponent("dictation-glossary.json")

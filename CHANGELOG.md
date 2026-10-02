@@ -15,7 +15,14 @@ All notable user-facing changes. Older design diaries that used to serve as chan
 
 - **Precise translation.** With "Precise screen translation" switched on under Text Correction, the text of a capture goes to your configured model in one request instead of block by block. Words are chosen for the interface they stand in (Share on a button is 共享, not 份额), brand names and code stay as they are, and the model is told how much text fits in each place, so buttons and bubbles need less shrinking from Chinese to English. Apple's translation still appears first and is replaced when the model answers; if it does not answer within 30 seconds, or answers badly, Apple's stays and a short notice says so. Sent: the recognised text of the captured region and the name of the application. Never the picture. Off by default; it needs a Chat Completions endpoint (a local LM Studio or Ollama works). This replaces the former per-block AI polish for screen translation.
 
-Not verified, and said plainly: precise translation has been tested with hand-written answers only, never against a real model — wording quality, whether a model keeps to the format and to the length limits, and the wait are unknown. The guide's system prompts and the return after Screen Recording have been checked in the code and in rendered pages, not on a Mac that lacks the permissions.
+### Dictation
+
+- Names and terms are learned from what you correct. After a dictation is written, change a name that came out wrong and Saylane remembers the two spellings: the corrected one is offered to the recognizer from the next dictation on, and once you have made the same correction twice the heard spelling is replaced when it turns up again. Only short replacements that sound like what they replace are learned — never a single character, a bare number, an everyday word swapped for another, or a rewritten sentence.
+- It works where the text was written through the input method and the application lets the input method read the field back; elsewhere nothing is learned. Translations are not learned from.
+- Settings → Text Correction → "Learn from my corrections" (on by default): the list of learned pairs, what each one does, a button to forget one and one to forget all. Pairs only are stored, on this Mac (`Application Support/Saylane/Learned/corrections.json`), at most 200, dropped after 90 days without use. Nothing is sent anywhere, and learned spellings are not passed to AI proofreading.
+- Bridge protocol 4 (both programs ship together).
+
+Not verified, and said plainly: learning from corrections has not been tried in real applications — whether each one lets the input method read its text back is only visible on device (`read-back` entries in `Diagnostics/ime.json`). Precise translation has been tested with hand-written answers only, never against a real model — wording quality, whether a model keeps to the format and to the length limits, and the wait are unknown. The guide's system prompts and the return after Screen Recording have been checked in the code and in rendered pages, not on a Mac that lacks the permissions.
 
 ## 0.7.1 (local testing)
 

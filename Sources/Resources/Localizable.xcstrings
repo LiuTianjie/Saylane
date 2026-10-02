@@ -541,6 +541,16 @@
         }
       }
     },
+    "从我的修改里学习": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Learn from my corrections"
+          }
+        }
+      }
+    },
     "任何应用、任何输入法下都能按键说话": {
       "localizations": {
         "en": {
@@ -671,6 +681,16 @@
         }
       }
     },
+    "全部忘记": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forget All"
+          }
+        }
+      }
+    },
     "关闭提示": {
       "localizations": {
         "en": {
@@ -707,6 +727,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Any Chat Completions-compatible service works, including local Ollama / LM Studio. Keys are stored in the Keychain per endpoint."
+          }
+        }
+      }
+    },
+    "再改一次后自动替换": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replaced after one more correction"
           }
         }
       }
@@ -971,12 +1001,12 @@
         }
       }
     },
-    "口误和个人词库均在本机修正，不联网。常见术语默认关闭；开启后每日从维基百科和维基词典更新（CC BY-SA），不上传语音。": {
+    "口误、个人词库和从修改里学到的写法都在本机处理，不联网。常见术语默认关闭；开启后每日从维基百科和维基词典更新（CC BY-SA），不上传语音。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Slips and personal vocabulary are corrected on this Mac, offline. Common terms are off by default; when on, they update daily from Wikipedia and Wiktionary (CC BY-SA). Audio is never uploaded."
+            "value": "Slips, personal vocabulary and what is learned from your corrections are handled on this Mac, offline. Common terms are off by default; when on, they update daily from Wikipedia and Wiktionary (CC BY-SA). Audio is never uploaded."
           }
         }
       }
@@ -1027,6 +1057,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "⇧ plus a letter fires while typing. Add another modifier."
+          }
+        }
+      }
+    },
+    "只提示识别": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognition hint only"
           }
         }
       }
@@ -1127,6 +1167,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Same-language dictation; translation is not used"
+          }
+        }
+      }
+    },
+    "听写写进输入框以后，你把一个人名或术语改掉，Saylane 会记下这一对写法。改成的写法从下一次听写起提示给识别；同样的修改做过两次，以后听成原来的写法时直接替换。日常用语、数字和大段改写不学。只在本机保存词对，不保存句子。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After a dictation is written, when you change a name or a term in it, Saylane remembers the two spellings. The corrected one is offered to the recognizer from the next dictation on; once you have made the same correction twice, the heard spelling is replaced directly. Everyday words, numbers and larger rewrites are not learned. Only pairs of spellings are kept, on this Mac, never sentences."
           }
         }
       }
@@ -1481,6 +1531,16 @@
         }
       }
     },
+    "已学到 %lld 对写法": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Learned corrections: %lld"
+          }
+        }
+      }
+    },
     "已安装": {
       "localizations": {
         "en": {
@@ -1747,6 +1807,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Setup pending"
+          }
+        }
+      }
+    },
+    "忘记这一对": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forget this one"
           }
         }
       }
@@ -3217,6 +3287,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fix slips automatically"
+          }
+        }
+      }
+    },
+    "自动替换": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replaced automatically"
           }
         }
       }

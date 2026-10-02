@@ -52,6 +52,7 @@ final class PreferencesStore {
         static let speechHotwords = "speechHotwords"
         static let dictationCleanupEnabled = "dictationCleanupEnabled"
         static let dictationGlossaryEnabled = "dictationGlossaryEnabled"
+        static let learnFromCorrections = "learnFromCorrections"
         static let finalPolishEnabled = "finalPolishEnabled"
         static let finalPolishEndpoint = "finalPolishEndpoint"
         static let finalPolishModel = "finalPolishModel"
@@ -188,6 +189,7 @@ final class PreferencesStore {
         p.speechHotwords = string(Key.speechHotwords) ?? p.speechHotwords
         p.dictationCleanupEnabled = bool(Key.dictationCleanupEnabled, default: p.dictationCleanupEnabled)
         p.dictationGlossaryEnabled = bool(Key.dictationGlossaryEnabled, default: p.dictationGlossaryEnabled)
+        p.learnFromCorrections = bool(Key.learnFromCorrections, default: p.learnFromCorrections)
         p.finalPolishEnabled = bool(Key.finalPolishEnabled, default: p.finalPolishEnabled)
         p.finalPolishEndpoint = string(Key.finalPolishEndpoint) ?? p.finalPolishEndpoint
         p.finalPolishModel = string(Key.finalPolishModel) ?? p.finalPolishModel
@@ -239,6 +241,7 @@ final class PreferencesStore {
         put(p.speechHotwords, o.speechHotwords, Key.speechHotwords) { $0 }
         put(p.dictationCleanupEnabled, o.dictationCleanupEnabled, Key.dictationCleanupEnabled) { $0 }
         put(p.dictationGlossaryEnabled, o.dictationGlossaryEnabled, Key.dictationGlossaryEnabled) { $0 }
+        put(p.learnFromCorrections, o.learnFromCorrections, Key.learnFromCorrections) { $0 }
         put(p.finalPolishEnabled, o.finalPolishEnabled, Key.finalPolishEnabled) { $0 }
         put(p.finalPolishEndpoint, o.finalPolishEndpoint, Key.finalPolishEndpoint) { $0 }
         put(p.finalPolishModel, o.finalPolishModel, Key.finalPolishModel) { $0 }

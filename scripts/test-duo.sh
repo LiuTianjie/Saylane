@@ -14,9 +14,10 @@ APP="${SAYLANE_APP_BUNDLE:-$PRODUCTS/Saylane.app}/Contents/MacOS/Saylane"
 [[ -x "$IME" && -x "$APP" ]] || { echo 'Build first (make release).' >&2; exit 1; }
 source scripts/test-home.sh
 REAL_BEFORE="$(real_preferences)"
-export SAYLANE_TEST_SPEECH='你好，世界。'
 
-# One run: the main program is told which application is in front.
+# One run: the main program is told which application is in front. A second
+# argument is a sentence to dictate, a third a correction (heard>corrected)
+# the test makes in it afterwards, for the main program to learn.
 APP_PID=''
 stop_app() {
   [[ -n "$APP_PID" ]] || return 0
@@ -31,6 +32,8 @@ trap stop_app EXIT
 run() {
   export SAYLANE_TEST_HOME="$(mktemp -d /tmp/saylane-duo-test.XXXXXX)"
   export SAYLANE_TEST_FRONT="$1"
+  export SAYLANE_TEST_SPEECH="${2:-你好，世界。}"
+  export SAYLANE_TEST_CORRECTION="${3:-}"
   local ime_pid status=0
   reset_test_preferences
   "$APP" --background 2>/dev/null &
@@ -56,4 +59,6 @@ run() {
 run 'local.saylane.selftest'
 # …and it is a panel over another one, as Spotlight or a launcher is.
 run 'local.saylane.another-application'
+# A name that is heard wrong and corrected by hand, twice: the third time it is written right.
+run 'local.saylane.selftest' '明天和黄根诚开会。' '黄根诚>黄根成'
 assert_real_preferences_untouched "$REAL_BEFORE"

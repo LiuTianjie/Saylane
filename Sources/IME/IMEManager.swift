@@ -58,6 +58,10 @@ final class IMEManager {
     /// A client of this application is attached (nil: none). The main program
     /// uses it to choose how a dictation is written.
     var onAttachmentChanged: ((String?) -> Void)?
+    /// A lease is about to lose its client. The flag says whether that client
+    /// can still be asked: on an orderly deactivation it can, when it was
+    /// replaced or vanished it cannot.
+    var onLeaseEnding: ((UUID, Bool) -> Void)?
 
     func attach(_ next: any InputClientController) {
         guard let nextClient = next.textInputClient, let nextLeaseID = next.sessionID else {
@@ -70,7 +74,10 @@ final class IMEManager {
             attachedClient = nextClient
             return
         }
-        if !sameLease { clearVoiceMarked(); pinyinMarkedLeaseID = nil }
+        if !sameLease {
+            if let previous = attachedLeaseID { onLeaseEnding?(previous, false) }
+            clearVoiceMarked(); pinyinMarkedLeaseID = nil
+        }
         clientGeneration += 1
         controller = next
         attachedClient = nextClient
@@ -85,6 +92,7 @@ final class IMEManager {
     @discardableResult
     func detach(_ old: any InputClientController, leaseID: UUID) -> Bool {
         guard isCurrent(old, leaseID: leaseID) else { return false }
+        onLeaseEnding?(leaseID, true)
         clearVoiceMarked()
         pinyinMarkedLeaseID = nil
         clientGeneration += 1
@@ -112,6 +120,7 @@ final class IMEManager {
 
     private func suspendCurrentClient() {
         guard controller != nil || attachedClient != nil || attachedLeaseID != nil else { return }
+        if let attachedLeaseID { onLeaseEnding?(attachedLeaseID, false) }
         clearVoiceMarked()
         pinyinMarkedLeaseID = nil
         clientGeneration += 1
@@ -200,6 +209,38 @@ final class IMEManager {
         voiceMarkedLeaseID = nil
         guard leaseID == attachedLeaseID, let client = attachedClient else { return }
         Self.applyMarkedText("", caret: 0, highlight: NSRange(location: 0, length: 0), to: client)
+    }
+
+    // MARK: - Reading a dictation back
+
+    /// Ranges a client reports are its own claims. Anything outside these
+    /// bounds is not asked about and not believed.
+    private static let farthestRead = 1 << 24
+    private static let longestRead = 1 << 12
+
+    /// Where the dictation about to be written will start: at the preview it
+    /// replaces, else at the selection. Nil when the client does not say.
+    func voiceInsertionPoint(inFront bundleID: String?) -> (leaseID: UUID, start: Int)? {
+        guard let target = voiceClient(inFront: bundleID) else { return nil }
+        // The preview is asked about only when one is showing: usually one question to the client.
+        let marked = voiceMarkedLeaseID == target.leaseID ? target.client.markedRange() : NSRange(location: NSNotFound, length: 0)
+        let range = marked.location != NSNotFound && marked.length > 0 ? marked : target.client.selectedRange()
+        guard range.location != NSNotFound, range.location >= 0, range.location <= Self.farthestRead else { return nil }
+        return (target.leaseID, range.location)
+    }
+
+    /// The client's text in a range, while the lease it was written in is
+    /// still attached. Unlike a write this needs neither a fresh key nor our
+    /// source selected: nothing in the client changes. Nil when the client
+    /// gives no text or more than it was asked for.
+    func readText(start: Int, length: Int, leaseID: UUID) -> String? {
+        guard start >= 0, start <= Self.farthestRead, length > 0, length <= Self.longestRead,
+              attachedLeaseID == leaseID, controller?.sessionID == leaseID, let client = attachedClient else { return nil }
+        // The declared return type is the client's promise, not a fact: look at what came back.
+        let answer: AnyObject? = client.attributedSubstring(from: NSRange(location: start, length: length))
+        guard let text = (answer as? NSAttributedString)?.string ?? (answer as? String),
+              (text as NSString).length <= length else { return nil }
+        return text
     }
 
     @discardableResult
