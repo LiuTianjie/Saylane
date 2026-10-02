@@ -81,6 +81,12 @@ enum NumeralFormat {
             }
         }
         guard !spoken.contains(where: { "分之整半".contains($0) }) else { return false }
+        // A version: 零点八点一 is 0.8.1, every part a number of its own.
+        let dotted = written.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+        if dotted.count > 2 {
+            let parts = spoken.split(separator: "点", omittingEmptySubsequences: false).map(String.init)
+            return parts.count == dotted.count && zip(parts, dotted).allSatisfy { readings(of: $0).contains($1) }
+        }
         return readings(of: spoken).contains(written.replacingOccurrences(of: ",", with: ""))
     }
 
@@ -135,7 +141,7 @@ enum NumeralFormat {
     private static func align(_ a: [Character], _ b: [Character]) -> [Int?] {
         func cost(_ x: Character, _ y: Character) -> Int {
             if x == y || x.lowercased() == y.lowercased() { return 0 }
-            if x.isASCIIDigit, numerals.contains(y) { return 0 }
+            if x.isASCIIDigit || x == ".", numerals.contains(y) { return 0 }
             return 2
         }
         let n = a.count, m = b.count

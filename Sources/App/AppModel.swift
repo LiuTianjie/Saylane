@@ -663,9 +663,9 @@ final class AppModel: VoiceSessionHost {
         // How the finished text is written: applied to whatever route takes it.
         let options = DictationFormat.Options(dropFinalStop: prefs.dictationDropFinalStop,
                                               spaceBetweenScripts: prefs.dictationSpaceBetweenScripts)
-        let format: (String) -> String = { options.isIdentity ? $0 : DictationFormat.apply($0, options) }
+        let format: (String) -> String = { DictationFormat.apply($0, options) }
         // The input method reads back only what was written through it, and only when the context says so.
-        let learner = prefs.learnFromCorrections && prefs.translationIsPassthrough ? corrections : nil
+        let learner = prefs.learnFromCorrections && prefs.translationIsPassthrough && !own ? corrections : nil
         InputDiagnostics.record("voice-target", "owner=\(bundleID ?? "none") input-method=\(ime.canWrite(inFront: bundleID)) attached=\(ime.attachedBundleID ?? "none") paste=\(AccessibilityInserter.isTrusted)")
         return VoiceTextSink(
             attached: { ime.canWrite(inFront: bundleID) },

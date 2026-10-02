@@ -221,8 +221,14 @@ final class InputMethodCore {
         // `insertText` would replace a composition typed meanwhile.
         if pinyin.isComposing { pinyin.commit() }
         // Where the text will stand, asked before it is written and only when
-        // the user lets Saylane learn from what they change in it.
-        let point = context.learnsCorrections ? manager.voiceInsertionPoint(inFront: context.sessionBundleID) : nil
+        // the user lets Saylane learn from what they change in it. Never asked
+        // of the main program's own windows: it is waiting for this very answer
+        // and cannot give one.
+        let learns = context.learnsCorrections && context.sessionBundleID != Bridge.appBundleID
+        let point = learns ? manager.voiceInsertionPoint(inFront: context.sessionBundleID) : nil
+        // A client that took long over that question: the main program has
+        // given up by now and written the text another way.
+        guard now() <= deadline else { return false }
         guard manager.insertVoiceText(text, inFront: context.sessionBundleID) else { return false }
         closedSession = session
         if let point { readBack.wrote(text, session: session, at: point) }
