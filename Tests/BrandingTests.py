@@ -134,5 +134,11 @@ page.feed(html)
 assert page.telemetry == 1
 assert '<h1>Saylane</h1>' in html
 assert html.count('class="brand-name">Saylane</span>') == 2
-assert 'https://github.com/LiuTianjie/Saylane/releases/download/v0.2.75/Saylane-0.2.75.pkg' in html
+# The download block names no version: it leads to the latest release and is
+# filled in from GitHub when the page loads, so it cannot fall behind a release.
+assert 'id="download-button" href="https://github.com/LiuTianjie/Saylane/releases/latest"' in html
+assert 'releases/download/v' not in html
+site = read('website/site.js')
+assert 'https://api.github.com/repos/LiuTianjie/Saylane/releases/latest' in site
+assert "startsWith('https://github.com/LiuTianjie/Saylane/releases/download/')" in site
 print('PASS: Saylane branding, stable identity/storage, two processes with separate jobs, upgrade paths, published links and single telemetry script')
