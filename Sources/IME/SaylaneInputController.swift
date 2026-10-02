@@ -92,7 +92,7 @@ final class SaylaneInputController: IMKInputController, InputClientController {
         add(menu, host.englishMode ? String(localized: "切换到拼音中文") : String(localized: "切换到英文键盘"),
             #selector(togglePinyinMode(_:))).isEnabled = !host.isDictating
         if host.mainProgramConnected {
-            add(menu, String(localized: "截屏翻译"), #selector(captureScreen(_:)))
+            add(menu, String(localized: "所见即译"), #selector(captureScreen(_:)))
             if state.hasLastDictation {
                 add(menu, String(localized: "复制上一次听写"), #selector(copyLastDictation(_:)))
             }

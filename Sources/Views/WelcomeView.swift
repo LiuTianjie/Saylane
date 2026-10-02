@@ -63,7 +63,7 @@ struct WelcomeView: View {
             Text(list.isComplete
                  ? (model.prefs.tapToTalk ? String(localized: "点按 \(model.prefs.pushToTalk.shortLabel)，说完按任意键提交。")
                                           : String(localized: "按住 \(model.prefs.pushToTalk.shortLabel)，说完松开即可。"))
-                 : String(localized: "只需要这一次。之后说话、打字和截屏翻译都不会再被权限打断。"))
+                 : String(localized: "只需要这一次。之后说话、打字和所见即译都不会再被权限打断。"))
                 .font(.system(size: 14)).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             HStack(spacing: 10) {

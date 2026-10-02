@@ -13,7 +13,7 @@ struct SettingsView: View {
     private static let tabs: [Tab] = [
         Tab(id: 1, title: String(localized: "语音输入"), symbol: "mic"),
         Tab(id: 5, title: String(localized: "键盘输入"), symbol: "keyboard"),
-        Tab(id: 4, title: String(localized: "截屏翻译"), symbol: "text.viewfinder"),
+        Tab(id: 4, title: String(localized: "所见即译"), symbol: "text.viewfinder"),
         Tab(id: 3, title: String(localized: "文字修正"), symbol: "wand.and.stars"),
         Tab(id: 2, title: String(localized: "模型"), symbol: "square.stack.3d.up"),
         Tab(id: 0, title: String(localized: "权限管理"), symbol: "lock"),
@@ -40,7 +40,7 @@ struct SettingsView: View {
                         sidebarFooter
                     }
                     .padding(.horizontal, 10)
-                    .frame(width: 204)
+                    .frame(width: 232)
                     .background(Theme.sidebarBackground)
 
                     VStack(alignment: .leading, spacing: 0) {
@@ -130,7 +130,7 @@ struct SettingsView: View {
                 // The program has no Dock icon and no menu of its own: this is its Quit.
                 Button(String(localized: "退出 Saylane")) { model.quitByUser() }
                     .buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(.secondary)
-                    .help(String(localized: "退出后拼音照常可用；语音和截屏翻译停用，直到从输入法菜单再次打开设置。"))
+                    .help(String(localized: "退出后拼音照常可用；语音和所见即译停用，直到从输入法菜单再次打开设置。"))
                     .selfTestAnchor("quit")
                 Text("Saylane \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
                     .font(.system(size: 11)).foregroundStyle(.tertiary)
@@ -370,7 +370,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - 截屏翻译
+    // MARK: - 所见即译
 
     @ViewBuilder private var screen: some View {
         let p = model.prefs
@@ -573,7 +573,7 @@ struct ShortcutRecorderField: View {
                         .frame(minWidth: 88)
                 }
                 .controlSize(.small)
-                .help(String(localized: "点击后按下新的截屏快捷键，Esc 取消"))
+                .help(String(localized: "点击后按下新的快捷键，Esc 取消"))
                 if model.prefs.screenCaptureShortcut != .optionT {
                     Button(String(localized: "恢复默认")) { model.set(\.screenCaptureShortcut, .optionT) }
                         .buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(.secondary)

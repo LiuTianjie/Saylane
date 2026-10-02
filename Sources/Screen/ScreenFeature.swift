@@ -49,7 +49,7 @@ final class ScreenFeature {
         guard yieldVoiceSession() else { return }
         let p = prefs()
         if !requestScreenCapture() {
-            onNotice?(.actionable(String(localized: "截屏翻译需要屏幕录制权限。允许后再按 \(p.screenCaptureShortcut.displayName) 划区。"), .screen))
+            onNotice?(.actionable(String(localized: "所见即译需要屏幕录制权限。允许后再按 \(p.screenCaptureShortcut.displayName) 划区。"), .screen))
             return
         }
         var last: TranslationDirection?

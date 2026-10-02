@@ -60,8 +60,8 @@ struct SettingsNavigationButton: View {
         Button(action: action) {
             HStack(spacing: 11) {
                 Image(systemName: symbol).font(.system(size: 16, weight: .regular)).frame(width: 20)
-                Text(title).font(.system(size: 14, weight: selected ? .semibold : .medium))
-                Spacer()
+                Text(title).font(.system(size: 14, weight: selected ? .semibold : .medium)).lineLimit(1)
+                Spacer(minLength: 0)
             }
             .foregroundStyle(.primary)
             .padding(.horizontal, 14).frame(height: 42)
