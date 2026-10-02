@@ -2,6 +2,21 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.8.0 (local testing)
+
+### First run
+
+- The guide turns on everything Saylane needs, once, on one page: the input method (still added and switched to by itself), the microphone, Accessibility and Screen Recording. Each has a row with its state and one control; the button at the bottom always settles whatever is next ("Allow the microphone", "Turn on Accessibility", …) and becomes "Start" when all four are on. The page follows the system's prompts and panes and ticks the rows off by itself. Until 0.7 the microphone was asked for at first use and Accessibility was optional; nothing is left to be asked for in the middle of a sentence or a capture now.
+- Allowing Screen Recording makes macOS reopen the program: it comes back to the guide instead of vanishing.
+- "Later" always leads in; the guide returns when Saylane is opened by hand, and the sidebar says "Finish setup". Someone who already has all four on is not shown the guide after upgrading.
+- Settings → Permissions shows the same list. The large blue button in the sidebar is there only while something is still off.
+
+### Screen translation
+
+- **Precise translation.** With "Precise screen translation" switched on under Text Correction, the text of a capture goes to your configured model in one request instead of block by block. Words are chosen for the interface they stand in (Share on a button is 共享, not 份额), brand names and code stay as they are, and the model is told how much text fits in each place, so buttons and bubbles need less shrinking from Chinese to English. Apple's translation still appears first and is replaced when the model answers; if it does not answer within 30 seconds, or answers badly, Apple's stays and a short notice says so. Sent: the recognised text of the captured region and the name of the application. Never the picture. Off by default; it needs a Chat Completions endpoint (a local LM Studio or Ollama works). This replaces the former per-block AI polish for screen translation.
+
+Not verified, and said plainly: precise translation has been tested with hand-written answers only, never against a real model — wording quality, whether a model keeps to the format and to the length limits, and the wait are unknown. The guide's system prompts and the return after Screen Recording have been checked in the code and in rendered pages, not on a Mac that lacks the permissions.
+
 ## 0.7.1 (local testing)
 
 - The pin's toolbar has one copy button, and it copies the picture. "Copy" and "Full text" stood side by side and read as a single "Copy Full text"; the full-text popover and its "Copy Text" are gone.
