@@ -1041,12 +1041,12 @@
         }
       }
     },
-    "只发送文字，不发送语音和图片。先显示本地结果，成功后更新；失败、超时或改动过大时保留本地结果。开启截屏精翻后，划选区域里识别出的文字和所在应用的名称会发送到下面配置的接口，截图本身不会发送。": {
+    "只发送文字，不发送语音和图片。先显示本地结果，成功后更新；失败、超时或改动过大时保留本地结果。开启所见即译精翻后，划选区域里识别出的文字和所在应用的名称会发送到下面配置的接口，截图本身不会发送。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Only text is sent, never audio or pictures. The local result shows first and is updated on success; on failure, timeout or excessive changes the local result stays. With precise screen translation on, the text recognised in the captured region and the name of the application it was taken from are sent to the endpoint configured below; the picture itself is not."
+            "value": "Only text is sent, never audio or pictures. The local result shows first and is updated on success; on failure, timeout or excessive changes the local result stays. With precise translation for Translate Anywhere on, the text recognised in the captured region and the name of the application it was taken from are sent to the endpoint configured below; the picture itself is not."
           }
         }
       }
@@ -1081,12 +1081,12 @@
         }
       }
     },
-    "只需要这一次。之后说话、打字和截屏翻译都不会再被权限打断。": {
+    "只需要这一次。之后说话、打字和所见即译都不会再被权限打断。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Only this once. After that, speaking, typing and screen translation are never interrupted by a permission question."
+            "value": "Only this once. After that, speaking, typing and Translate Anywhere are never interrupted by a permission question."
           }
         }
       }
@@ -1871,62 +1871,62 @@
         }
       }
     },
-    "截屏精翻": {
+    "所见即译": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Precise screen translation"
+            "value": "Translate Anywhere"
           }
         }
       }
     },
-    "截屏翻译": {
+    "所见即译只截你框出的那一块": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Screen Translation"
+            "value": "Translate Anywhere captures only the region you select"
           }
         }
       }
     },
-    "截屏翻译只截你框出的那一块": {
+    "所见即译精翻": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Screen translation captures only the region you select"
+            "value": "Precise translation for Translate Anywhere"
           }
         }
       }
     },
-    "截屏翻译要用；只截你框出的那一块，不上传": {
+    "所见即译要用；只截你框出的那一块，不上传": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "For screen translation; only the region you select is captured, and it is never uploaded"
+            "value": "For Translate Anywhere; only the region you select is captured, and it is never uploaded"
           }
         }
       }
     },
-    "截屏翻译需要屏幕录制权限。": {
+    "所见即译需要屏幕录制权限。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Screen translation needs the Screen Recording permission."
+            "value": "Translate Anywhere needs the Screen Recording permission."
           }
         }
       }
     },
-    "截屏翻译需要屏幕录制权限。允许后再按 %@ 划区。": {
+    "所见即译需要屏幕录制权限。允许后再按 %@ 划区。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Screen translation needs the Screen Recording permission. Allow it, then press %@ to select a region."
+            "value": "Translate Anywhere needs the Screen Recording permission. Allow it, then press %@ to select a region."
           }
         }
       }
@@ -2841,12 +2841,12 @@
         }
       }
     },
-    "点击后按下新的截屏快捷键，Esc 取消": {
+    "点击后按下新的快捷键，Esc 取消": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Click, then press the new capture shortcut; Esc cancels"
+            "value": "Click, then press the new shortcut; Esc cancels"
           }
         }
       }
@@ -3841,12 +3841,12 @@
         }
       }
     },
-    "退出后拼音照常可用；语音和截屏翻译停用，直到从输入法菜单再次打开设置。": {
+    "退出后拼音照常可用；语音和所见即译停用，直到从输入法菜单再次打开设置。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pinyin keeps working after quitting. Dictation and screen translation stop until the settings are opened again from the input menu."
+            "value": "Pinyin keeps working after quitting. Dictation and Translate Anywhere stop until the settings are opened again from the input menu."
           }
         }
       }

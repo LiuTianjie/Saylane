@@ -2,6 +2,13 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.8.2
+
+- **截屏翻译 is now 所见即译 (Translate Anywhere).** The name said how it works; the point is where it works — any application, anything on screen: web pages, software, pictures, a frame of a video. The settings page, the input-method menu, the first-run guide and the messages use the new name. Nothing else about the feature changed; the shortcut is still ⌥T.
+- The product page and both READMEs describe the current product.
+
+This is the first published release since 0.2.75; everything listed under 0.3.0 to 0.8.1 below is in it.
+
 ## 0.8.1 (local testing)
 
 Found on device with 0.8.0.

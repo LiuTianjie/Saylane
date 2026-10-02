@@ -18,7 +18,7 @@ python3 Tests/BrandingTests.py
 | Dictation: live words, then the final text | `site.js` | A few characters about every 0.26 s, then the final text with what changed marked. The three figures come from `docs/SPEECH_PIPELINE.md`; change them only together with that document. |
 | Three steps | `index.html` | |
 | Language modes | `practice.js` | Mirrors `TranslationDirection.voiceModes`: A→A, A→B, B→A, B→B. Double-click the key, or use the four buttons. |
-| Translating what is on screen | `index.html`, `site.js` | Four scenes (web page, software, picture, video), each drawn twice in HTML/CSS with the same fixed layout: as it is, and translated. A region is selected and shows the second. No image files. The section is named "所见即译" on the page; the settings still call the feature "截屏翻译". |
+| Translating what is on screen | `index.html`, `site.js` | Four scenes (web page, software, picture, video), each drawn twice in HTML/CSS with the same fixed layout: as it is, and translated. A region is selected and shows the second. No image files. The feature is called "所见即译" (Translate Anywhere), on the page and in the app. |
 | Pinyin | `site.js` | A composition and its candidates. |
 | Privacy, questions, download | `index.html`, `site.js` | |
 

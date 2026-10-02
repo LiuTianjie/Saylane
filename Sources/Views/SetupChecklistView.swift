@@ -163,9 +163,9 @@ struct SetupChecklistView: View {
                 ? String(localized: "让说话键在任何应用里都能用，并把文字直接写到光标处")
                 : String(localized: "当前的说话键是功能键，必须开启这一项才能用")
         case .screenRecording:
-            if done { return String(localized: "截屏翻译只截你框出的那一块") }
+            if done { return String(localized: "所见即译只截你框出的那一块") }
             if asked.contains(.screenRecording) { return String(localized: "打开开关后系统会重新打开 Saylane，回来后从这里继续") }
-            return String(localized: "截屏翻译要用；只截你框出的那一块，不上传")
+            return String(localized: "所见即译要用；只截你框出的那一块，不上传")
         }
     }
 }

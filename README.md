@@ -37,7 +37,7 @@
 | --- | --- |
 | **Dictate** | Hold a key and speak. The words appear in the focused field as you say them and are committed when you let go. |
 | **Translate as you speak** | Speak one language, write another. Four modes for a language pair, switched with a double tap. |
-| **Translate anything on screen** | Select a region in any app; the translation is set where the original stood, in the same size, weight and colour. Web pages, software, pictures, video. |
+| **Translate Anywhere** | Select a region in any app; the translation is set where the original stood, in the same size, weight and colour. Web pages, software, pictures, video. |
 | **Type** | A full Pinyin input method, backed by Rime, in the same input source. |
 
 With Chinese → English selected:
@@ -57,7 +57,7 @@ Download the `.pkg` and `SHA256SUMS.txt` from [GitHub Releases](https://github.c
 
 ```text
 /Library/Input Methods/Saylane.app    the input method: types, and writes text into the field
-/Applications/Saylane.app             the main program: dictation, translation, screen translation, settings (no Dock icon)
+/Applications/Saylane.app             the main program: dictation, translation, Translate Anywhere, settings (no Dock icon)
 ```
 
 Saylane then adds itself to the input sources and switches to itself; there is no trip to System Settings. One page of setup follows, turning on the four things it needs, once: the input method, the microphone, Accessibility and Screen Recording. Each has one button and ticks itself off; nothing is asked for later, while you are working.
@@ -113,9 +113,9 @@ Pick a language pair in Settings. A new installation writes what you say, in the
 
 Languages: Simplified and Traditional Chinese, English, Japanese, Korean, French, Spanish, German. Translation is Apple's on-device one. English dictation is also useful for self-practice; Saylane transcribes what the model recognizes and does not score pronunciation.
 
-## Translate anything on screen
+## Translate Anywhere
 
-Press **⌥T**, then select the area to translate (Settings call this feature "Screen translation"). Anything with text on screen can be translated: web pages, application windows, pictures, PDFs, a frame of a video. The pinned result floats above other windows and can be dragged; its Copy button copies the translated picture. Other apps stay usable while it is open.
+Press **⌥T**, then select the area to translate. Anything with text on screen can be translated: web pages, application windows, pictures, PDFs, a frame of a video. The pinned result floats above other windows and can be dragged; its Copy button copies the translated picture. Other apps stay usable while it is open.
 
 The translation is set where the original was: size, weight and colour are measured from the pixels of the capture, only the strokes of the original are erased, and background, icons and pictures stay as they are — as if the interface had switched language. On 24 samples with ground truth the median font-size error is 0.9%. Recognition (Vision) and translation (Apple Translation) run locally.
 
@@ -137,7 +137,7 @@ Local inference and network access are separate concerns:
 | Speech recognition | Apple on-device recognition or the selected local model; audio is not saved |
 | Translation and OCR | Apple Translation and Vision run locally once required language assets are available |
 | Learned corrections | Pairs of spellings, stored on this Mac; never sent anywhere, including to the AI endpoint |
-| Optional AI editing and precise screen translation | Send text to your configured Chat Completions-compatible endpoint; off by default |
+| Optional AI editing and precise translation for Translate Anywhere | Send text to your configured Chat Completions-compatible endpoint; off by default |
 | Optional terminology glossary | Off by default; when on, fetches public category titles from Chinese Wikipedia / Wiktionary once a day, without sending dictation text |
 | Downloads | Model weights and language assets, when you ask for them |
 | Diagnostics | The latest 500 events per program: times, the application, the step and its duration. No audio, no text |
@@ -149,7 +149,7 @@ For AI editing, the request includes the recognized text, languages, draft and a
 | Input source | Native composition through InputMethodKit; added and selected by Saylane itself |
 | Microphone | Records while the talk key is held |
 | Accessibility | Makes the talk key work in every application and under every input source; pastes the text where no input-method client is attached |
-| Screen Recording | Captures the region selected for screen translation |
+| Screen Recording | Captures the region you select for Translate Anywhere |
 
 All four are turned on from the first-run page and can be reviewed in **Settings → Permissions**.
 
@@ -206,7 +206,7 @@ Build artifacts live in ignored `build/` and `dist/` directories. Building an ap
 | `Sources/IME/` | The input-method process: InputMethodKit, composition, Rime, candidates |
 | `Sources/App/` | The main program's entry point and composition root |
 | `Sources/Shared/` | The contract and ports between the two processes |
-| `Sources/Input/`, `Sources/Voice/`, `Sources/Screen/` | Gestures, the voice session and its write routes, screen translation |
+| `Sources/Input/`, `Sources/Voice/`, `Sources/Screen/` | Gestures, the voice session and its write routes, Translate Anywhere |
 | `Sources/Services/` | Capture, recognition, translation, models, permissions, input-source installation |
 | `Sources/Views/` | Native settings, setup, candidates, and waveform UI |
 | `Tests/` | Swift/Python checks and native-runtime regression tests |
