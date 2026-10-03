@@ -57,7 +57,7 @@
 | `userTyped(session)` | 等终稿期间用户敲了第一个键（它在排队）；只差润色的结果应立即写入 |
 | `typingResumed(session)` | 用户在等终稿时继续打字，预览已撤回 |
 | `menu(action)` | 输入法菜单里的命令（打开设置、切换方向、截屏翻译、复制上一次听写） |
-| `pinyinMode(english)` | Shift 切换了中英文 |
+| `pinyinMode(english)` | 输入法里切换了中英文（Shift 短按或菜单）；主程序只记录，不再回发 |
 
 存活检测：双方在握手时互换 pid，用 `DispatchSource` 进程退出源监听对方。主程序退出时输入法把语音阶段复位为空闲并回放排队按键；输入法退出时主程序改走粘贴。
 

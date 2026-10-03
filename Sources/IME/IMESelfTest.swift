@@ -144,11 +144,11 @@ enum IMESelfTest {
         }
         check(consumed, "letters are taken by the input method")
         check(!client.marked.isEmpty && client.inserted.isEmpty, "a composition is shown in the client (\"\(client.marked)\")")
-        let panel = NSApp.windows.first { $0.isVisible && $0 is NSPanel }
+        let panel = NSApp.windows.first { $0.isVisible && $0 is CandidatePanel }
         check(panel != nil, "the candidate window is on screen")
         check(controller.handle(key(" ", kVK_Space)), "space is taken by the input method")
         check(client.inserted == ["你好"] && client.marked.isEmpty, "space writes the first candidate (\(client.inserted))")
-        check(NSApp.windows.allSatisfy { !($0.isVisible && $0 is NSPanel) }, "the candidate window is gone after the commit")
+        check(NSApp.windows.allSatisfy { !($0.isVisible && $0 is CandidatePanel) }, "the candidate window is gone after the commit")
 
         // The optional language model, when a test home has it in its Rime
         // directory: the plugin shipped in this bundle reads it, and a sentence
@@ -166,6 +166,8 @@ enum IMESelfTest {
 
         // Shift toggles Chinese and English; in English mode letters go straight through.
         host.toggleEnglishMode()
+        check(NSApp.windows.contains { $0.isVisible && $0 is NSPanel && !($0 is CandidatePanel) },
+              "switching shows 中 or 英 next to the caret")
         check(!controller.handle(key("a", kVK_ANSI_A)) || client.inserted.last == "a",
               "in English mode a letter is not composed")
         host.toggleEnglishMode()

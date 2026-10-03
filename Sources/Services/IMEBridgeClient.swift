@@ -147,6 +147,11 @@ final class IMEBridgeClient {
             if status == nil { refreshStatus() }
         case .talkKey(let bundleID, let at):
             talkKey = bundleID.map { ($0, at) }
+        case .pinyinMode(let english):
+            // The input method switched by itself. What it was last told must
+            // say so too, or switching back from the settings would look like
+            // no change and never be sent.
+            pinyin?.englishMode = english
         default:
             break
         }

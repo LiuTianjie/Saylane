@@ -149,6 +149,36 @@ import Carbon.HIToolbox
         precondition(session.englishMode && !session.isComposing && !session.showsCandidates)
         precondition(!session.handle(letter("a"), shiftToggleEnabled: true))
         session.setEnglishMode(false)
+        // Only a short, clean tap switches: a held Shift, or one used with the
+        // pointer (Shift-click, Shift-drag), leaves the mode alone.
+        var traced: [String] = []
+        session.trace = { traced.append($1) }
+        func shiftTap(down: TimeInterval, up: TimeInterval) -> Bool {
+            _ = session.handle(PinyinKeyEvent(type: .flagsChanged, keyCode: UInt16(kVK_Shift), characters: "", letter: nil,
+                                              flags: .shift, isRepeat: false, timestamp: down), shiftToggleEnabled: true)
+            return session.handle(PinyinKeyEvent(type: .flagsChanged, keyCode: UInt16(kVK_Shift), characters: "", letter: nil,
+                                                 flags: [], isRepeat: false, timestamp: up), shiftToggleEnabled: true)
+        }
+        var reported: [Bool] = []
+        session.onModeChange = { reported.append($0) }
+        session.pointerUsedDuring = { _, _ in false }
+        precondition(!shiftTap(down: 100, up: 100.8) && !session.englishMode, "a long Shift press is not a switch")
+        precondition(traced.last == "Shift held too long to switch")
+        session.pointerUsedDuring = { _, _ in true }
+        precondition(!shiftTap(down: 200, up: 200.15) && !session.englishMode, "Shift-click is not a switch")
+        precondition(traced.last == "Shift used with the pointer; no switch")
+        session.pointerUsedDuring = { _, _ in false }
+        precondition(shiftTap(down: 300, up: 300.12) && session.englishMode, "a short tap switches")
+        precondition(reported == [true], "a tap is reported once (\(reported))")
+        session.setEnglishMode(false)
+        precondition(reported == [true], "a mode set from outside is not reported back")
+        session.setEnglishMode(true)
+        traced.removeAll()
+        precondition(!session.handle(letter("a"), shiftToggleEnabled: true))
+        precondition(traced == ["letter left to the application: English mode"], "\(traced)")
+        session.setEnglishMode(false)
+        session.onModeChange = nil
+        session.trace = { _, _ in }
         type("nihao")
         precondition(session.candidates.first?.word == "你好")
         _ = session.handle(modifier(kVK_CapsLock, .capsLock), shiftToggleEnabled: true)

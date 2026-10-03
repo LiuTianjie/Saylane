@@ -9,7 +9,7 @@ struct BridgePinyinPreferences {
 }
 
 enum PushToTalkHotkey { case leftShift, rightShift, other }
-struct PinyinKeyEvent { init(_ event: NSEvent) {} }
+struct PinyinKeyEvent { var letter: Character? = nil; init(_ event: NSEvent) {} }
 struct PinyinCandidate: Equatable { let word: String }
 
 final class RimeRuntime: @unchecked Sendable {
@@ -32,6 +32,7 @@ final class RimePinyinSession {
     var showsCandidates: Bool { !candidates.isEmpty }
     var preeditDisplay: String { markedText }
     var onModeChange: ((Bool) -> Void)?
+    var trace: (String, String) -> Void = { _, _ in }
     private(set) var selections = 0
     private var commitBuffer = ""
 
@@ -46,7 +47,9 @@ final class RimePinyinSession {
     func setFuzzyEnabled(_ enabled: Bool) -> Bool { fuzzyEnabled = enabled; return true }
     var reloads = 0
     @discardableResult func reloadSchema() -> Bool { reloads += 1; return true }
-    func setEnglishMode(_ enabled: Bool) { englishMode = enabled; onModeChange?(enabled) }
+    func setEnglishMode(_ enabled: Bool) { englishMode = enabled }
+    /// A Shift tap, as the real session reports it.
+    func tapShift() { englishMode.toggle(); onModeChange?(englishMode) }
     func handle(_ event: PinyinKeyEvent, shiftToggleEnabled: Bool) -> Bool { false }
     func selectCandidate(at index: Int) { selections += 1 }
     func pageCandidates(_ delta: Int) {}
@@ -176,6 +179,19 @@ struct PinyinEngineLeaseTests {
         manager.currentLease = a
         engine.switchClient(to: a)
         precondition(sessionA.englishMode, "an inactive session must adopt the saved mode when it becomes current")
+
+        // Only a Shift tap is reported as a switch; a mode pushed from the
+        // settings is not sent back, so two quick taps cannot echo into the wrong mode.
+        var reported: [Bool] = []
+        engine.onEnglishModeChanged = { reported.append($0) }
+        engine.applyPreferences(BridgePinyinPreferences(englishMode: false))
+        precondition(!sessionA.englishMode && reported.isEmpty, "a pushed mode is not reported back (\(reported))")
+        sessionA.tapShift()
+        precondition(reported == [true] && engine.englishMode, "a Shift tap is reported (\(reported))")
+        manager.currentLease = b
+        engine.switchClient(to: b)
+        precondition(sessionB.englishMode, "the other client follows the mode the tap chose")
+        precondition(reported == [true], "following it is not another switch (\(reported))")
     }
 
     @MainActor

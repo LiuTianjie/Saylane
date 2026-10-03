@@ -311,7 +311,7 @@ struct SettingsView: View {
         } header: {
             Text(String(localized: "拼音"))
         } footer: {
-            Text(String(localized: "空格确认，数字选词，Shift 切换中英文。每个窗口各自记住正在输入的拼音，切换窗口不会误提交。"))
+            Text(String(localized: "空格确认，数字选词，轻按 Shift 切换中英文，光标旁会短暂显示“中”或“英”。按住 Shift 点按或拖动鼠标不会切换。每个窗口各自记住正在输入的拼音，切换窗口不会误提交。"))
         }
         .disabled(model.isListening)
 

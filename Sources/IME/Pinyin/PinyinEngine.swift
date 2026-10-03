@@ -26,7 +26,10 @@ final class PinyinEngine: PinyinHandling {
     private(set) var barPreeditEnabled = false
     private var keys = PinyinKeyOptions()
     private var languageModel = false
+    /// A Shift tap in one of the sessions switched Chinese and English.
     var onEnglishModeChanged: ((Bool) -> Void)?
+    /// Metadata-only trace, handed to every session.
+    var trace: (String, String) -> Void = { _, _ in }
     private static let maxSessions = 12
 
     private var active: ClientSession? { activeKey.flatMap { sessions[$0] } }
@@ -82,6 +85,7 @@ final class PinyinEngine: PinyinHandling {
         do {
             let session = try RimePinyinSession(runtime: runtime, englishMode: englishModePreference, fuzzyEnabled: fuzzyEnabled)
             session.keys = keys
+            session.trace = { [weak self] stage, detail in self?.trace(stage, detail) }
             session.onModeChange = { [weak self] enabled in
                 self?.englishModePreference = enabled
                 self?.onEnglishModeChanged?(enabled)
@@ -144,7 +148,12 @@ final class PinyinEngine: PinyinHandling {
     }
 
     func handle(_ event: NSEvent, pushToTalk: PushToTalkHotkey) -> Bool {
-        guard let session = active?.rime else { return false }
+        guard let session = active?.rime else {
+            if event.type == .keyDown, PinyinKeyEvent(event).letter != nil {
+                trace("pinyin", "letter left to the application: no pinyin session")
+            }
+            return false
+        }
         let shiftEnabled = shiftToggleEnabled(event.keyCode, pushToTalk: pushToTalk)
         let consumed = session.handle(PinyinKeyEvent(event), shiftToggleEnabled: shiftEnabled)
         if consumed { publish() }

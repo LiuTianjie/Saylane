@@ -2,6 +2,16 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.8.4
+
+Pinyin sometimes typed only letters in an application, whatever was switched, and later worked again. The input method was running and attached each time; it had most likely been put into its own English mode without anyone noticing.
+
+- **Shift switches only on a short tap.** A press of up to half a second with nothing else in between. Shift held for a click or a drag (extending a selection) no longer switches: the input method is told about keys only, so Shift-click used to look exactly like a tap.
+- **中 or 英 appears next to the caret for a moment** whenever the mode changes, by Shift or from the input-method menu. Before, nothing on screen showed it.
+- **Switching back from the settings always arrives.** After a Shift tap the main program remembered the mode but its message to the input method did not, so choosing the other mode in Settings → Keyboard could be dropped as "no change". The input method also no longer echoes a mode it was given back to the main program; two quick switches cannot settle in the wrong mode.
+- **The diagnostics say why letters were not converted** (English mode, Caps Lock, no pinyin session, dictating) and every mode switch with its cause, as counts. No keys or text are recorded.
+- The keyboard settings describe the tap and the indicator.
+
 ## 0.8.3
 
 - **所见即译 frames what is under the pointer, not only the window.** After ⌥T, moving the pointer frames the nearest region — a card, a field, a chat bubble, a table row, a sidebar item, or the paragraph on a plain page — and a click takes it. Dragging still selects freely. The screen is read once when the selection opens (about a quarter of a second); until then whole windows are offered, as before. Over the bare desktop the whole screen is offered.

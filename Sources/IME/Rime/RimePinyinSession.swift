@@ -17,6 +17,7 @@ final class RimePinyinSession {
     private(set) var fuzzyEnabled: Bool
     private var pendingCommit = ""
     private var shiftDown = false
+    private var shiftDownAt: TimeInterval = 0
     private var shiftSawKey = false
     private var shiftCanToggle = false
     private var englishPunctAfterDigit = false
@@ -27,9 +28,17 @@ final class RimePinyinSession {
     private var inputCaret = 0
     private var canRankWholeInput = false
     private var engineCoversInput = false
+    /// A Shift tap switched Chinese and English. Not called when the mode is set from outside.
     var onModeChange: ((Bool) -> Void)?
+    /// Metadata-only trace: why a letter was left to the client, why a Shift tap was not taken.
+    var trace: (String, String) -> Void = { _, _ in }
+    /// Whether the pointer was used while Shift was down. InputMethodKit
+    /// delivers no mouse events, so Shift-click looks like a bare Shift tap.
+    var pointerUsedDuring: (_ hold: TimeInterval, _ endedAt: TimeInterval) -> Bool = PointerActivity.used
     /// Which keys page and pick, as chosen in the settings.
     var keys = PinyinKeyOptions()
+    /// Held longer than this, Shift was a modifier, not a tap.
+    static let shiftTapLimit: TimeInterval = 0.5
 
     init(runtime: RimeRuntime, englishMode: Bool = false, fuzzyEnabled: Bool = false) throws {
         self.runtime = runtime
@@ -67,7 +76,14 @@ final class RimePinyinSession {
             return isComposing
         }
         // Latin input remains owned by the client and its actual keyboard layout.
-        if englishMode || (event.flags.contains(.capsLock) && !isComposing) { return false }
+        if englishMode {
+            if event.letter != nil { trace("pinyin", "letter left to the application: English mode") }
+            return false
+        }
+        if event.flags.contains(.capsLock) && !isComposing {
+            if event.letter != nil { trace("pinyin", "letter left to the application: Caps Lock") }
+            return false
+        }
         if event.flags.contains(.shift) && !isComposing && event.letter != nil { return false }
 
         switch Int(event.keyCode) {
@@ -215,7 +231,6 @@ final class RimePinyinSession {
         guard englishMode != enabled else { return }
         if enabled { commitRawInput() }
         englishMode = enabled
-        onModeChange?(enabled)
     }
 
     @discardableResult
@@ -257,14 +272,24 @@ final class RimePinyinSession {
         }
         if event.flags.contains(.shift) && !shiftDown {
             shiftDown = true
+            shiftDownAt = event.timestamp
             shiftSawKey = !event.flags.intersection([.command, .control, .option]).isEmpty
             shiftCanToggle = enabled
         } else if !event.flags.contains(.shift) && shiftDown {
             shiftDown = false
-            if enabled && shiftCanToggle && !shiftSawKey {
-                setEnglishMode(!englishMode)
-                return true
+            guard enabled && shiftCanToggle && !shiftSawKey else { return false }
+            let hold = shiftDownAt > 0 && event.timestamp > 0 ? event.timestamp - shiftDownAt : 0
+            if hold > Self.shiftTapLimit {
+                trace("pinyin", "Shift held too long to switch")
+                return false
             }
+            if pointerUsedDuring(hold, event.timestamp) {
+                trace("pinyin", "Shift used with the pointer; no switch")
+                return false
+            }
+            setEnglishMode(!englishMode)
+            onModeChange?(englishMode)
+            return true
         }
         return false
     }

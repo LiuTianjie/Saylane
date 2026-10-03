@@ -8,16 +8,19 @@ struct PinyinKeyEvent {
     var letter: Character?
     var flags: NSEvent.ModifierFlags
     var isRepeat: Bool
+    /// System uptime of the event, as `NSEvent.timestamp`.
+    var timestamp: TimeInterval
 
     init(type: NSEvent.EventType, keyCode: UInt16, characters: String, letter: Character?,
-         flags: NSEvent.ModifierFlags, isRepeat: Bool) {
+         flags: NSEvent.ModifierFlags, isRepeat: Bool, timestamp: TimeInterval = 0) {
         self.type = type; self.keyCode = keyCode; self.characters = characters
-        self.letter = letter; self.flags = flags; self.isRepeat = isRepeat
+        self.letter = letter; self.flags = flags; self.isRepeat = isRepeat; self.timestamp = timestamp
     }
 
     init(_ event: NSEvent) {
         type = event.type
         keyCode = event.keyCode
+        timestamp = event.timestamp
         // Character/repeat accessors are only valid for keyboard events, not
         // flagsChanged. Modifiers still go to Rime's Shift/Caps Lock handling.
         characters = event.type == .keyDown ? (event.characters ?? "") : ""

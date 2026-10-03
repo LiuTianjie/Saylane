@@ -115,7 +115,10 @@ final class InputMethodCore {
             // chord or a slip and the application gets it untouched. In
             // hands-free dictation it ends the utterance: it is what the user
             // types next, so it waits for the text it follows.
-            guard context.keysEndDictation, meta.kind == .keyDown, !typingResumed else { return false }
+            guard context.keysEndDictation, meta.kind == .keyDown, !typingResumed else {
+                if meta.kind == .keyDown { trace("pinyin", "key left to the application: dictation listening") }
+                return false
+            }
             return hold(event) ?? false
         case .finalizing, .polishing:
             // A bare modifier is not typing.

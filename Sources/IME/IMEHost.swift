@@ -69,7 +69,8 @@ final class IMEHost {
         pinyin.applyPreferences(pinyinPreferences)
         InputDiagnostics.record(pinyin.initializationError == nil ? "pinyin-ready" : "pinyin-init-failed",
                                 pinyin.initializationError ?? "librime")
-        pinyin.onEnglishModeChanged = { [weak self] english in self?.englishModeChanged(english) }
+        pinyin.trace = { InputDiagnostics.record($0, $1) }
+        pinyin.onEnglishModeChanged = { [weak self] english in self?.englishModeChanged(english, by: "Shift") }
         // Until the main program says otherwise, the stored talk key decides
         // whether Shift toggles Chinese and English.
         var initial = BridgeContext()
@@ -110,7 +111,7 @@ final class IMEHost {
     func toggleEnglishMode() {
         pinyinPreferences.englishMode.toggle()
         pinyin.applyPreferences(pinyinPreferences)
-        englishModeChanged(pinyinPreferences.englishMode)
+        englishModeChanged(pinyinPreferences.englishMode, by: "menu")
     }
 
     /// A command from the input-method menu. Opening the settings starts the
@@ -125,10 +126,21 @@ final class IMEHost {
 
     func chooseMode(_ index: Int) { post(.menuMode(index)) }
 
-    private func englishModeChanged(_ english: Bool) {
+    /// The mode was switched here, by a Shift tap or the menu. The main program
+    /// only records it; it does not send it back.
+    private func englishModeChanged(_ english: Bool, by source: String) {
         pinyinPreferences.englishMode = english
         defaults.set(english, forKey: Key.englishMode)
+        InputDiagnostics.record("pinyin-mode", "\(english ? "English" : "Chinese") by \(source)")
+        showMode(english)
         post(.pinyinMode(english: english))
+    }
+
+    private let modeIndicator = ModeIndicator()
+
+    private func showMode(_ english: Bool) {
+        guard let lease = IMEManager.shared.currentLeaseID else { return }
+        modeIndicator.show(english: english, caret: IMEManager.shared.caretScreenRect(leaseID: lease))
     }
 
     // MARK: - Bridge
@@ -140,8 +152,13 @@ final class IMEHost {
         status: { [unowned self] in self.status },
         applyPinyin: { [unowned self] preferences in
             guard preferences != self.pinyinPreferences else { return }
+            let modeChanged = preferences.englishMode != self.pinyinPreferences.englishMode
             self.pinyinPreferences = preferences
             self.pinyin.applyPreferences(preferences)
+            if modeChanged {
+                self.defaults.set(preferences.englishMode, forKey: Key.englishMode)
+                InputDiagnostics.record("pinyin-mode", "\(preferences.englishMode ? "English" : "Chinese") by the settings")
+            }
         },
         mainProgramSeen: { [unowned self] pid in self.watchMainProgram(pid) },
         trace: { InputDiagnostics.record($0, $1) })

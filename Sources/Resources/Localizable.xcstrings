@@ -2971,12 +2971,32 @@
         }
       }
     },
-    "空格确认，数字选词，Shift 切换中英文。每个窗口各自记住正在输入的拼音，切换窗口不会误提交。": {
+    "中文": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Space confirms, digits pick candidates, Shift toggles Chinese/English. Each window keeps its own composing text, so switching windows never inserts by mistake."
+            "value": "Chinese"
+          }
+        }
+      }
+    },
+    "英文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English"
+          }
+        }
+      }
+    },
+    "空格确认，数字选词，轻按 Shift 切换中英文，光标旁会短暂显示“中”或“英”。按住 Shift 点按或拖动鼠标不会切换。每个窗口各自记住正在输入的拼音，切换窗口不会误提交。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space confirms, digits pick candidates, a tap of Shift toggles Chinese/English and briefly shows 中 or 英 next to the caret. Shift held for a click or a drag does not toggle. Each window keeps its own composing text, so switching windows never inserts by mistake."
           }
         }
       }

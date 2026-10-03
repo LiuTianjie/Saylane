@@ -62,7 +62,8 @@ final class Client: NSObject, IMKTextInput {
         let status = { BridgeIMEStatus(version: "test", pid: getpid(), attachedBundleID: manager.clientBundleID,
                                        attachedFresh: manager.hasClient, pinyinError: nil) }
         var seen: Int32 = 0
-        let responder = BridgeResponder(core: core, status: status, applyPinyin: { _ in },
+        var pushedModes: [Bool] = []
+        let responder = BridgeResponder(core: core, status: status, applyPinyin: { pushedModes.append($0.englishMode) },
                                         mainProgramSeen: { pid in
                                             if seen == 0 { app.post(Bridge.encode(BridgeEvent.pinyinMode(english: true))) }
                                             seen = pid
@@ -73,6 +74,7 @@ final class Client: NSObject, IMKTextInput {
             // user who changes a word of the dictation and presses Return.
             let command = String(decoding: data, as: UTF8.self)
             if command == "dump" { return Data(client.log.joined(separator: "|").utf8) }
+            if command == "modes" { return Data(pushedModes.map { $0 ? "en" : "zh" }.joined(separator: ",").utf8) }
             if command.hasPrefix("edit:") {
                 let parts = command.dropFirst(5).split(separator: ">").map(String.init)
                 client.text = client.text.replacingOccurrences(of: parts[0], with: parts[1])
@@ -129,6 +131,7 @@ final class Client: NSObject, IMKTextInput {
         precondition(!ime.isConnected && !ime.canWrite(inFront: "test.editor"))
         let session = UUID()
         ime.update { $0.trigger = "leftCommand" }
+        ime.push(pinyin: BridgePinyinPreferences(englishMode: false))
         precondition(!ime.insert("nobody home", session: session, inFront: "test.editor"))
 
         // The input method starts and says hello; everything it must know is pushed to it.
@@ -140,6 +143,18 @@ final class Client: NSObject, IMKTextInput {
         precondition(ime.status?.pid == child.processIdentifier && ime.attachedBundleID == "test.editor")
         waitUntil("an event from the input method arrived") { events.contains("pinyinMode:true") }
         precondition(events.first == "hello", "\(events)")
+
+        // The input method switched to English by itself. Switching back to
+        // Chinese from the settings must reach it, although Chinese is what it was told last.
+        func modes() -> String {
+            BridgeSender(name: Bridge.imePortName).request(Data("modes".utf8), timeout: 1).map { String(decoding: $0, as: UTF8.self) } ?? "?"
+        }
+        precondition(modes() == "zh", "the new input method was told the settings once (\(modes()))")
+        ime.push(pinyin: BridgePinyinPreferences(englishMode: false))
+        waitUntil("the settings' choice reached the input method") { modes() == "zh,zh" }
+        ime.push(pinyin: BridgePinyinPreferences(englishMode: false))
+        spin(0.2)
+        precondition(modes() == "zh,zh", "an unchanged choice is not sent again (\(modes()))")
 
         // Which application has the keyboard. Being attached proves nothing by
         // itself, and neither does a press from ten seconds ago; the talk key
