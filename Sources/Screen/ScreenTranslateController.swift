@@ -76,6 +76,7 @@ final class ScreenTranslateController {
             panel.onCancel = { [weak self] in self?.cancel() }
             selectionPanels.append(panel)
             panel.orderFrontRegardless()
+            readRegions(for: panel, screen: screen)
         }
         // Keep keyboard focus in the original app whenever the global router can
         // deliver Esc; only activate when that is the only way to receive keys.
@@ -403,6 +404,23 @@ final class ScreenTranslateController {
         pinModel.isWorking = working
         pinPanel?.setWorking(working)
         pinPanel?.refreshChrome()
+    }
+
+    /// Reads the screen under the overlay once, so hover can offer the region under the
+    /// pointer and not only its window. Until it is ready, hover offers windows.
+    private func readRegions(for panel: ScreenSelectionPanel, screen: NSScreen) {
+        let display = ScreenCaptureService.Display(screen)
+        let token = generation
+        Task { [weak self, weak panel] in
+            let started = Date()
+            guard let image = try? await ScreenCaptureService.captureImage(rectInScreen: display.frame, display: display) else { return }
+            let map = await Task.detached(priority: .userInitiated) {
+                ScreenRegionMap(image: image, frame: display.frame)
+            }.value
+            guard let self, let panel, let map, token == self.generation, self.isSelecting else { return }
+            panel.setRegionMap(map)
+            InputDiagnostics.record("screen-regions", String(format: "%.0f ms", Date().timeIntervalSince(started) * 1000))
+        }
     }
 
     private func tearDownSelection() {

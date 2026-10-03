@@ -48,6 +48,8 @@ swiftc Sources/Models/AppLanguage.swift Tests/TranslationDirectionTests.swift -o
 build/tests/direction
 swiftc -framework AppKit Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Tests/ScreenTranslateTests.swift -o build/tests/screen-translate
 swiftc -O -framework AppKit -framework Vision Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Screen/Pipeline/*.swift Tests/ScreenPipelineTests.swift -o build/tests/screen-pipeline
+swiftc -O Sources/Screen/Pipeline/Pixels.swift Sources/Screen/ScreenRegionFinder.swift Tests/ScreenRegionFinderTests.swift -o build/tests/screen-region-finder
+build/tests/screen-region-finder
 build/tests/screen-pipeline
 build/tests/screen-translate
 swiftc -O -framework AppKit -framework Vision Sources/Models/AppLanguage.swift Sources/Screen/ScreenLayout.swift Sources/Screen/Pipeline/*.swift Sources/Screen/ScreenPreciseTranslator.swift Tests/PreciseTranslationTests.swift -o build/tests/precise-translation

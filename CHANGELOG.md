@@ -2,6 +2,10 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.8.3
+
+- **所见即译 frames what is under the pointer, not only the window.** After ⌥T, moving the pointer frames the nearest region — a card, a field, a chat bubble, a table row, a sidebar item, or the paragraph on a plain page — and a click takes it. Dragging still selects freely. The screen is read once when the selection opens (about a quarter of a second); until then whole windows are offered, as before. Over the bare desktop the whole screen is offered.
+
 ## 0.8.2
 
 - **截屏翻译 is now 所见即译 (Translate Anywhere).** The name said how it works; the point is where it works — any application, anything on screen: web pages, software, pictures, a frame of a video. The settings page, the input-method menu, the first-run guide and the messages use the new name. Nothing else about the feature changed; the shortcut is still ⌥T.

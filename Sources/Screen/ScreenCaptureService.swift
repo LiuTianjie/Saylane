@@ -35,6 +35,13 @@ enum ScreenCaptureService {
     }
 
     static func capture(rectInScreen: CGRect, display screen: Display) async throws -> NSImage {
+        let image = try await captureImage(rectInScreen: rectInScreen, display: screen)
+        let source = ScreenTranslate.captureSourceRect(appKitRect: rectInScreen, screenFrame: screen.frame)
+        return NSImage(cgImage: image, size: source.size)
+    }
+
+    /// The pixels of `rectInScreen` without our own windows, at the display's backing scale.
+    static func captureImage(rectInScreen: CGRect, display screen: Display) async throws -> CGImage {
         guard CGPreflightScreenCaptureAccess() else { throw ScreenCaptureError.notAuthorized }
         let source = ScreenTranslate.captureSourceRect(appKitRect: rectInScreen, screenFrame: screen.frame)
         guard source.width >= ScreenTranslate.minimumSelection, source.height >= ScreenTranslate.minimumSelection else {
@@ -53,7 +60,6 @@ enum ScreenCaptureService {
         config.width = max(1, Int((source.width * screen.backingScaleFactor).rounded()))
         config.height = max(1, Int((source.height * screen.backingScaleFactor).rounded()))
         config.showsCursor = false
-        let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
-        return NSImage(cgImage: image, size: source.size)
+        return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
     }
 }
