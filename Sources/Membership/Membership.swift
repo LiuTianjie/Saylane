@@ -120,8 +120,6 @@ struct MembershipConfiguration: Sendable {
     var publishableKey: String
     var itoolURL: URL
     static let product = "saylane"
-    static let callbackScheme = "saylane"
-    static let callbackURL = URL(string: "saylane://auth-callback")!
 
     static func from(bundle: Bundle) -> MembershipConfiguration {
         let url = (bundle.object(forInfoDictionaryKey: "SaylaneSupabaseURL") as? String)?.trimmingCharacters(in: .whitespaces) ?? ""

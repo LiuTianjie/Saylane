@@ -1,6 +1,26 @@
 {
   "sourceLanguage": "zh-Hans",
   "strings": {
+    "请在浏览器中完成登录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish signing in in your browser"
+          }
+        }
+      }
+    },
+    "登录超时，请再试一次。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign-in timed out. Try again."
+          }
+        }
+      }
+    },
     "%@ → %@": {
       "localizations": {
         "en": {

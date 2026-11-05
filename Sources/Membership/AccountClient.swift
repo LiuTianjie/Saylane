@@ -1,3 +1,4 @@
+import AppKit
 import CryptoKit
 import Foundation
 import LocalAuthentication
@@ -24,24 +25,42 @@ struct AccountClient: Sendable {
 
     // MARK: Sign-in
 
-    func authorizeURL(provider: String, codeChallenge: String) throws -> URL {
+    func authorizeURL(provider: String, codeChallenge: String, redirect: URL) throws -> URL {
         guard let authBase = configuration.authBase, configuration.isConfigured else { throw AccountError.notConfigured }
         var components = URLComponents(url: authBase.appending(path: "authorize"), resolvingAgainstBaseURL: false)
-        components?.queryItems = [
+        var items = [
             URLQueryItem(name: "provider", value: provider),
-            URLQueryItem(name: "redirect_to", value: MembershipConfiguration.callbackURL.absoluteString),
+            URLQueryItem(name: "redirect_to", value: redirect.absoluteString),
             URLQueryItem(name: "code_challenge", value: codeChallenge),
             URLQueryItem(name: "code_challenge_method", value: "s256"),
         ]
+        // Without user:email a GitHub account with a private address has none.
+        if provider == "github" { items.append(URLQueryItem(name: "scopes", value: "read:user user:email")) }
+        components?.queryItems = items
         guard let url = components?.url else { throw AccountError.notConfigured }
         return url
     }
 
-    @MainActor
+    /// Google / GitHub: the authorize page opens as a tab in the default browser, which comes
+    /// back to a 127.0.0.1 listener (LoopbackOAuth.swift), as in LinkShell.
     func signIn(provider: String) async throws -> AccountSession {
         let verifier = Self.makeCodeVerifier()
-        let url = try authorizeURL(provider: provider, codeChallenge: Self.codeChallenge(verifier))
-        let callback = try await OAuthBrowser.open(url, callbackScheme: MembershipConfiguration.callbackScheme)
+        let challenge = Self.codeChallenge(verifier)
+        _ = try authorizeURL(provider: provider, codeChallenge: challenge, redirect: URL(string: "http://127.0.0.1/")!)
+        let client = self
+        let callback: URL
+        do {
+            callback = try await LoopbackOAuth.run(productName: "Saylane") { redirect in
+                (try? client.authorizeURL(provider: provider, codeChallenge: challenge, redirect: redirect)) ?? redirect
+            }
+        } catch LoopbackOAuthError.cancelled {
+            throw AccountError.cancelled
+        } catch LoopbackOAuthError.timedOut {
+            throw AccountError.rejected(String(localized: "登录超时，请再试一次。"))
+        } catch {
+            throw AccountError.invalidCallback
+        }
+        await MainActor.run { NSApplication.shared.activate() }
         let code = try Self.authCode(from: callback)
         return try await token(grant: "pkce", body: ["auth_code": code, "code_verifier": verifier], fallbackProvider: provider)
     }
@@ -148,8 +167,8 @@ struct AccountClient: Sendable {
 
     static func authCode(from url: URL) throws -> String {
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        if let error = items.first(where: { $0.name == "error" })?.value {
-            if error == "access_denied" { throw AccountError.cancelled }
+        if let error = items.first(where: { $0.name == "error" })?.value ?? items.first(where: { $0.name == "error_code" })?.value {
+            if error == "access_denied" || error == "no_code" { throw AccountError.cancelled }
             throw AccountError.rejected(items.first(where: { $0.name == "error_description" })?.value ?? error)
         }
         guard let code = items.first(where: { $0.name == "code" })?.value, !code.isEmpty else { throw AccountError.invalidCallback }

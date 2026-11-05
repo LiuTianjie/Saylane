@@ -29,8 +29,8 @@ swiftc Sources/Services/FinalPolishService.swift Tests/FinalPolishTests.swift -o
 build/tests/polish
 swiftc Sources/Membership/Membership.swift Sources/Membership/MembershipController.swift Tests/MembershipTests.swift -o build/tests/membership
 build/tests/membership
-swiftc Sources/Membership/Membership.swift Sources/Membership/OAuthBrowser.swift Tests/OAuthBrowserTests.swift -o build/tests/oauth-browser
-build/tests/oauth-browser
+swiftc -swift-version 6 -framework AppKit -framework Network -framework Security -framework LocalAuthentication Sources/Membership/Membership.swift Sources/Membership/MembershipController.swift Sources/Shared/TestHome.swift Sources/Membership/AccountClient.swift Sources/Membership/LoopbackOAuth.swift Tests/LoopbackOAuthTests.swift -o build/tests/loopback-oauth
+build/tests/loopback-oauth
 swiftc Sources/Services/DictationCleanup.swift Tests/DictationCleanupTests.swift -o build/tests/dictation-cleanup
 build/tests/dictation-cleanup
 swiftc Sources/Core/AppDirectories.swift Sources/Models/SpeechModel.swift Sources/Services/DictationVocabulary.swift Sources/Services/DictationGlossary.swift Tests/DictationVocabularyTests.swift -o build/tests/dictation-vocabulary

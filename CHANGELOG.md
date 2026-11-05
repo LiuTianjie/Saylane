@@ -2,6 +2,10 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.9.2
+
+- **Google and GitHub sign-in opens in your own browser.** It now opens as a tab in your default browser, where you may already be signed in, instead of a separate sign-in window. The browser hands the result back to Saylane on this Mac, as LinkShell does; the account row shows a Cancel button while it waits.
+
 ## 0.9.1
 
 - **Signing in with Google or GitHub no longer ends Saylane.** In 0.9.0 the program quit the moment the sign-in sheet opened: macOS reports the end of the sheet on a queue of its own, and the code that received it was only allowed to run on the main thread, so Swift stopped the program. That code now runs anywhere and hands the result to the main thread. Email sign-in was not affected.

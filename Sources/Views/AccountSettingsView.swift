@@ -5,6 +5,7 @@ struct AccountSettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var email = ""
     @State private var password = ""
+    @State private var browserSignIn: Task<Void, Never>?
 
     var body: some View {
         let membership = model.membership
@@ -70,13 +71,21 @@ struct AccountSettingsView: View {
         let client = AccountClient(configuration: .from(bundle: .main))
         SettingsSection {
             LabeledContent(String(localized: "用第三方账号")) {
-                HStack(spacing: 8) {
-                    Button("Google") { Task { await membership.signIn { try await client.signIn(provider: "google") } } }
-                        .controlSize(.small).selfTestAnchor("account-google")
-                    Button("GitHub") { Task { await membership.signIn { try await client.signIn(provider: "github") } } }
-                        .controlSize(.small).selfTestAnchor("account-github")
+                if browserSignIn != nil {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text(String(localized: "请在浏览器中完成登录")).font(.system(size: 12)).foregroundStyle(.secondary)
+                        Button(String(localized: "取消")) { browserSignIn?.cancel() }.controlSize(.small)
+                    }
+                } else {
+                    HStack(spacing: 8) {
+                        Button("Google") { signInInBrowser("google", membership, client) }
+                            .controlSize(.small).selfTestAnchor("account-google")
+                        Button("GitHub") { signInInBrowser("github", membership, client) }
+                            .controlSize(.small).selfTestAnchor("account-github")
+                    }
+                    .disabled(membership.isSigningIn)
                 }
-                .disabled(membership.isSigningIn)
             }
             LabeledContent(String(localized: "邮箱")) {
                 TextField(String(localized: "邮箱"), text: $email, prompt: Text(verbatim: "name@example.com"))
@@ -106,6 +115,14 @@ struct AccountSettingsView: View {
             Text(String(localized: "登录 iTool 账号"))
         } footer: {
             Text(String(localized: "和 itool.tech 是同一个账号。听写、拼音和边说边译不需要登录。"))
+        }
+    }
+
+    /// The sign-in page opens as a tab in the default browser; the row waits and can cancel.
+    private func signInInBrowser(_ provider: String, _ membership: MembershipController, _ client: AccountClient) {
+        browserSignIn = Task { @MainActor in
+            defer { browserSignIn = nil }
+            await membership.signIn { try await client.signIn(provider: provider) }
         }
     }
 
