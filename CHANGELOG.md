@@ -4,6 +4,7 @@ All notable user-facing changes. Older design diaries that used to serve as chan
 
 ## 0.9.2
 
+- **The installer is signed and notarized.** Saylane-0.9.2.pkg is signed with a Developer ID Installer certificate and notarized by Apple, so macOS opens it without a warning.
 - **Google and GitHub sign-in opens in your own browser.** It now opens as a tab in your default browser, where you may already be signed in, instead of a separate sign-in window. The browser hands the result back to Saylane on this Mac, as LinkShell does; the account row shows a Cancel button while it waits.
 
 ## 0.9.1
