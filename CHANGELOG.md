@@ -2,6 +2,12 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.9.1
+
+- **Signing in with Google or GitHub no longer ends Saylane.** In 0.9.0 the program quit the moment the sign-in sheet opened: macOS reports the end of the sheet on a queue of its own, and the code that received it was only allowed to run on the main thread, so Swift stopped the program. That code now runs anywhere and hands the result to the main thread. Email sign-in was not affected.
+- Signing out of Saylane ends only Saylane's sign-in; itool.tech and the other iTool apps stay signed in.
+- The two Saylane programs inside the installer are notarized by Apple. The installer itself is still not signed (no Developer ID Installer certificate yet).
+
 ## 0.9.0
 
 Saylane joins the iTool membership.

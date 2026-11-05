@@ -101,6 +101,24 @@ enum UISelfTest {
         }
         model.router.onAction = original
 
+        // 5. Only with --sign-in (it opens the system's web sign-in sheet and
+        //    goes to the network): a click on Google starts a real sign-in. The
+        //    session ends on an AuthenticationServices queue; a handler isolated
+        //    to the main actor traps there, and this process would end here.
+        if CommandLine.arguments.contains("--sign-in") {
+            model.openSettings(tab: 6)
+            await settle()
+            let google = click("account-google", in: window)
+            await settle()
+            check(google && model.membership.isSigningIn, "a click on Google starts a sign-in")
+            for _ in 0..<120 where model.membership.isSigningIn { try? await Task.sleep(for: .milliseconds(250)) }
+            let membership = model.membership
+            check(!membership.isSigningIn, "the sign-in sheet returned without ending the program")
+            print("     signed in: \(membership.isSignedIn), access: \(membership.access), message: \(membership.message ?? "-")")
+            if membership.isSignedIn { await membership.signOut() }
+            check(!membership.isSignedIn, "signing out leaves no account behind")
+        }
+
         print(failures.isEmpty ? "PASS: interface self-test" : "FAILED: \(failures.count) check(s)")
         return failures.isEmpty ? 0 : 1
     }

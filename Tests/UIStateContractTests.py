@@ -123,5 +123,16 @@ class UIStateContractTests(unittest.TestCase):
         for text in ("开通 iTool 年度会员（¥99/年，含全部 iTool 产品）", "升级年度会员", "刷新会员状态", "退出登录"):
             self.assertIn(text, account)
 
+    def test_oauth_callbacks_are_not_main_actor_isolated(self) -> None:
+        # AuthenticationServices ends a session on its own XPC queue: a handler
+        # written inside a main-actor function is inferred main-actor isolated and
+        # traps there (StupidMirror 0.8.0, Saylane 0.9.0).
+        browser = self.source("Sources/Membership/OAuthBrowser.swift")
+        self.assertIn("nonisolated static func completionHandler(resuming continuation: CheckedContinuation<URL, Error>) -> @Sendable (URL?, Error?) -> Void", browser)
+        self.assertIn("completionHandler: completionHandler(resuming: continuation)", browser)
+        self.assertIn("nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor { window }", browser)
+        self.assertNotIn("assumeIsolated", browser)
+        self.assertIn("Tests/OAuthBrowserTests.swift", self.source("scripts/test.sh"))
+
 if __name__ == "__main__":
     unittest.main()

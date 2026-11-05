@@ -1,5 +1,3 @@
-import AppKit
-import AuthenticationServices
 import CryptoKit
 import Foundation
 import LocalAuthentication
@@ -83,7 +81,11 @@ struct AccountClient: Sendable {
 
     func signOut(_ session: AccountSession) async {
         guard let authBase = configuration.authBase, configuration.isConfigured else { return }
-        var request = URLRequest(url: authBase.appending(path: "logout"))
+        // Only this sign-in: without the scope Supabase ends every session of the
+        // account, on itool.tech and in the other iTool apps too.
+        var components = URLComponents(url: authBase.appending(path: "logout"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "scope", value: "local")]
+        var request = URLRequest(url: components?.url ?? authBase.appending(path: "logout"))
         request.httpMethod = "POST"
         request.timeoutInterval = 8
         request.setValue(configuration.publishableKey, forHTTPHeaderField: "apikey")
@@ -171,40 +173,6 @@ struct AccountClient: Sendable {
 }
 
 extension AccountClient: MembershipService {}
-
-@MainActor
-enum OAuthBrowser {
-    private static var current: ASWebAuthenticationSession?
-
-    static func open(_ url: URL, callbackScheme: String) async throws -> URL {
-        try await withCheckedThrowingContinuation { continuation in
-            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: callbackScheme) { callback, error in
-                Task { @MainActor in current = nil }
-                if let callback { continuation.resume(returning: callback); return }
-                if let error = error as? ASWebAuthenticationSessionError, error.code == .canceledLogin {
-                    continuation.resume(throwing: AccountError.cancelled); return
-                }
-                continuation.resume(throwing: AccountError.invalidCallback)
-            }
-            session.presentationContextProvider = OAuthAnchor.shared
-            session.prefersEphemeralWebBrowserSession = false
-            current = session
-            if !session.start() {
-                current = nil
-                continuation.resume(throwing: AccountError.invalidCallback)
-            }
-        }
-    }
-}
-
-private final class OAuthAnchor: NSObject, ASWebAuthenticationPresentationContextProviding {
-    static let shared = OAuthAnchor()
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        MainActor.assumeIsolated {
-            NSApp.keyWindow ?? NSApp.windows.first(where: \.isVisible) ?? NSApp.windows.first ?? ASPresentationAnchor()
-        }
-    }
-}
 
 // MARK: - Storage
 
