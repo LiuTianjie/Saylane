@@ -71,6 +71,36 @@
         }
       }
     },
+    "%@包含在 iTool 年度会员中。请在「账号与会员」里登录 iTool 账号。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is included in the iTool yearly membership. Sign in to your iTool account under Account & Membership."
+          }
+        }
+      }
+    },
+    "%@包含在 iTool 年度会员中（¥99/年）。可以在「账号与会员」里开通。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is included in the iTool yearly membership (¥99/year). You can join under Account & Membership."
+          }
+        }
+      }
+    },
+    "%@包含在 iTool 年度会员中，月度会员不含。可以在「账号与会员」里升级年度会员。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is included in the iTool yearly membership, not in the monthly one. You can upgrade under Account & Membership."
+          }
+        }
+      }
+    },
     "%@，我说%@，写成%@": {
       "localizations": {
         "en": {
@@ -171,6 +201,16 @@
         }
       }
     },
+    "AI 校对与精翻": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI editing and precise translation"
+          }
+        }
+      }
+    },
     "AI 润色中": {
       "localizations": {
         "en": {
@@ -251,12 +291,32 @@
         }
       }
     },
+    "GitHub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub"
+          }
+        }
+      }
+    },
     "GitHub 暂时限制了检查频率，请稍后重试。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "GitHub is rate-limiting checks right now. Try again later."
+          }
+        }
+      }
+    },
+    "Google": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google"
           }
         }
       }
@@ -347,6 +407,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "https://…/v1/chat/completions"
+          }
+        }
+      }
+    },
+    "iTool 年度会员已到期。续费后点「刷新会员状态」即可继续使用%@。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your iTool yearly membership has ended. Renew it, then click Refresh Membership to keep using %@."
+          }
+        }
+      }
+    },
+    "iTool 账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iTool account"
           }
         }
       }
@@ -531,6 +611,16 @@
         }
       }
     },
+    "了解 iTool 会员": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About iTool membership"
+          }
+        }
+      }
+    },
     "人名、公司名和你们自己的词。识别后按读音或拼写改成词库写法；Apple 和 Qwen 识别时也优先考虑。中文按拼音匹配并容忍 z/zh、n/l、in/ing；英文容忍少量拼写差异。最多 50 个，排在常见术语前面。": {
       "localizations": {
         "en": {
@@ -557,6 +647,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The talk key works in every app and under every input method"
+          }
+        }
+      }
+    },
+    "会员": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Membership"
           }
         }
       }
@@ -657,6 +757,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Turn these four on first"
+          }
+        }
+      }
+    },
+    "免费与会员": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free and membership"
+          }
+        }
+      }
+    },
+    "免费账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free account"
+          }
+        }
+      }
+    },
+    "免费，无需登录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free, no sign-in"
           }
         }
       }
@@ -861,6 +991,16 @@
         }
       }
     },
+    "刷新会员状态": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh Membership"
+          }
+        }
+      }
+    },
     "剪切": {
       "localizations": {
         "en": {
@@ -877,6 +1017,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Function-key voice shortcuts need Accessibility permission to filter the key and reliably receive its release."
+          }
+        }
+      }
+    },
+    "升级年度会员": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upgrade to yearly"
           }
         }
       }
@@ -1181,6 +1331,16 @@
         }
       }
     },
+    "听写": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dictation"
+          }
+        }
+      }
+    },
     "听写写进输入框以后，你把一个人名或术语改掉，Saylane 会记下这一对写法。改成的写法从下一次听写起提示给识别；同样的修改做过两次，以后听成原来的写法时直接替换。日常用语、数字和大段改写不学。只在本机保存词对，不保存句子。": {
       "localizations": {
         "en": {
@@ -1211,12 +1371,42 @@
         }
       }
     },
+    "听写（按住说话）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dictation (hold to speak)"
+          }
+        }
+      }
+    },
+    "和 itool.tech 是同一个账号。听写、拼音和边说边译不需要登录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The same account as on itool.tech. Dictation, pinyin and translation while speaking need no sign-in."
+          }
+        }
+      }
+    },
     "四项都已开启。在“系统设置 → 隐私与安全性”里可以随时关掉其中任何一项。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "All four are on. Any of them can be turned off at any time under System Settings → Privacy & Security."
+          }
+        }
+      }
+    },
+    "在 itool.tech 开通或续费后，回到这里点「刷新会员状态」；Saylane 回到前台时也会自动确认。离线时最多继续使用 7 天。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After joining or renewing on itool.tech, come back and click Refresh Membership; Saylane also checks when it comes to the front. Offline, the membership features keep working for up to 7 days."
           }
         }
       }
@@ -1337,6 +1527,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Live translation is unavailable right now; it retries on release: %@"
+          }
+        }
+      }
+    },
+    "密码": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password"
           }
         }
       }
@@ -1541,6 +1741,16 @@
         }
       }
     },
+    "已取消登录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign-in was cancelled."
+          }
+        }
+      }
+    },
     "已学到 %lld 对写法": {
       "localizations": {
         "en": {
@@ -1611,6 +1821,26 @@
         }
       }
     },
+    "已登录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signed in"
+          }
+        }
+      }
+    },
+    "已经 7 天没能确认会员状态。联网后点「刷新会员状态」即可继续使用%@。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The membership could not be confirmed for 7 days. Go online and click Refresh Membership to keep using %@."
+          }
+        }
+      }
+    },
     "已被「%@」使用。": {
       "localizations": {
         "en": {
@@ -1647,6 +1877,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Common terms"
+          }
+        }
+      }
+    },
+    "年度会员": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yearly member"
+          }
+        }
+      }
+    },
+    "年度会员 ¥99/年，含全部 iTool 产品；月度会员 ¥9.9 只含 iTool 官网和 LinkShell。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yearly ¥99/year includes every iTool product; monthly ¥9.9 includes only the iTool site and LinkShell."
+          }
+        }
+      }
+    },
+    "年度会员已到期": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yearly membership has ended"
+          }
+        }
+      }
+    },
+    "年度会员，%@ 到期": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yearly member until %@"
           }
         }
       }
@@ -1697,6 +1967,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "After a restart the talk key works under any input method, without switching to Saylane first."
+          }
+        }
+      }
+    },
+    "开通 iTool 年度会员（¥99/年，含全部 iTool 产品）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join iTool yearly (¥99/year, every iTool product)"
+          }
+        }
+      }
+    },
+    "开通年度会员": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join yearly"
           }
         }
       }
@@ -1891,6 +2181,26 @@
         }
       }
     },
+    "所见即译和 AI 校对与精翻包含在 iTool 年度会员中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translate Anywhere and AI editing are included in the iTool yearly membership"
+          }
+        }
+      }
+    },
+    "所见即译和 AI 校对与精翻需要年度会员": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translate Anywhere and AI editing need the yearly membership"
+          }
+        }
+      }
+    },
     "所见即译精翻": {
       "localizations": {
         "en": {
@@ -2047,6 +2357,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The Pinyin schema could not be changed. Restart the input method and try again."
+          }
+        }
+      }
+    },
+    "拼音输入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin typing"
           }
         }
       }
@@ -2271,6 +2591,16 @@
         }
       }
     },
+    "暂时无法确认会员状态，稍后会自动重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The membership could not be confirmed right now; Saylane will try again."
+          }
+        }
+      }
+    },
     "更换…": {
       "localizations": {
         "en": {
@@ -2291,6 +2621,26 @@
         }
       }
     },
+    "月度会员，%@ 到期；不含 Saylane 会员功能": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monthly member until %@; does not include Saylane membership features"
+          }
+        }
+      }
+    },
+    "月度会员；不含 Saylane 会员功能": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monthly member; does not include Saylane membership features"
+          }
+        }
+      }
+    },
     "未启用": {
       "localizations": {
         "en": {
@@ -2307,6 +2657,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Off"
+          }
+        }
+      }
+    },
+    "未登录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not signed in"
           }
         }
       }
@@ -2641,6 +3001,16 @@
         }
       }
     },
+    "正在确认…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking…"
+          }
+        }
+      }
+    },
     "正在精翻": {
       "localizations": {
         "en": {
@@ -2921,12 +3291,62 @@
         }
       }
     },
+    "用第三方账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue with"
+          }
+        }
+      }
+    },
+    "登录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign In"
+          }
+        }
+      }
+    },
+    "登录 iTool 账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in to iTool"
+          }
+        }
+      }
+    },
+    "登录已失效，请重新登录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your sign-in has expired. Please sign in again."
+          }
+        }
+      }
+    },
     "登录时启动": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Start at login"
+          }
+        }
+      }
+    },
+    "登录没有完成，请再试一次。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign-in did not complete. Please try again."
           }
         }
       }
@@ -2977,6 +3397,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chinese"
+          }
+        }
+      }
+    },
+    "系统时间被调回过，请联网后刷新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The clock was set back; go online and refresh"
           }
         }
       }
@@ -3631,6 +4061,46 @@
         }
       }
     },
+    "请输入邮箱和密码。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter an email and password."
+          }
+        }
+      }
+    },
+    "账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account"
+          }
+        }
+      }
+    },
+    "账号与会员": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account & Membership"
+          }
+        }
+      }
+    },
+    "超过 7 天没能确认，请联网后刷新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not confirmed for over 7 days; go online and refresh"
+          }
+        }
+      }
+    },
     "跟随系统": {
       "localizations": {
         "en": {
@@ -3761,6 +4231,16 @@
         }
       }
     },
+    "边说边译": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translate as you speak"
+          }
+        }
+      }
+    },
     "还有没开启的项目：用到它的功能会在那时停下来问你。": {
       "localizations": {
         "en": {
@@ -3801,6 +4281,36 @@
         }
       }
     },
+    "还没有账号？在 itool.tech 注册": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No account yet? Sign up on itool.tech"
+          }
+        }
+      }
+    },
+    "还没能确认会员状态。联网后点「刷新会员状态」即可使用%@。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The membership has not been confirmed yet. Go online and click Refresh Membership to use %@."
+          }
+        }
+      }
+    },
+    "这个版本没有配置登录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign-in is not configured in this build."
+          }
+        }
+      }
+    },
     "这个组合常被其他应用占用，可能在部分应用里失效。": {
       "localizations": {
         "en": {
@@ -3811,12 +4321,32 @@
         }
       }
     },
+    "这个邮箱还没有验证，请先打开验证邮件。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This email is not verified yet. Open the verification email first."
+          }
+        }
+      }
+    },
     "这些都可以在“设置 → 权限管理”里再看。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "All of these are also under Settings → Permissions."
+          }
+        }
+      }
+    },
+    "这台 Mac 的时间被调回过。联网后点「刷新会员状态」即可继续使用%@。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Mac's clock was set back. Go online and click Refresh Membership to keep using %@."
           }
         }
       }
@@ -3837,6 +4367,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The input method cannot write here. The text is on the clipboard: press ⌘V to paste. Allow Accessibility to have it written automatically."
+          }
+        }
+      }
+    },
+    "连不上 iTool，请检查网络后再试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot reach iTool. Check the network and try again."
           }
         }
       }
@@ -3871,12 +4411,42 @@
         }
       }
     },
+    "退出登录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign Out"
+          }
+        }
+      }
+    },
     "选两种语言。“当前”决定说哪一种、写成哪一种；双击右 ⌘ 在这四种组合之间轮转。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Pick two languages. “Current” decides which one you speak and which one is written; double-tap right ⌘ to cycle through the four combinations."
+          }
+        }
+      }
+    },
+    "邮箱": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email"
+          }
+        }
+      }
+    },
+    "邮箱或密码不对。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The email or password is wrong."
           }
         }
       }
@@ -3967,6 +4537,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rime-Ice dictionary"
+          }
+        }
+      }
+    },
+    "需要年度会员": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yearly membership"
           }
         }
       }

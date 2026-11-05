@@ -32,7 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let model = AppModel.shared
             if CommandLine.arguments.count > idx + 2, CommandLine.arguments[idx + 2] == "all" {
                 let base = (path as NSString).deletingPathExtension
-                for tab in 0...5 {
+                for tab in 0...6 {
                     model.settingsTab = tab
                     PreviewSnapshot.takeSnapshot(model: model, path: "\(base)-\(tab).png")
                 }

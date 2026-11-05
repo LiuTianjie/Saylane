@@ -40,5 +40,20 @@
 	<string>NSApplication</string>
 	<key>LSHasLocalizedDisplayName</key>
 	<true/>
+	<key>SaylaneSupabaseURL</key>
+	<string>https://mkbeusztkzffnzjdwmqk.supabase.co</string>
+	<key>SaylaneSupabasePublishableKey</key>
+	<string>sb_publishable_GVf42S8a5aU4NHxMSFmTNA_LB6i6vlz</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>Saylane authentication</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>saylane</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

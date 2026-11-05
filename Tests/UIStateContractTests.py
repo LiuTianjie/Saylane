@@ -97,5 +97,31 @@ class UIStateContractTests(unittest.TestCase):
             self.assertIn("mayChangeSystem", body[:body.index("\n    }")], function)
 
 
+    def test_membership_gates_only_translate_anywhere_and_ai_editing(self) -> None:
+        # The gate is decided in the main program, where both features run.
+        app = self.source("Sources/App/AppModel.swift")
+        self.assertIn("guard membership.gate(.aiPolish) else", app)
+        self.assertIn("screen.allowsCapture = { [weak self] in self?.membership.gate(.translateAnywhere) ?? false }", app)
+        screen = self.source("Sources/Screen/ScreenFeature.swift")
+        # A refused capture is decided before a running dictation is asked to give way.
+        self.assertLess(screen.index("guard allowsCapture() else"), screen.index("guard yieldVoiceSession() else"))
+        # Dictation, pinyin and translating while speaking never consult the account.
+        for path in ("Sources/Voice", "Sources/Input", "Sources/IME", "Sources/Shared"):
+            for swift in (ROOT / path).rglob("*.swift"):
+                text = swift.read_text(encoding="utf-8")
+                self.assertNotIn("membership", text.lower(), str(swift))
+        # Without the membership AI editing is skipped, not failed: the dictation is written as without it.
+        polish = app[app.index("func makePolish()"):app.index("func translate(")]
+        self.assertLess(polish.index("membership.gate(.aiPolish)"), polish.index("return { original, draft in"))
+        # The sign-in callback is registered and the account page exists.
+        plist = self.source("Sources/App/Info.plist")
+        self.assertIn("<string>saylane</string>", plist)
+        self.assertIn("SaylaneSupabasePublishableKey", plist)
+        settings = self.source("Sources/Views/SettingsView.swift")
+        self.assertIn("case 6: AccountSettingsView()", settings)
+        account = self.source("Sources/Views/AccountSettingsView.swift")
+        for text in ("开通 iTool 年度会员（¥99/年，含全部 iTool 产品）", "升级年度会员", "刷新会员状态", "退出登录"):
+            self.assertIn(text, account)
+
 if __name__ == "__main__":
     unittest.main()

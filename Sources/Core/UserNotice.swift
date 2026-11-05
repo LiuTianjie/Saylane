@@ -15,7 +15,7 @@ struct UserNotice: Equatable, Identifiable, Sendable {
 
     /// Where the settings window should open if the user follows up.
     enum Destination: Equatable, Sendable {
-        case none, permissions, models, voice, screen
+        case none, permissions, models, voice, screen, account
     }
 
     let id: UUID

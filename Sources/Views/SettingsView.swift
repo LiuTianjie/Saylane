@@ -17,6 +17,7 @@ struct SettingsView: View {
         Tab(id: 3, title: String(localized: "文字修正"), symbol: "wand.and.stars"),
         Tab(id: 2, title: String(localized: "模型"), symbol: "square.stack.3d.up"),
         Tab(id: 0, title: String(localized: "权限管理"), symbol: "lock"),
+        Tab(id: 6, title: String(localized: "账号与会员"), symbol: "person.crop.circle"),
     ]
     private var currentTab: Tab { Self.tabs.first { $0.id == model.settingsTab } ?? Self.tabs[0] }
 
@@ -57,6 +58,7 @@ struct SettingsView: View {
                                 case 3: FinalPolishSettingsView()
                                 case 4: screen
                                 case 5: keyboard
+                                case 6: AccountSettingsView()
                                 default: voice
                                 }
                             }
@@ -374,7 +376,11 @@ struct SettingsView: View {
 
     @ViewBuilder private var screen: some View {
         let p = model.prefs
+        MembershipPrompt(feature: .translateAnywhere)
         SettingsSection {
+            LabeledContent(String(localized: "会员")) {
+                MembershipBadge()
+            }
             LabeledContent(String(localized: "快捷键")) {
                 ShortcutRecorderField()
             }
@@ -554,6 +560,7 @@ struct NoticeBanner: View {
         case .models: return 2
         case .voice: return 1
         case .screen: return 4
+        case .account: return 6
         case .none: return -1
         }
     }

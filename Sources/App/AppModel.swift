@@ -37,6 +37,8 @@ final class AppModel: VoiceSessionHost {
     let pinyinDictionaryUpdates = RimeDictionaryUpdateModel()
     let pinyinLanguageModel = PinyinLanguageModel()
     let router = InputEventRouter()
+    /// The iTool account: whether 所见即译 and AI editing may run. Dictation never asks it.
+    let membership: MembershipController
     private let settingsWindow = SettingsController()
 
     // MARK: Settings UI state
@@ -57,6 +59,12 @@ final class AppModel: VoiceSessionHost {
     private var workspaceObserver: NSObjectProtocol?
     private var inputSourceObserver: NSObjectProtocol?
     private var releaseWatchdog: Task<Void, Never>?
+    private var membershipObservers: [NSObjectProtocol] = []
+    private var membershipSchedule: Task<Void, Never>?
+    private let networkWatch = NetworkWatch()
+    /// AI editing was switched on but skipped for lack of membership in the dictation that is running.
+    private var polishSkippedForMembership = false
+    private var lastPolishMembershipNoticeAt: Date?
 
     // MARK: Derived
 
@@ -91,6 +99,8 @@ final class AppModel: VoiceSessionHost {
             ? VoiceSessionController(environment: TestScript.environment,
                                      makeCapture: { PrerollCapture(underlying: ScriptedCapture(), limit: $0) })
             : VoiceSessionController()
+        membership = MembershipController(store: KeychainMembershipStore(),
+                                          service: AccountClient(configuration: .from(bundle: .main)))
         voice.host = self
     }
 
@@ -158,6 +168,46 @@ final class AppModel: VoiceSessionHost {
         syncLoginItem()
         models.apply(prefs)
         refreshGlossaryIfNeeded()
+        startMembershipChecks()
+    }
+
+    // MARK: - Membership
+
+    /// Asked again at launch, after sleep, when the network returns, when the
+    /// program is brought to the front, and once a day. A test home stays off the network.
+    private func startMembershipChecks() {
+        guard !TestHome.isActive else { return }
+        Task { await membership.revalidate(force: true) }
+        let workspace = NSWorkspace.shared.notificationCenter
+        membershipObservers.append(workspace.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in await self?.membership.revalidate(force: true) }
+        })
+        membershipObservers.append(NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in await self?.membership.revalidate(force: true) }
+        })
+        networkWatch.onReturn = { [weak self] in
+            Task { @MainActor in await self?.membership.revalidate(force: true) }
+        }
+        networkWatch.start()
+        membershipSchedule = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(3600)) } catch { return }
+                await self?.membership.revalidate()
+            }
+        }
+    }
+
+    func openMembershipPurchase() {
+        NSWorkspace.shared.open(MembershipConfiguration.purchaseURL(preferredLanguages: Bundle.main.preferredLocalizations))
+    }
+
+    /// 所见即译 was asked for without a membership that includes it.
+    private func membershipRequired(for feature: MembershipFeature) {
+        InputDiagnostics.record("membership-gate", "\(feature.rawValue) access=\(membership.access)")
+        // Never in the middle of a dictation: that keeps working, and the prompt can wait.
+        guard !isListening else { return }
+        post(.actionable(MembershipCopy.prompt(for: feature, access: membership.access), .account))
+        openSettings(for: .account)
     }
 
     private func startGlobalHotkeyMonitor() {
@@ -637,6 +687,12 @@ final class AppModel: VoiceSessionHost {
     func makePolish() -> ((String, String) async throws -> String)? {
         let p = prefs
         guard p.finalPolishEnabled else { return nil }
+        // Without the membership the dictation goes on exactly as without AI editing.
+        guard membership.gate(.aiPolish) else {
+            polishSkippedForMembership = true
+            InputDiagnostics.record("membership-gate", "aiPolish skipped access=\(membership.access)")
+            return nil
+        }
         // Freeze the request destination and languages for this utterance.
         let endpoint = p.finalPolishEndpoint, model = p.finalPolishModel
         let sourceCode = p.sourceLanguage.rawValue, targetCode = p.targetLanguage.rawValue
@@ -712,6 +768,15 @@ final class AppModel: VoiceSessionHost {
         releaseWatchdog?.cancel(); releaseWatchdog = nil
         router.reset()
         syncRouterContext()
+        if polishSkippedForMembership {
+            polishSkippedForMembership = false
+            // Said once in a while, after the text is written; never in the way of the next dictation.
+            let now = Date()
+            if lastPolishMembershipNoticeAt.map({ now.timeIntervalSince($0) > 1800 || now < $0 }) ?? true {
+                lastPolishMembershipNoticeAt = now
+                post(.transient(MembershipCopy.prompt(for: .aiPolish, access: membership.access)))
+            }
+        }
     }
 
     // MARK: - Pinyin
@@ -786,6 +851,7 @@ final class AppModel: VoiceSessionHost {
         case .models: openSettings(tab: 2)
         case .voice: openSettings(tab: 1)
         case .screen: openSettings(tab: 4)
+        case .account: openSettings(tab: 6)
         case .none: openSettings()
         }
     }
@@ -902,6 +968,8 @@ final class AppModel: VoiceSessionHost {
             self?.preferences.update { $0.screenTranslateSource = direction.source; $0.screenTranslateTarget = direction.target }
         }
         screen.keysHandledGlobally = { [weak self] in self?.router.isGlobalTapFiltering ?? false }
+        screen.allowsCapture = { [weak self] in self?.membership.gate(.translateAnywhere) ?? false }
+        screen.onMembershipRequired = { [weak self] in self?.membershipRequired(for: .translateAnywhere) }
         screen.requestScreenCapture = { [weak self] in
             guard let self else { return false }
             self.permissionsController.refresh()

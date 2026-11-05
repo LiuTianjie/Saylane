@@ -56,7 +56,7 @@ enum SaylaneMain {
                     // Vibrancy does not render into a cached bitmap, so hand the window number to
                     // `screencapture -l` for a faithful composite of each page.
                     Task { @MainActor in
-                        for tab in [0] + Array(0...5) {
+                        for tab in [0] + Array(0...6) {
                             model.settingsTab = tab
                             try? await Task.sleep(for: .milliseconds(1200))
                             let process = Process()

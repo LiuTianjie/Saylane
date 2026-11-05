@@ -343,6 +343,8 @@ h3 { font: 500 18px/1.5 var(--body); }
 
 .statement p { font-size: clamp(19px, 2vw, 24px); line-height: 1.7; }
 .statement .quiet { margin-top: 22px; color: var(--text-3); font-size: 15px; line-height: 1.8; }
+.membership .statement p + p:not(.quiet) { margin-top: 14px; }
+.membership .statement .button { margin-top: 30px; }
 
 /* ---------- Language modes ---------- */
 

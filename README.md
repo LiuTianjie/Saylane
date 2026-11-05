@@ -47,7 +47,7 @@ With Chinese → English selected:
 
 *Illustrative output; wording depends on the recognizer and translation model.*
 
-The default path uses Apple's on-device speech recognition and translation: no account, no model API key. Downloadable local recognizers make the final text more accurate, and AI editing is an optional last step that uses an endpoint you configure.
+The default path uses Apple's on-device speech recognition and translation: no account, no model API key. Translate Anywhere and AI editing are included in the [iTool membership](#itool-membership). Downloadable local recognizers make the final text more accurate, and AI editing is an optional last step that uses an endpoint you configure.
 
 ## Install
 
@@ -123,6 +123,16 @@ This is a translated view of what was on screen; the underlying application is u
 
 **Precise translation (optional).** With its switch on, the text of the whole capture goes to your configured AI endpoint in one request, so interface terms are chosen in context, brand names and code stay as they are, and translations are kept short enough for their place. Apple's translation is shown first and replaced when the answer arrives; if none arrives it stays. The request carries the recognized text (with what kind of element each piece looks like and how much fits in its place) and the name of the application; the picture is never sent.
 
+## iTool membership
+
+Free, with no account and no limit: dictation (hold to speak), Pinyin typing, and translation as you speak.
+
+**Translate Anywhere** and **AI editing** (proofreading of dictations and precise screen translation) are included in the iTool yearly membership: ¥99 per year, covering every iTool product. The monthly membership (¥9.9) covers the iTool site and LinkShell only. [Get the yearly membership](https://itool.tech/en/pro?from=saylane).
+
+Sign in under **Settings → Account & Membership** with Google, GitHub or an email and password (the same account as on itool.tech). That page shows the tier and its end date, signs out, and refreshes the status after a purchase. Without the membership, ⌥T opens that page instead of a selection, and a dictation with AI editing switched on is written without it; dictation itself never waits for the check.
+
+Once confirmed, both features work offline for up to 7 days, never past the end date. Setting the clock back asks for a new check. The status is checked at launch, after sleep, when the network returns, and once a day. Sign-in tokens and the last answer are stored in the macOS Keychain; the check sends only the account token, never text, audio or screen content. How it is built: [Architecture §6b](docs/ARCHITECTURE.md).
+
 ## Pinyin
 
 The Pinyin path is separate from voice: **InputMethodKit → Rime session → librime**, with Saylane's native candidate window. It supports whole-sentence input, composition editing, fuzzy Pinyin with exact matches preferred, mixed English candidates and vocabulary learning. Page keys, `;` `'` picks and Western punctuation are choices in Settings, and an optional 409 MB language model makes whole sentences come out right more often. Details: [Rime Pinyin](docs/RIME_PINYIN.md).
@@ -138,6 +148,7 @@ Local inference and network access are separate concerns:
 | Translation and OCR | Apple Translation and Vision run locally once required language assets are available |
 | Learned corrections | Pairs of spellings, stored on this Mac; never sent anywhere, including to the AI endpoint |
 | Optional AI editing and precise translation for Translate Anywhere | Send text to your configured Chat Completions-compatible endpoint; off by default |
+| iTool account (optional) | Sign-in and the membership check go to itool.tech (with Supabase as fallback): the account token only, at launch, after sleep, when the network returns and once a day |
 | Optional terminology glossary | Off by default; when on, fetches public category titles from Chinese Wikipedia / Wiktionary once a day, without sending dictation text |
 | Downloads | Model weights and language assets, when you ask for them |
 | Diagnostics | The latest 500 events per program: times, the application, the step and its duration. No audio, no text |

@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="./style.css?v=0.8.1b">
+<link rel="stylesheet" href="./style.css?v=0.9.0">
 <script defer src="https://vibecafe.ai/telemetry/v1.js" data-vc-product-id="cmtsk7een00000agm9d82ff9f" data-vc-auth-key="vc_web_QiyGrUq2rzni6P87THnMkoUvRykblZjuu6GFoQs_d7c"></script>
 </head>
 <body>
@@ -32,6 +32,7 @@
       <a class="nav-link" href="#modes">翻译</a>
       <a class="nav-link" href="#screen">所见即译</a>
       <a class="nav-link" href="#pinyin">拼音</a>
+      <a class="nav-link" href="#membership">会员</a>
       <a class="nav-link" href="#privacy">隐私</a>
       <a class="nav-link nav-github" href="https://github.com/LiuTianjie/Saylane">GitHub <span aria-hidden="true">↗</span></a>
       <a class="get-app" href="#download">下载 Mac 版</a>
@@ -269,8 +270,18 @@
 <section class="underneath privacy" id="privacy" aria-labelledby="privacy-title">
   <div class="reveal"><h2 id="privacy-title">你说的话，<br><span>留在这台 Mac 上。</span></h2></div>
   <div class="statement reveal">
-    <p>语音识别、翻译、文字识别，都在本机完成。<br>不用账号，不用 API key。</p>
-    <p class="quiet">可选的 AI 润色默认关闭；打开后，文字只发到你自己配置的接口，不发声音，也不发截图。</p>
+    <p>语音识别、翻译、文字识别，都在本机完成。<br>听写和拼音不用账号，不用 API key。</p>
+    <p class="quiet">可选的 AI 润色默认关闭；打开后，文字只发到你自己配置的接口，不发声音，也不发截图。登录 iTool 账号只用来确认会员，不上传文字、声音或画面。</p>
+  </div>
+</section>
+
+<section class="underneath membership" id="membership" aria-labelledby="membership-title">
+  <div class="reveal"><h2 id="membership-title">说和打字，<br><span>一直免费。</span></h2></div>
+  <div class="statement reveal">
+    <p>听写、拼音、边说边译，不用账号，不限次数。</p>
+    <p>所见即译和 AI 校对与精翻，包含在 iTool 年度会员中：¥99/年，含全部 iTool 产品。</p>
+    <p class="quiet">在 Saylane 的「设置 → 账号与会员」里用 Google、GitHub 或邮箱登录。月度会员（¥9.9）只含 iTool 网站和 LinkShell。</p>
+    <a class="button ghost" href="https://itool.tech/zh/pro?from=saylane">开通 iTool 年度会员 <span aria-hidden="true">↗</span></a>
   </div>
 </section>
 
@@ -278,7 +289,7 @@
   <h2 id="faq-title" class="reveal">开始之前</h2>
   <div class="faq-list reveal">
     <details><summary>需要什么样的 Mac？</summary><p>macOS 26 或更新的系统，Apple 芯片。</p></details>
-    <details><summary>要联网、要账号吗？</summary><p>不用账号。联网只用于下载模型和语言包，以及你主动打开的可选功能。</p></details>
+    <details><summary>要联网、要账号吗？</summary><p>听写、拼音和边说边译不用账号。所见即译和 AI 校对需要 iTool 年度会员，登录并确认一次后，离线最多可用 7 天。联网只用于下载模型和语言包、确认会员，以及你主动打开的可选功能。</p></details>
     <details><summary>在哪些应用里能用？</summary><p>能打字的地方基本都能用。少数接不上输入法的地方（比如一些终端），说完后会粘贴到光标处。</p></details>
     <details><summary>安装时被 macOS 拦住了怎么办？</summary><p>安装包目前还没有经过 Apple 公证。按<a href="https://github.com/LiuTianjie/Saylane/blob/main/docs/安装说明.md">安装指南</a>操作，不需要关闭系统的安全保护。</p></details>
   </div>
@@ -306,8 +317,8 @@
   <nav aria-label="页脚链接"><a href="https://github.com/LiuTianjie/Saylane">GitHub ↗</a><a href="https://github.com/LiuTianjie/Saylane/issues">反馈问题 ↗</a></nav>
 </footer>
 
-<script src="./app.js?v=0.8.1"></script>
-<script src="./practice.js?v=0.8.1"></script>
-<script src="./site.js?v=0.8.1c"></script>
+<script src="./app.js?v=0.9.0"></script>
+<script src="./practice.js?v=0.9.0"></script>
+<script src="./site.js?v=0.9.0"></script>
 </body>
 </html>

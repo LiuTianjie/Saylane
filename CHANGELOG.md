@@ -2,6 +2,16 @@
 
 All notable user-facing changes. Older design diaries that used to serve as change records live under `docs/history/`.
 
+## 0.9.0
+
+Saylane joins the iTool membership.
+
+- **Free, without an account, as before:** dictation (hold to speak), pinyin typing, and translating while you speak. None of them asks for an account, and the membership check never stands in the way of a dictation.
+- **Included in the iTool yearly membership (¥99/year, every iTool product):** 所见即译 (Translate Anywhere) and AI editing (AI proofreading of dictations and precise screen translation; the endpoint is still the one you configure). Without the membership, ⌥T and the input-method menu open Settings → Account & Membership with the reason instead of starting a selection; a dictation with AI editing switched on is written exactly as without it, and a short notice says why afterwards. The monthly membership (¥9.9) covers the iTool site and LinkShell only.
+- **Settings → Account & Membership (账号与会员).** Sign in with Google, GitHub or an email and password: the same account as on itool.tech. It shows the email, the tier and when it ends, a sign-out button, "开通 iTool 年度会员" or, for monthly members, "升级年度会员" (opens itool.tech/pro in the browser), and "刷新会员状态". The two features carry a small badge and a prompt on their settings pages.
+- **Offline.** After the membership has been confirmed, the two features keep working without a network for up to 7 days, never past the end date. Setting the clock back asks for a new check. The state is checked at launch, after sleep, when the network returns, when Saylane comes to the front and once a day; a "not included" answer applies at once, and signing out removes everything stored. Sign-in and the check go through itool.tech first, so they work where supabase.co is blocked.
+- Sign-in tokens and the last answer are kept in the Keychain. Nothing else is sent: no text, no audio, no screen content.
+
 ## 0.8.4
 
 Pinyin sometimes typed only letters in an application, whatever was switched, and later worked again. The input method was running and attached each time; it had most likely been put into its own English mode without anyone noticing.

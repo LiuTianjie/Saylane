@@ -27,6 +27,8 @@ swiftc Sources/Models/SessionState.swift Sources/Models/SpeechHypothesis.swift S
 build/tests/session
 swiftc Sources/Services/FinalPolishService.swift Tests/FinalPolishTests.swift -o build/tests/polish
 build/tests/polish
+swiftc Sources/Membership/Membership.swift Sources/Membership/MembershipController.swift Tests/MembershipTests.swift -o build/tests/membership
+build/tests/membership
 swiftc Sources/Services/DictationCleanup.swift Tests/DictationCleanupTests.swift -o build/tests/dictation-cleanup
 build/tests/dictation-cleanup
 swiftc Sources/Core/AppDirectories.swift Sources/Models/SpeechModel.swift Sources/Services/DictationVocabulary.swift Sources/Services/DictationGlossary.swift Tests/DictationVocabularyTests.swift -o build/tests/dictation-vocabulary

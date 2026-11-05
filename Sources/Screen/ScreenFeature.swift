@@ -20,6 +20,9 @@ final class ScreenFeature {
     var keysHandledGlobally: () -> Bool = { false }
     /// Cancel a voice session that has barely started; returns whether the screen may proceed.
     var yieldVoiceSession: () -> Bool = { true }
+    /// Whether the account includes 所见即译; asked before anything else happens.
+    var allowsCapture: () -> Bool = { false }
+    var onMembershipRequired: (() -> Void)?
 
     var isActive: Bool { controller.isActive }
     var isSelecting: Bool { controller.isSelecting }
@@ -46,6 +49,8 @@ final class ScreenFeature {
             controller.cancel()
             return
         }
+        // Before the voice session is asked to yield: a refused capture must not end a dictation.
+        guard allowsCapture() else { onMembershipRequired?(); return }
         guard yieldVoiceSession() else { return }
         let p = prefs()
         if !requestScreenCapture() {
