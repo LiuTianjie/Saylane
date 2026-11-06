@@ -1,22 +1,31 @@
 /* Saylane product site. One dark theme; the hero's chat window and the mock
-   settings window are illustrations with their own small type. */
+   settings window are illustrations with their own small type.
+   Page chrome follows the iTool family skeleton in assets/family.css. */
+
+@font-face {
+  font-family: "Geist";
+  src: url("assets/fonts/geist-1.8.2.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   color-scheme: dark;
-  --bg: #090b0c;
-  --surface: #111415;
-  --surface-2: #171b1b;
-  --line: #ffffff14;
-  --line-soft: #ffffff0c;
-  --text: #f3f4ee;
-  --text-2: #a9b3ad;
-  --text-3: #7c8781;
-  --mint: #b9f4d4;
-  --mint-dim: #8acfaa;
+  --bg: var(--fam-canvas);
+  --surface: var(--fam-surface);
+  --surface-2: var(--fam-raised);
+  --line: var(--fam-line);
+  --line-soft: rgb(255 255 255 / 0.05);
+  --text: var(--fam-text);
+  --text-2: var(--fam-text-2);
+  --text-3: var(--fam-text-3);
+  --mint: var(--fam-accent);
+  --mint-dim: color-mix(in srgb, var(--fam-accent) 75%, var(--fam-text-2));
   --blue: #0071e3;
   --amber: #f1d9a3;
-  --display: Manrope, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', sans-serif;
-  --body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  --display: var(--fam-sans);
+  --body: var(--fam-sans);
   --system: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Segoe UI', sans-serif;
   --page: 1180px;
   --gutter: clamp(22px, 5vw, 64px);
@@ -112,14 +121,15 @@ code {
 .nav-link { color: var(--text-2); transition: color .18s; }
 .nav-link:hover, .nav-link.current { color: var(--text); }
 .get-app {
-  padding: 8px 16px;
-  border: 1px solid #b9f4d447;
-  border-radius: 980px;
-  background: #b9f4d412;
-  color: #dff9ea;
-  transition: background .18s, border-color .18s;
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--fam-r-md);
+  background: var(--fam-text);
+  color: var(--fam-canvas);
+  font-weight: 500;
+  transition: background .15s var(--fam-ease);
 }
-.get-app:hover { background: #b9f4d424; border-color: #b9f4d480; }
+.get-app:hover { background: #fff; }
 
 /* ---------- Buttons ---------- */
 
@@ -131,15 +141,15 @@ code {
   min-height: 46px;
   padding: 11px 24px;
   border: 1px solid transparent;
-  border-radius: 980px;
-  font: 500 16px/1.3 var(--system);
+  border-radius: var(--fam-r-md);
+  font: 500 16px/1.3 var(--body);
   letter-spacing: -.1px;
-  transition: background .18s, border-color .18s, transform .18s;
+  transition: background .15s var(--fam-ease), border-color .15s var(--fam-ease), transform .15s var(--fam-ease);
 }
 .button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.button.primary { background: var(--blue); color: #fff; }
-.button.primary:hover { background: #0a7ff5; }
-.button.primary:active { background: #0068d1; transform: scale(.98); }
+.button.primary { background: var(--fam-text); color: var(--fam-canvas); }
+.button.primary:hover { background: #fff; }
+.button:active { transform: translateY(1px); }
 .button.ghost { border-color: #ffffff2b; color: var(--text); }
 .button.ghost:hover { background: #ffffff0d; border-color: #ffffff4d; }
 .button.large { min-height: 54px; padding: 14px 34px; font-size: 18px; }
@@ -152,7 +162,7 @@ code {
   max-width: 1800px;
   margin: auto;
   padding-top: clamp(28px, 4.5vh, 60px);
-  background: radial-gradient(ellipse 36% 37% at 50% 82%, #7fbba414, transparent 90%);
+  background: none;
 }
 .headline { position: relative; z-index: 2; padding: 0 22px; text-align: center; }
 h1 {
@@ -257,7 +267,6 @@ h1 {
   -webkit-user-select: none;
   transition: box-shadow .3s, transform .3s;
 }
-.voice-capsule::after { content: ''; position: absolute; inset-block: -20px; left: -90px; width: 65px; background: linear-gradient(90deg, transparent, #ffffff80, transparent); transform: skewX(-16deg); animation: sweep 4.5s ease-in-out infinite; }
 .voice-capsule:hover, .holding .voice-capsule { transform: scale(1.06); box-shadow: inset 0 1px 2px #fff8, 0 0 0 1px #d7ffe66f, 0 0 40px #b9f4d45f, 0 0 120px #b9f4d43f, 0 8px 25px #0008; }
 .waveform { flex-shrink: 0; width: 180.2px; height: 20px; display: flex; align-items: center; gap: 2.2px; }
 .waveform i { flex-shrink: 0; display: block; width: 2.6px; height: 20px; border-radius: 2px; background: #343736; transform: scaleY(.4); }
@@ -278,7 +287,7 @@ h3 { font: 500 18px/1.5 var(--body); }
 .footnote a, .faq-list p a { color: #9fc7b1; white-space: nowrap; }
 .footnote a:hover, .faq-list p a:hover { text-decoration: underline; }
 
-.js .reveal { opacity: 0; transform: translateY(22px); transition: opacity .7s cubic-bezier(.2, .7, .2, 1), transform .7s cubic-bezier(.2, .7, .2, 1); }
+.js .reveal { opacity: 0; transform: translateY(8px); transition: opacity .44s var(--fam-ease), transform .44s var(--fam-ease); }
 .js .reveal.in { opacity: 1; transform: none; }
 
 /* ---------- Feature rows ---------- */
@@ -303,9 +312,8 @@ h3 { font: 500 18px/1.5 var(--body); }
 .demo-card {
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 18px;
-  background: linear-gradient(150deg, #1b2020, #121515);
-  box-shadow: 0 30px 80px #0006, 0 0 120px #b9f4d408;
+  border-radius: var(--fam-r-lg);
+  background: var(--fam-surface);
 }
 .demo-bar { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--line-soft); color: var(--text-2); font-size: 14px; }
 .demo-dot { width: 9px; height: 9px; border-radius: 50%; background: #56605b; transition: background .2s, box-shadow .2s; }
@@ -362,7 +370,7 @@ h3 { font: 500 18px/1.5 var(--body); }
 .practice-heading > p { margin-top: 20px; color: var(--text-2); font-size: 16px; line-height: 1.9; }
 .practice-heading .language-list { margin-top: 22px; color: var(--text-3); font-size: 14px; }
 .practice-content { min-width: 0; }
-.practice-workbench { overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(135deg, #202425, #161a19); box-shadow: 0 30px 80px #0005; }
+.practice-workbench { overflow: hidden; border: 1px solid var(--line); border-radius: var(--fam-r-lg); background: var(--fam-surface); }
 .practice-topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid var(--line-soft); }
 .practice-mode-title { color: #c7d5cd; font-size: 15px; }
 .practice-modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin: 22px 22px 0; padding: 4px; border: 1px solid #ffffff08; border-radius: 11px; background: #0d100f80; }
@@ -414,9 +422,8 @@ h3 { font: 500 18px/1.5 var(--body); }
   height: 430px;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--fam-r-lg);
   background: #101313;
-  box-shadow: 0 30px 80px #0007, 0 0 120px #b9f4d408;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -629,6 +636,8 @@ h3 { font: 500 18px/1.5 var(--body); }
   color: var(--text-3);
   font-size: 13px;
 }
+.site-footer { overflow: hidden; padding-bottom: 0; }
+.site-footer .fam-wordmark { flex-basis: 100%; margin-top: 24px; }
 .site-footer .brand { color: #c4cdc6; font-size: 17px; }
 .site-footer .brand-icon { width: 26px; height: 26px; }
 .site-footer nav { display: flex; gap: 22px; }
@@ -637,7 +646,6 @@ h3 { font: 500 18px/1.5 var(--body); }
 /* ---------- Motion ---------- */
 
 @keyframes blink { 50% { opacity: 0; } }
-@keyframes sweep { 0%, 60% { left: -90px; } 90%, 100% { left: 300px; } }
 @keyframes pulse { 50% { box-shadow: 0 0 0 7px #ff5f5700; } }
 @keyframes settle { 0%, 35% { background: #b9f4d442; } 100% { background: #b9f4d400; color: inherit; } }
 .motion-paused *, .motion-paused *::before, .motion-paused *::after { animation-play-state: paused !important; }

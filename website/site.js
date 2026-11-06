@@ -36,8 +36,8 @@
     reveal.observe(element);
   });
 
-  // A demo runs only while it is on screen and the page is showing; `run` gets
-  // a function that says whether to go on. Returns a function that starts it over.
+  // A demo plays once each time it comes on screen while the page is showing; `run`
+  // gets a function that says whether to go on. Returns a function that plays it again.
   function whileVisible(element, run) {
     let generation = 0, onScreen = false;
     const start = () => {
@@ -66,7 +66,7 @@
   }
   async function dictate(alive) {
     if (reduced.matches) { showFinal(); return; }
-    while (alive()) {
+    {
       text.replaceChildren();
       state.textContent = '正在听 · 字随着声音出现';
       dot.className = 'demo-dot live';
@@ -85,7 +85,6 @@
       await wait(380);
       if (!alive()) return;
       showFinal();
-      await wait(6500);
     }
   }
   const replay = whileVisible($('dictation-demo'), dictate);
@@ -109,7 +108,7 @@
   }
   async function translateScreen(alive) {
     if (reduced.matches) { shot.classList.add('selecting', 'translated'); return; }
-    while (alive()) {
+    {
       showScene(scene);
       await wait(700);
       if (!alive()) return;
@@ -120,9 +119,6 @@
       await wait(520);
       if (!alive()) return;
       shot.classList.replace('working', 'translated');
-      await wait(3400);
-      if (!alive()) return;
-      scene = (scene + 1) % scenes.length;
     }
   }
   const restartShot = whileVisible(shot, translateScreen);
@@ -148,7 +144,7 @@
   }
   async function type(alive) {
     if (reduced.matches) return;
-    while (alive()) {
+    {
       committed.textContent = '今天下午';
       candidates.style.visibility = 'visible';
       for (const [letters, words] of stages) {
@@ -165,7 +161,6 @@
       committed.textContent = '今天下午三点开会';
       composing.textContent = '';
       candidates.style.visibility = 'hidden';
-      await wait(2600);
     }
   }
   whileVisible(candidates.parentElement, type);
